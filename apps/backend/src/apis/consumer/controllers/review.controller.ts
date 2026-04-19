@@ -4,7 +4,7 @@ import { ReviewService } from "@apps/backend/modules/review/review.service";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { createMessageObject } from "@apps/backend/common/utils/message.util";
-import { USER_ROLES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { REVIEW_ERROR_MESSAGES } from "@apps/backend/modules/review/constants/review.constants";
 import {
   GetReviewsRequestDto,
@@ -23,9 +23,9 @@ import { STORE_ERROR_MESSAGES } from "@apps/backend/modules/store/constants/stor
  */
 @ApiTags("후기")
 @ApiExtraModels(ReviewListResponseDto, ReviewResponseDto, OrderResponseDto, OrderItemResponseDto)
-@Controller(`${USER_ROLES.USER}/review`)
+@Controller(`${AUDIENCE.CONSUMER}/review`)
 @Auth({ isPublic: true })
-export class UserReviewController {
+export class ConsumerReviewController {
   constructor(private readonly reviewService: ReviewService) {}
 
   /**

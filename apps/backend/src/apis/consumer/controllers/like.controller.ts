@@ -6,7 +6,7 @@ import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-respons
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import { createMessageObject } from "@apps/backend/common/utils/message.util";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
-import { USER_ROLES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import {
   LIKE_ERROR_MESSAGES,
   LIKE_SUCCESS_MESSAGES,
@@ -28,16 +28,16 @@ import { LikeStoreDeleteResponseDto } from "@apps/backend/modules/like/dto/like-
   LikeStoreResponseDto,
   LikeStoreDeleteResponseDto,
 )
-@Controller(`${USER_ROLES.USER}`)
+@Controller(`${AUDIENCE.CONSUMER}`)
 @Auth({ isPublic: true })
-export class UserLikeController {
+export class ConsumerLikeController {
   constructor(private readonly likeService: LikeService) {}
 
   /**
    * 상품 좋아요 추가 API
    */
   @Post("products/:productId/like")
-  @Auth({ isPublic: false }) // 인증 필수
+  @Auth({ isPublic: false, audiences: ["consumer"] }) // 구매자 JWT(aud: user)만 허용
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: "(로그인 필요) 상품 좋아요 추가",
@@ -61,7 +61,7 @@ export class UserLikeController {
    * 상품 좋아요 삭제 API
    */
   @Delete("products/:productId/like")
-  @Auth({ isPublic: false }) // 인증 필수
+  @Auth({ isPublic: false, audiences: ["consumer"] }) // 구매자 JWT(aud: user)만 허용
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "(로그인 필요) 상품 좋아요 삭제",
@@ -84,7 +84,7 @@ export class UserLikeController {
    * 스토어 좋아요 추가 API
    */
   @Post("store/:storeId/like")
-  @Auth({ isPublic: false }) // 인증 필수
+  @Auth({ isPublic: false, audiences: ["consumer"] }) // 구매자 JWT(aud: user)만 허용
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: "(로그인 필요) 스토어 좋아요 추가",
@@ -108,7 +108,7 @@ export class UserLikeController {
    * 스토어 좋아요 삭제 API
    */
   @Delete("store/:storeId/like")
-  @Auth({ isPublic: false }) // 인증 필수
+  @Auth({ isPublic: false, audiences: ["consumer"] }) // 구매자 JWT(aud: user)만 허용
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "(로그인 필요) 스토어 좋아요 삭제",

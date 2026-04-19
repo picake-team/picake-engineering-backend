@@ -4,7 +4,7 @@ import { FeedService } from "@apps/backend/modules/feed/feed.service";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { createMessageObject } from "@apps/backend/common/utils/message.util";
-import { USER_ROLES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { FEED_ERROR_MESSAGES } from "@apps/backend/modules/feed/constants/feed.constants";
 import { FeedListResponseDto } from "@apps/backend/modules/feed/dto/feed-list.dto";
 import { PaginationRequestDto } from "@apps/backend/common/dto/pagination-request.dto";
@@ -15,9 +15,9 @@ import { FeedResponseDto } from "@apps/backend/modules/feed/dto/feed-detail.dto"
  */
 @ApiTags("피드")
 @ApiExtraModels(FeedListResponseDto, FeedResponseDto)
-@Controller(`${USER_ROLES.USER}/feed`)
+@Controller(`${AUDIENCE.CONSUMER}/feed`)
 @Auth({ isPublic: true })
-export class UserFeedController {
+export class ConsumerFeedController {
   constructor(private readonly feedService: FeedService) {}
 
   /**

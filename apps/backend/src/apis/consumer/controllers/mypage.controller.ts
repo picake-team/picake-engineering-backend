@@ -18,7 +18,7 @@ import { RecentViewService } from "@apps/backend/modules/recent-view/recent-view
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
-import { USER_ROLES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
 import {
   OrderListResponseDto,
@@ -51,6 +51,8 @@ import {
 import { GetRecentViewedProductsRequestDto } from "@apps/backend/modules/recent-view/dto/recent-view-list.dto";
 import { ORDER_ERROR_MESSAGES } from "@apps/backend/modules/order/constants/order.constants";
 import { createMessageObject } from "@apps/backend/common/utils/message.util";
+import { ConsumerService } from "@apps/backend/modules/auth/services/consumer.service";
+import { SWAGGER_EXAMPLES } from "@apps/backend/modules/auth/constants/auth.constants";
 
 /**
  * 마이페이지 컨트롤러
@@ -70,15 +72,31 @@ import { createMessageObject } from "@apps/backend/common/utils/message.util";
   StoreListResponseDto,
   ProductListResponseDto,
 )
-@Controller(`${USER_ROLES.USER}/mypage`)
-@Auth({ isPublic: false, roles: ["USER", "SELLER", "ADMIN"] }) // 인증 필수
-export class UserMypageController {
+@Controller(`${AUDIENCE.CONSUMER}/mypage`)
+@Auth({ isPublic: false, audiences: ["consumer"] })
+export class ConsumerMypageController {
   constructor(
+    private readonly consumerService: ConsumerService,
     private readonly orderService: OrderService,
     private readonly reviewService: ReviewService,
     private readonly likeService: LikeService,
     private readonly recentViewService: RecentViewService,
   ) {}
+
+  /**
+   * 내 프로필 조회 (구매자 계정 정보)
+   */
+  @Get("profile")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "(로그인 필요) 내 프로필 조회",
+    description: "로그인한 구매자의 프로필 정보를 조회합니다.",
+  })
+  @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.CONSUMER_DATA })
+  @SwaggerAuthResponses()
+  async getMyProfile(@Request() req: { user: JwtVerifiedPayload }) {
+    return await this.consumerService.getProfile(req.user);
+  }
 
   /**
    * 내 주문 목록 조회 API
