@@ -16,7 +16,7 @@ import {
 } from "@apps/backend/modules/product/dto/product-detail.dto";
 import { PaginationMetaResponseDto } from "@apps/backend/common/dto/pagination-response.dto";
 import { createMessageObject } from "@apps/backend/common/utils/message.util";
-import { USER_ROLES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
 
 /**
@@ -35,9 +35,9 @@ import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types"
   CakeSizeOptionResponseDto,
   CakeFlavorOptionResponseDto,
 )
-@Controller(`${USER_ROLES.USER}/products`)
-@Auth({ isOptionalPublic: true }) // 선택적 인증: 토큰이 있으면 검증하고 user 설정, 없으면 통과
-export class UserProductController {
+@Controller(`${AUDIENCE.CONSUMER}/products`)
+@Auth({ isOptionalPublic: true, audiences: ["consumer"] }) // 선택적 인증(비로그인 사용자도 접근 가능) - 구매자 JWT(aud: user)만 허용
+export class ConsumerProductController {
   constructor(
     private readonly productService: ProductService,
     private readonly recentViewService: RecentViewService,

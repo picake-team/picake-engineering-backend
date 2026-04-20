@@ -13,11 +13,7 @@ import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
-import {
-  USER_ROLES,
-  AUTH_ERROR_MESSAGES,
-} from "@apps/backend/modules/auth/constants/auth.constants";
-import { createMessageObject } from "@apps/backend/common/utils/message.util";
+import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { NotificationService } from "@apps/backend/modules/notification/services/notification.service";
 import {
   UserNotificationListQueryDto,
@@ -32,18 +28,15 @@ import { PaginationMetaResponseDto } from "@apps/backend/common/dto/pagination-r
   PaginationMetaResponseDto,
   UserNotificationUnreadCountResponseDto,
 )
-@Controller(`${USER_ROLES.USER}/notifications`)
-@Auth({ isPublic: false, roles: ["USER", "SELLER", "ADMIN"] })
-export class UserNotificationController {
+@Controller(`${AUDIENCE.CONSUMER}/notifications`)
+@Auth({ isPublic: false, audiences: ["consumer"] }) // 구매자 JWT(aud: user)만 허용
+export class ConsumerNotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
   @Get()
   @ApiOperation({ summary: "(로그인) 사용자 웹 주문 알림 목록" })
   @SwaggerResponse(200, { dataDto: UserNotificationListResponseDto })
   @SwaggerAuthResponses()
-  @SwaggerResponse(403, {
-    dataExample: createMessageObject(AUTH_ERROR_MESSAGES.ROLE_NOT_AUTHORIZED),
-  })
   async list(
     @Query() query: UserNotificationListQueryDto,
     @Request() req: { user: JwtVerifiedPayload },

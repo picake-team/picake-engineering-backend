@@ -4,7 +4,7 @@ import { StoreService } from "@apps/backend/modules/store/store.service";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { createMessageObject } from "@apps/backend/common/utils/message.util";
-import { USER_ROLES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { STORE_ERROR_MESSAGES } from "@apps/backend/modules/store/constants/store.constants";
 import { StoreResponseDto } from "@apps/backend/modules/store/dto/store-detail.dto";
 import {
@@ -19,9 +19,9 @@ import { StoreRegionDepthsResponseDto } from "@apps/backend/modules/store/dto/st
  */
 @ApiTags("스토어")
 @ApiExtraModels(StoreResponseDto, StoreListResponseDto, StoreRegionDepthsResponseDto)
-@Controller(`${USER_ROLES.USER}/store`)
-@Auth({ isOptionalPublic: true }) // 선택적 인증: 토큰이 있으면 검증하고 user 설정, 없으면 통과
-export class UserStoreController {
+@Controller(`${AUDIENCE.CONSUMER}/store`)
+@Auth({ isOptionalPublic: true, audiences: ["consumer"] }) // 선택적 인증(비로그인 사용자도 접근 가능) - 구매자 JWT(aud: user)만 허용
+export class ConsumerStoreController {
   constructor(private readonly storeService: StoreService) {}
 
   /**

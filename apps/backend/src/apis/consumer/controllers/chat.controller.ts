@@ -16,7 +16,7 @@ import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-respons
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import { createMessageObject } from "@apps/backend/common/utils/message.util";
 import { JwtVerifiedPayload, AuthenticatedUser } from "@apps/backend/modules/auth/types/auth.types";
-import { USER_ROLES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { CHAT_ERROR_MESSAGES } from "@apps/backend/modules/chat/constants/chat.constants";
 import {
   CreateChatRoomRequestDto,
@@ -40,9 +40,9 @@ import { PaginationRequestDto } from "@apps/backend/common/dto/pagination-reques
   ChatRoomResponseDto,
   MessageListResponseDto,
 )
-@Controller(`${USER_ROLES.USER}/chat-room`)
-@Auth({ isPublic: false, roles: ["USER", "SELLER", "ADMIN"] }) // 인증 필수
-export class UserChatController {
+@Controller(`${AUDIENCE.CONSUMER}/chat-room`)
+@Auth({ isPublic: false, audiences: ["consumer"] }) // 구매자 JWT(aud: user)만 허용
+export class ConsumerChatController {
   constructor(private readonly chatService: ChatService) {}
 
   /**
@@ -102,7 +102,7 @@ export class UserChatController {
     dataExample: createMessageObject(CHAT_ERROR_MESSAGES.CHAT_ROOM_NOT_FOUND),
   })
   async markAsRead(@Param("roomId") roomId: string, @Request() req: { user: JwtVerifiedPayload }) {
-    return await this.chatService.markChatRoomAsRead(roomId, req.user.sub, "user");
+    return await this.chatService.markChatRoomAsRead(roomId, req.user.sub, "consumer");
   }
 
   /**
@@ -124,8 +124,6 @@ export class UserChatController {
     @Query() query: PaginationRequestDto,
     @Request() req: { user: AuthenticatedUser },
   ) {
-    const userType = req.user.role === "SELLER" ? "store" : "user";
-
-    return await this.chatService.getMessages(roomId, req.user.sub, userType, query);
+    return await this.chatService.getMessages(roomId, req.user.sub, "consumer", query);
   }
 }

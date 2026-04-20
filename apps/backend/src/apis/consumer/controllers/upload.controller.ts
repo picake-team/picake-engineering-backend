@@ -13,7 +13,7 @@ import { UploadService } from "@apps/backend/modules/upload/upload.service";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
-import { USER_ROLES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import {
   UPLOAD_CONSTANTS,
   UPLOAD_ERROR_MESSAGES,
@@ -25,11 +25,11 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
  * 사용자 업로드 컨트롤러
  * 파일 업로드를 제공합니다.
  */
-@ApiTags("[사용자, 판매자, 관리자] 업로드")
+@ApiTags("[구매자] 업로드")
 @ApiExtraModels(UploadFileResponseDto)
-@Controller(`${USER_ROLES.USER}/uploads`)
-@Auth({ isPublic: false, roles: ["USER", "SELLER", "ADMIN"] }) // 로그인 필요
-export class UserUploadController {
+@Controller(`${AUDIENCE.CONSUMER}/uploads`)
+@Auth({ isPublic: false, audiences: ["consumer"] }) // 구매자 JWT(aud: user)만 허용
+export class ConsumerUploadController {
   constructor(private readonly uploadService: UploadService) {}
 
   /**

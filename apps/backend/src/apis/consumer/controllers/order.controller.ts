@@ -31,7 +31,7 @@ import {
   UpdateReservationPickupDateRequestDto,
 } from "@apps/backend/modules/order/dto/order-user-reservation-edit.dto";
 import { createMessageObject } from "@apps/backend/common/utils/message.util";
-import { USER_ROLES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
 
 /**
@@ -49,9 +49,9 @@ import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types"
   UpdateReservationPickupDateRequestDto,
   UpdateReservationOrderItemsRequestDto,
 )
-@Controller(`${USER_ROLES.USER}/orders`)
-@Auth({ isPublic: false, roles: ["USER", "SELLER", "ADMIN"] }) // 인증 필수
-export class UserOrderController {
+@Controller(`${AUDIENCE.CONSUMER}/orders`)
+@Auth({ isPublic: false, audiences: ["consumer"] }) // 구매자 JWT(aud: user)만 허용
+export class ConsumerOrderController {
   constructor(private readonly orderService: OrderService) {}
 
   /**
