@@ -35,6 +35,10 @@ yarn common:lint && yarn common:format:check
 - PR 필수 체크는 `test-backend`입니다. 이 워크플로우 트리거에 `paths:` 필터를 넣지 마세요(필수 체크가 보고되지 않아 PR이 머지 불가가 됨).
 - web 레포의 e2e(`test-web-e2e.yml`)가 이 레포를 checkout해 backend를 띄웁니다. 레포를 private로 바꾸면 그 워크플로우에 토큰이 필요합니다.
 
+## web 레포의 도메인 skill
+
+소셜 로그인(OAuth), 앱 딥링크(Universal/App Links), 약관·사업자정보, iOS 앱스토어 심사 대응은 backend 코드도 함께 다루지만 skill은 web 레포에 있습니다. 이런 작업은 형제 폴더 `../picake-engineering-web/.claude/skills/`의 `picake-auth-social-login`, `picake-link-app-deep-links`, `picake-legal-terms`, `picake-review-ios-app-store` 문서를 읽고 따르세요.
+
 ## 운영 skill (automation 레포)
 
 아래 요청은 이 레포에 skill이 없습니다. 형제 폴더 `../picake-engineering-automation`의 skill 문서를 읽고 그 절차를 따르세요(없으면 `picake-team/picake-engineering-automation`을 clone).
