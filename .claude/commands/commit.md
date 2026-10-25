@@ -21,8 +21,7 @@ git diff --staged   # 이미 스테이징된 것이 있으면
 ## 2. 타입체크 (경고만, 차단하지 않음)
 
 ```bash
-yarn workspace @picake/web-user exec tsc --noEmit   # web-user 변경 시
-yarn workspace @picake/backend exec tsc --noEmit    # backend 변경 시
+yarn workspace @picake/backend exec tsc --noEmit
 ```
 
 실패하면 **커밋하지 말고** 사용자에게 알립니다.
@@ -44,13 +43,10 @@ yarn workspace @picake/backend exec tsc --noEmit    # backend 변경 시
 
 [[picake-git-commit-convention]] skill 기준입니다.
 
-| 접두사         | 대상                                                   |
-| -------------- | ------------------------------------------------------ |
-| `[WEB-USER]`   | `apps/web-user`                                        |
-| `[WEB-SELLER]` | `apps/web-seller`                                      |
-| `[WEB-ADMIN]`  | `apps/web-admin`                                       |
-| `[BE]`         | `apps/backend`                                         |
-| `[COMMON]`     | 특정 앱에 한정되지 않는 변경 (루트 설정, 여러 앱 동시) |
+| 접두사     | 대상                                        |
+| ---------- | ------------------------------------------- |
+| `[BE]`     | `apps/backend`                              |
+| `[COMMON]` | 루트 설정, 워크플로우, 문서 등 앱 밖의 변경 |
 
 ## 5. 메시지 작성
 
