@@ -11,6 +11,7 @@ Picake 개발 코드는 아래 레포들로 나뉘어 있습니다.
 | **[picake-engineering-backend](https://github.com/picake-team/picake-engineering-backend)** (현재) | 백엔드 API 서버                                       |
 | [picake-engineering-web](https://github.com/picake-team/picake-engineering-web)                    | 웹 프론트엔드 (`web-user`, `web-seller`, `web-admin`) |
 | [picake-engineering-app](https://github.com/picake-team/picake-engineering-app)                    | Flutter 앱 (`web-user`을 감싸는 WebView 앱)           |
+| [picake-engineering-automation](https://github.com/picake-team/picake-engineering-automation)      | Claude 클라우드 루틴·운영 자동화 스킬                 |
 
 > 이 레포도 `apps/backend` 구조를 유지합니다. EC2 배포 스크립트가 이 경로와 루트의 `package.json`/`yarn.lock`을 전제로 하기 때문입니다.
 

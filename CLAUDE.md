@@ -4,11 +4,12 @@ Picake(디저트 주문 플랫폼)의 **백엔드 API 서버** 레포입니다. 
 
 ## 레포 구성
 
-| 레포                         | 내용                                                  | 로컬 위치(권장)                       |
-| ---------------------------- | ----------------------------------------------------- | ------------------------------------- |
-| `picake-engineering-backend` | 백엔드 API 서버 (현재 레포)                           | -                                     |
-| `picake-engineering-web`     | 웹 프론트엔드 (`web-user`, `web-seller`, `web-admin`) | 형제 폴더 `../picake-engineering-web` |
-| `picake-engineering-app`     | Flutter 앱 (`web-user`을 감싸는 WebView 앱)           | -                                     |
+| 레포                            | 내용                                                                        | 로컬 위치(권장)                              |
+| ------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------- |
+| `picake-engineering-backend`    | 백엔드 API 서버 (현재 레포)                                                 | -                                            |
+| `picake-engineering-web`        | 웹 프론트엔드 (`web-user`, `web-seller`, `web-admin`)                       | 형제 폴더 `../picake-engineering-web`        |
+| `picake-engineering-app`        | Flutter 앱 (`web-user`을 감싸는 WebView 앱)                                 | -                                            |
+| `picake-engineering-automation` | Claude 클라우드 루틴·운영 자동화 스킬 (인프라 모니터링, 일일 데이터 리포트) | 형제 폴더 `../picake-engineering-automation` |
 
 - 코드는 `apps/backend`에 있습니다. EC2 배포 스크립트가 이 경로와 루트 `package.json`/`yarn.lock`을 전제로 하므로 구조를 바꾸지 않습니다.
 - 프로젝트 공통 문서(프로젝트 구조, 인증·채팅 등 기능 가이드, AI 에이전트 가이드)는 web 레포 `docs/common`이 정본입니다. 이 레포의 `docs`에는 backend·AWS 인프라 문서만 둡니다.
