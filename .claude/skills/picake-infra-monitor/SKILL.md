@@ -5,7 +5,7 @@ description: Picake staging/production EC2 인프라 상태(CPU·메모리·디�
 
 # Picake 인프라 모니터링
 
-과거에는 `.github/workflows/monitor-infra.yml`이 GitHub Actions cron(매일 09:00 KST)으로 SSH 접속해 EC2 상태를 점검했습니다. 2026-09-02에 SSH 프라이빗키 없이 **AWS SSM Run Command**로 동일한 항목을 점검하도록 클라우드 루틴("Picake 인프라 모니터링")으로 전환했고, 여기에 AWS 사용 현황·비용 분석·업그레이드 팁을 추가했습니다. `monitor-infra.yml`은 참고용으로 저장소에 남아있지만 스케줄은 꺼져 있습니다(`workflow_dispatch`로 수동 실행만 가능) — 실제 매일 리포트는 이 skill 기반 루틴이 담당합니다.
+과거에는 `.github/workflows/monitor-infra.yml`이 GitHub Actions cron(매일 09:00 KST)으로 SSH 접속해 EC2 상태를 점검했습니다. 2026-09-02에 SSH 프라이빗키 없이 **AWS SSM Run Command**로 동일한 항목을 점검하도록 클라우드 루틴("Picake 인프라 모니터링")으로 전환했고, 여기에 AWS 사용 현황·비용 분석·업그레이드 팁을 추가했습니다. `monitor-infra.yml`은 이후 삭제되어 저장소에 없습니다 — 매일 리포트는 이 skill 기반 루틴이 담당하며, 루틴은 이 레포(`picake-engineering-backend`)를 체크아웃해 이 문서를 읽습니다.
 
 ## 0. 사전 정보
 
@@ -186,7 +186,20 @@ check_http() { curl -sf -o /dev/null -w "%{http_code}" --connect-timeout 10 "htt
 
 ## 7. 리포트 형식
 
-`.github/workflows/monitor-infra.yml`의 배지 로직(✅/⚠️/❌, 임계치)을 그대로 따라 staging/production 상태를 표시하세요. 그 위에 아래를 추가합니다:
+staging/production 상태는 아래 배지 기준(과거 `monitor-infra.yml`과 동일)으로 표시하세요.
+
+| 항목                | ✅               | ⚠️                  | ❌                       |
+| ------------------- | ---------------- | ------------------- | ------------------------ |
+| SSL 만료            | 15일 이상 남음   | 0~14일 남음         | 만료됨                   |
+| `/health`·외부 HTTP | `200`            | —                   | 그 외(응답 없음은 `000`) |
+| PM2                 | `online`         | —                   | 그 외                    |
+| nginx·Postgres      | `active`         | —                   | 그 외                    |
+| systemd 타이머      | active + enabled | 둘 중 하나라도 아님 | —                        |
+| 디스크 사용률       | 75% 미만         | 75% 이상            | 90% 이상                 |
+
+값을 못 얻으면 ❓ 확인불가로 표시합니다. 전체 색상은 ❌/❓가 하나라도 있으면 🔴 확인필요, ⚠️만 있으면 🟠 주의, 모두 ✅면 🟢 정상입니다.
+
+그 위에 아래를 추가합니다:
 
 1. **Artifact 대시보드 발행** (`dataviz` skill 먼저 로드): staging/production 상세 상태 + AWS 사용 현황 + 비용 분석(3개월 추이 차트 + 서비스별 breakdown) + 업그레이드 판단 팁을 모두 담습니다. title `"Picake 인프라 모니터링 · {YYYY-MM-DD}"`, favicon 🖥️.
 2. **Discord 요약** (기존 일일 데이터 리포트 루틴과 같은 스타일 — 필드 25개/6000자 제한 고려해 핵심만, `[클릭해서 자세히 보기 →](ARTIFACT_URL)` 마스킹 링크 필수):

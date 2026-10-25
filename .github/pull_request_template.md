@@ -22,13 +22,14 @@
 
 <!-- 변경사항이 영향을 주는 앱이나 패키지를 선택해주세요 -->
 
-- [x] backend
-- [ ] web-user (frontend)
-- [ ] web-seller (frontend)
-- [ ] web-admin (frontend)
-- [ ] app-user
-- [ ] app-seller
-- [ ] 전체 프로젝트
+<!-- 웹 프론트엔드는 picake-engineering-web, Flutter 앱은 picake-engineering-app 레포에 이슈/PR을 올려주세요 -->
+
+- [ ] Consumer API (`apis/consumer`)
+- [ ] Seller API (`apis/seller`)
+- [ ] Admin API (`apis/admin`)
+- [ ] 공통 모듈 (`modules`, `common`, `infra`)
+- [ ] DB 스키마/마이그레이션 (Prisma)
+- [ ] CI/CD·배포 설정
 - [ ] 기타
 
 ## 🔗 관련 이슈
