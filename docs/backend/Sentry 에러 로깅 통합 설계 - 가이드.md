@@ -263,12 +263,12 @@ Sentry에서 태그: `responseId: 1706004000000-error-uuid-hex`
 
 ## 7. 프론트엔드 Sentry (web-user / web-seller)
 
-백엔드와 동일 정책으로 프론트엔드에도 Sentry가 연동되어 있습니다.
+프론트엔드도 백엔드와 같은 정책(development 비활성화, API 에러는 5xx·네트워크 오류만 전송)으로 Sentry가 연동되어 있습니다.
+구현과 설정은 [picake-engineering-web](https://github.com/picake-team/picake-engineering-web) 레포의 각 앱 `common/config/sentry.config.ts`, `common/utils/sentry.util.ts`와 `docs/web-user/기술 스택 - 가이드.md`를 참고하세요.
 
-| 앱         | SDK              | 활성화 조건                                                 |
-| ---------- | ---------------- | ----------------------------------------------------------- |
-| web-user   | `@sentry/nextjs` | `NEXT_PUBLIC_NODE_ENV`가 staging/production이고 DSN 설정 시 |
-| web-seller | `@sentry/react`  | `VITE_PUBLIC_NODE_ENV`가 staging/production이고 DSN 설정 시 |
+---------- | ---------------- | ----------------------------------------------------------- |
+| web-user | `@sentry/nextjs` | `NEXT_PUBLIC_NODE_ENV`가 staging/production이고 DSN 설정 시 |
+| web-seller | `@sentry/react` | `VITE_PUBLIC_NODE_ENV`가 staging/production이고 DSN 설정 시 |
 
 - development 환경에서는 Sentry 비활성화
 - API 에러는 5xx·네트워크 오류만 전송 (4xx 제외)
