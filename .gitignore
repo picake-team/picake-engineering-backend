@@ -142,7 +142,6 @@ blob-report/
 # scripts/만 16MB라 clone이 무거워집니다. 쓰시는 분이 각자 설치하세요.
 .claude/skills/impeccable/
 .claude/agents/impeccable-*.md
-apps/web-user/PRODUCT.md
 
 # 개인용 로컬 셋업 메모
 SETUP-LOCAL.md
