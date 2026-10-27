@@ -22,6 +22,8 @@ import { UploadModule } from "@apps/backend/modules/upload/upload.module";
 import { SellerUploadController } from "@apps/backend/apis/seller/controllers/upload.controller";
 import { TermsModule } from "@apps/backend/modules/terms/terms.module";
 import { SellerTermsController } from "@apps/backend/apis/seller/controllers/terms.controller";
+import { NaverPlaceModule } from "@apps/backend/modules/naver-place/naver-place.module";
+import { SellerNaverPlaceController } from "@apps/backend/apis/seller/controllers/naver-place.controller";
 
 /**
  * Seller API 모듈
@@ -41,6 +43,7 @@ import { SellerTermsController } from "@apps/backend/apis/seller/controllers/ter
     StatisticsModule,
     NotificationModule,
     TermsModule,
+    NaverPlaceModule,
     // ChatModule,
   ],
   controllers: [
@@ -56,6 +59,7 @@ import { SellerTermsController } from "@apps/backend/apis/seller/controllers/ter
     SellerNotificationController,
     SellerMypageController,
     SellerTermsController,
+    SellerNaverPlaceController,
     // SellerChatController,
   ],
 })

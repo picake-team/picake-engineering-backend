@@ -63,3 +63,6 @@ pnpm-lock.yaml
 apps/backend/src/infra/database/prisma/generated/
 apps/backend/src/infra/database/prisma/**/client/
 
+
+# 외부 응답을 그대로 담은 테스트 데이터 (형식이 바뀌면 파싱 테스트가 깨짐)
+**/__fixtures__/
