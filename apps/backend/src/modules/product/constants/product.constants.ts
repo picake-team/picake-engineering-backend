@@ -17,7 +17,40 @@ export const PRODUCT_ERROR_MESSAGES = {
   /** 거리순 정렬 시 클라이언트 기준 위도·경도 미전달 */
   DISTANCE_SORT_REQUIRES_COORDINATES:
     "거리순 정렬에는 latitude와 longitude 쿼리 파라미터가 필요합니다.",
+  SIZE_OPTION_REQUIRED: "노출 중인 사이즈 옵션이 1개 이상 필요합니다.",
+  FLAVOR_OPTION_REQUIRED: "노출 중인 맛 옵션이 1개 이상 필요합니다.",
+  CUSTOM_OPTION_INVALID: "추가 옵션 설정이 올바르지 않습니다.",
 } as const;
+
+/**
+ * 추가 옵션(커스텀 옵션) 형식
+ * - SINGLE_SELECT: 선택형 (목록에서 1개)
+ * - MULTI_SELECT: 다중선택형 (체크박스 여러 개)
+ * - TEXT: 직접입력형 (글자 입력)
+ * - IMAGE: 사진첨부형 (사진 업로드)
+ */
+export enum CustomOptionType {
+  SINGLE_SELECT = "SINGLE_SELECT",
+  MULTI_SELECT = "MULTI_SELECT",
+  TEXT = "TEXT",
+  IMAGE = "IMAGE",
+}
+
+/** 추가 옵션 설정 상한 (판매자 화면 검증과 동일하게 유지) */
+export const CUSTOM_OPTION_LIMITS = {
+  MAX_OPTIONS: 10,
+  MAX_CHOICES: 20,
+  MAX_NAME_LENGTH: 20,
+  MAX_CHOICE_LABEL_LENGTH: 30,
+  MAX_CHOICE_PRICE: 1_000_000,
+  MAX_TEXT_LENGTH: 100,
+  MAX_PLACEHOLDER_LENGTH: 50,
+  MAX_IMAGE_COUNT: 3,
+  MAX_IMAGE_OPTIONS: 1,
+} as const;
+
+/** 사이즈·맛과 겹쳐 구매자가 헷갈리는 추가 옵션명 (고정 옵션에서 설정) */
+export const RESERVED_CUSTOM_OPTION_NAMES = ["사이즈", "맛"] as const;
 
 /**
  * 상품 관련 성공 메시지 상수
@@ -135,6 +168,29 @@ export const SWAGGER_EXAMPLES = {
         price: 20000,
       },
     ],
+    customOptions: [
+      {
+        id: "opt_lettering",
+        type: CustomOptionType.TEXT,
+        name: "레터링 문구",
+        required: true,
+        visible: EnableStatus.ENABLE,
+        maxLength: 20,
+        placeholder: "케이크에 들어갈 문구를 적어주세요.",
+      },
+      {
+        id: "opt_candle01",
+        type: CustomOptionType.SINGLE_SELECT,
+        name: "초 추가",
+        required: false,
+        visible: EnableStatus.ENABLE,
+        choices: [
+          { id: "choice_candle_none", label: "없음", price: 0, visible: EnableStatus.ENABLE },
+          { id: "choice_candle_big", label: "큰초", price: 1000, visible: EnableStatus.ENABLE },
+        ],
+      },
+    ],
+    optionsVersion: 3,
     letteringVisible: EnableStatus.ENABLE,
     letteringMaxLength: 20,
     imageUploadEnabled: EnableStatus.ENABLE,

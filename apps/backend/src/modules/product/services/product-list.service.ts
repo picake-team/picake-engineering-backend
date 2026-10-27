@@ -365,6 +365,7 @@ export class ProductListService {
         ProductMapperUtil.mapToProductResponse(
           product,
           user?.sub ? likedProductIds.has(product.id) : null,
+          "list",
         ),
       );
     } else {
@@ -408,6 +409,7 @@ export class ProductListService {
         ProductMapperUtil.mapToProductResponse(
           product,
           user?.sub ? likedProductIds.has(product.id) : null,
+          "list",
         ),
       );
     }
@@ -549,7 +551,7 @@ export class ProductListService {
       const likedProductIds = await this.getLikedProductIds(user.sub, productIds);
 
       products = orderedProducts.map((product) =>
-        ProductMapperUtil.mapToProductResponse(product, likedProductIds.has(product.id)),
+        ProductMapperUtil.mapToProductResponse(product, likedProductIds.has(product.id), "list"),
       );
     } else {
       switch (sortBy) {
@@ -587,7 +589,7 @@ export class ProductListService {
       const likedProductIds = await this.getLikedProductIds(user.sub, productIds);
 
       products = productsWithStore.map((product) =>
-        ProductMapperUtil.mapToProductResponse(product, likedProductIds.has(product.id)),
+        ProductMapperUtil.mapToProductResponse(product, likedProductIds.has(product.id), "list"),
       );
     }
 

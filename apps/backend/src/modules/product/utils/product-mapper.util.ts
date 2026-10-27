@@ -1,6 +1,11 @@
 import { ProductResponseDto } from "@apps/backend/modules/product/dto/product-detail.dto";
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { refundCancellationPolicyFromDb } from "@apps/backend/modules/store/utils/store-refund-cancellation-policy.util";
+import { EnableStatus } from "@apps/backend/modules/product/constants/product.constants";
+import {
+  parseCustomOptions,
+  toVisibleCustomOptions,
+} from "@apps/backend/modules/product/utils/product-custom-option.util";
 
 /**
  * 상품 매핑 유틸리티
@@ -88,8 +93,10 @@ export class ProductMapperUtil {
   static mapToProductResponse(
     product: ProductWithStore | ProductWithReviewsAndStore,
     isLiked?: boolean | null,
+    options: ProductResponseOptionScope = "full",
   ): ProductResponseDto {
     const { store, ...productData } = product;
+    const optionFields = ProductMapperUtil.mapOptionFields(product, options);
 
     // 후기 통계 계산
     let averageRating = 0;
@@ -117,6 +124,7 @@ export class ProductMapperUtil {
 
     return {
       ...rest,
+      ...optionFields,
       averageRating,
       totalReviewCount,
       isLiked: isLiked !== undefined ? isLiked : null,
@@ -132,4 +140,39 @@ export class ProductMapperUtil {
       pickupLongitude: store.longitude ?? 0,
     } as ProductResponseDto;
   }
+
+  /**
+   * 응답 범위별 옵션 필드
+   * - full: 판매자용. 숨김 옵션까지 그대로 (수정 폼에서 숨김 항목이 사라지면 저장 시 삭제되므로)
+   * - consumerDetail: 구매자 상세. 숨김 사이즈·맛·추가 옵션·옵션값 제거
+   * - list: 목록·카드. 추가 옵션은 쓰지 않으므로 응답 크기를 줄이려고 비움
+   */
+  private static mapOptionFields(
+    product: ProductWithStore | ProductWithReviewsAndStore,
+    scope: ProductResponseOptionScope,
+  ) {
+    if (scope === "consumerDetail") {
+      const visibleOnly = (options: unknown) =>
+        Array.isArray(options)
+          ? options.filter(
+              (option) =>
+                option &&
+                typeof option === "object" &&
+                (option as { visible?: unknown }).visible === EnableStatus.ENABLE,
+            )
+          : options;
+      return {
+        cakeSizeOptions: visibleOnly(product.cakeSizeOptions),
+        cakeFlavorOptions: visibleOnly(product.cakeFlavorOptions),
+        customOptions: toVisibleCustomOptions(product.customOptions),
+      };
+    }
+    if (scope === "list") {
+      return { customOptions: [] };
+    }
+    return { customOptions: parseCustomOptions(product.customOptions) };
+  }
 }
+
+/** mapToProductResponse의 옵션 응답 범위 */
+export type ProductResponseOptionScope = "full" | "consumerDetail" | "list";

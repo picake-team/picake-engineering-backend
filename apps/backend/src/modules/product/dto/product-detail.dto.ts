@@ -10,6 +10,7 @@ import { SWAGGER_EXAMPLES as UPLOAD_SWAGGER_EXAMPLES } from "@apps/backend/modul
 import {
   CreateCakeSizeOptionDto,
   CreateCakeFlavorOptionDto,
+  CustomOptionDto,
 } from "@apps/backend/modules/product/dto/product-create.dto";
 import { PickupAddressDto } from "@apps/backend/modules/product/dto/product-common.dto";
 import { RefundCancellationPolicyDto } from "@apps/backend/modules/store/dto/store-refund-cancellation-policy.dto";
@@ -106,7 +107,21 @@ export class ProductResponseDto extends PickupAddressDto {
   cakeFlavorOptions?: CakeFlavorOptionResponseDto[] | null;
 
   @ApiProperty({
-    description: "레터링 문구 사용 여부",
+    description:
+      "추가 옵션 목록 (구매자 상세 응답은 노출 중인 옵션·옵션값만 포함, 목록 응답은 빈 배열)",
+    type: [CustomOptionDto],
+    example: SWAGGER_EXAMPLES.PRODUCT_DATA.customOptions,
+  })
+  customOptions: CustomOptionDto[];
+
+  @ApiProperty({
+    description: "옵션 버전 (주문 시 productOptionsVersion으로 그대로 전달)",
+    example: SWAGGER_EXAMPLES.PRODUCT_DATA.optionsVersion,
+  })
+  optionsVersion: number;
+
+  @ApiProperty({
+    description: "[레거시] 레터링 문구 사용 여부 (customOptions에서 계산, 정리 단계에서 삭제)",
     enum: EnableStatus,
     example: EnableStatus.ENABLE,
   })
