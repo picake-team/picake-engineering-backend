@@ -13,8 +13,8 @@ import { EnableStatus } from "@apps/backend/modules/product/constants/product.co
 import { OrderLifecycleHookService } from "@apps/backend/modules/order/services/order-lifecycle-hook.service";
 import { ORDER_STATUS_TRANSITION_SOURCE } from "@apps/backend/modules/order/types/order-lifecycle.types";
 import {
-  parseFlavorOptions,
-  parseSizeOptions,
+  assertProductOptionsVersion,
+  buildOrderItemNormalizeContext,
   validateAndNormalizeOrderItem,
 } from "@apps/backend/modules/order/utils/order-item-normalize.util";
 import { isPickupAllowedForStore } from "@apps/backend/modules/order/utils/order-store-business-calendar.util";
@@ -103,14 +103,12 @@ export class OrderCreateService {
       throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_TOTAL_QUANTITY);
     }
 
-    const sizeOptionMap = new Map(
-      parseSizeOptions(product.cakeSizeOptions).map((option) => [option.id, option]),
-    );
-    const flavorOptionMap = new Map(
-      parseFlavorOptions(product.cakeFlavorOptions).map((option) => [option.id, option]),
-    );
+    // 구매자가 옵션을 고르는 사이 판매자가 옵션을 바꿨으면 거절 (이름만 바뀐 경우까지 잡기 위해 버전 비교)
+    assertProductOptionsVersion(createOrderDto.productOptionsVersion, product.optionsVersion);
+
+    const normalizeContext = buildOrderItemNormalizeContext(product);
     const normalizedItems = items.map((item) =>
-      validateAndNormalizeOrderItem(item, sizeOptionMap, flavorOptionMap, product.salePrice),
+      validateAndNormalizeOrderItem(item, normalizeContext),
     );
 
     // 총 금액 검증 (서버 기준 옵션 가격으로 계산)

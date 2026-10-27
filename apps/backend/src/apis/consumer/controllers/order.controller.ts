@@ -28,6 +28,7 @@ import {
   SubmitRefundAccountRequestDto,
 } from "@apps/backend/modules/order/dto/order-user-action.dto";
 import {
+  UpdateReservationOrderItemRequestDto,
   UpdateReservationOrderItemsRequestDto,
   UpdateReservationPickupDateRequestDto,
 } from "@apps/backend/modules/order/dto/order-user-reservation-edit.dto";
@@ -55,6 +56,7 @@ import {
   RequestCancelRefundRequestDto,
   SubmitRefundAccountRequestDto,
   UpdateReservationPickupDateRequestDto,
+  UpdateReservationOrderItemRequestDto,
   UpdateReservationOrderItemsRequestDto,
 )
 @Controller(`${AUDIENCE.CONSUMER}/orders`)
@@ -198,7 +200,46 @@ export class ConsumerOrderController {
   }
 
   /**
-   * 예약신청 단계 — 주문 항목(옵션) 변경 (사용자)
+   * 예약신청 단계 — 주문 항목 1개 옵션 변경 (사용자)
+   */
+  @Patch(":id/reservation/items/:itemId")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "(로그인 필요) 예약신청 단계 주문 항목 1개 옵션 변경",
+    description:
+      "주문 상태가 예약신청(RESERVATION_REQUESTED)일 때만 항목 1개를 변경합니다. 본문은 주문 생성 API의 items[] 한 개와 같고 totalPrice(변경 후 주문 총 금액)와 productOptionsVersion을 함께 보냅니다. 변경한 항목만 상품의 현재 옵션·가격으로 검증하고, 다른 항목은 주문 시점 옵션·금액을 그대로 유지합니다. productOptionsVersion이 현재 상품과 다르면 409를 반환합니다.",
+  })
+  @SwaggerResponse(200, { dataDto: UpdateOrderStatusResponseDto })
+  @SwaggerAuthResponses()
+  @SwaggerResponse(400, {
+    dataExample: createMessageObject(ORDER_ERROR_MESSAGES.REQUIRED_OPTION_MISSING),
+  })
+  @SwaggerResponse(400, {
+    dataExample: createMessageObject(ORDER_ERROR_MESSAGES.INVALID_TOTAL_PRICE),
+  })
+  @SwaggerResponse(400, {
+    dataExample: createMessageObject(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION),
+  })
+  @SwaggerResponse(409, {
+    dataExample: createMessageObject(ORDER_ERROR_MESSAGES.PRODUCT_OPTIONS_CHANGED),
+  })
+  @SwaggerResponse(403, {
+    dataExample: createMessageObject(ORDER_ERROR_MESSAGES.FORBIDDEN),
+  })
+  @SwaggerResponse(404, {
+    dataExample: createMessageObject(ORDER_ERROR_MESSAGES.NOT_FOUND),
+  })
+  async updateReservationOrderItem(
+    @Param("id") id: string,
+    @Param("itemId") itemId: string,
+    @Body() dto: UpdateReservationOrderItemRequestDto,
+    @Request() req: { user: JwtVerifiedPayload },
+  ): Promise<UpdateOrderStatusResponseDto> {
+    return await this.orderService.updateReservationOrderItemForUser(id, itemId, req.user, dto);
+  }
+
+  /**
+   * [레거시] 예약신청 단계 — 주문 항목 전체 교체 (구버전 web-user용, 정리 단계에서 삭제)
    */
   @Patch(":id/reservation/items")
   @HttpCode(HttpStatus.OK)

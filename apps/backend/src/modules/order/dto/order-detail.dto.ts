@@ -4,9 +4,57 @@ import {
   OrderStatus,
 } from "@apps/backend/modules/order/constants/order.constants";
 import { SWAGGER_EXAMPLES } from "@apps/backend/modules/order/constants/order.constants";
+import { CustomOptionType } from "@apps/backend/modules/product/constants/product.constants";
 import { PickupAddressDto } from "@apps/backend/modules/product/dto/product-common.dto";
 import { StoreBankName } from "@apps/backend/modules/store/constants/store.constants";
 import { RefundCancellationPolicyDto } from "@apps/backend/modules/store/dto/store-refund-cancellation-policy.dto";
+
+/**
+ * 주문 항목의 추가 옵션 선택값 — 선택한 옵션값 스냅샷
+ */
+export class SelectedOptionChoiceResponseDto {
+  @ApiProperty({ description: "옵션값 ID", example: "choice_candle_big" })
+  id: string;
+
+  @ApiProperty({ description: "옵션값 (주문 시점 이름)", example: "큰초" })
+  label: string;
+
+  @ApiProperty({ description: "옵션가 (주문 시점 금액)", example: 1000 })
+  price: number;
+}
+
+/**
+ * 주문 항목의 추가 옵션 스냅샷 (주문 시점 옵션명·옵션값·금액)
+ */
+export class SelectedOptionResponseDto {
+  @ApiProperty({ description: "추가 옵션 ID", example: "opt_candle01" })
+  optionId: string;
+
+  @ApiProperty({
+    description: "옵션 형식",
+    enum: CustomOptionType,
+    example: CustomOptionType.SINGLE_SELECT,
+  })
+  type: CustomOptionType;
+
+  @ApiProperty({ description: "옵션명 (주문 시점)", example: "초 추가" })
+  name: string;
+
+  @ApiPropertyOptional({
+    description: "선택한 옵션값 (선택형·다중선택형)",
+    type: [SelectedOptionChoiceResponseDto],
+  })
+  choices?: SelectedOptionChoiceResponseDto[];
+
+  @ApiPropertyOptional({ description: "입력한 글자 (직접입력형)", example: "생일 축하해" })
+  text?: string;
+
+  @ApiPropertyOptional({ description: "첨부한 사진 URL (사진첨부형)", type: [String] })
+  imageUrls?: string[];
+
+  @ApiProperty({ description: "이 옵션의 금액 합계 (1개 기준)", example: 1000 })
+  price: number;
+}
 
 /**
  * 주문 항목 응답 DTO
@@ -68,8 +116,21 @@ export class OrderItemResponseDto {
   })
   flavorPrice?: number;
 
+  @ApiProperty({
+    description: "추가 옵션 선택 내역 (주문 시점 스냅샷, 판매자가 정한 옵션 순서)",
+    type: [SelectedOptionResponseDto],
+    example: SWAGGER_EXAMPLES.ORDER_ITEM.selectedOptions,
+  })
+  selectedOptions: SelectedOptionResponseDto[];
+
+  @ApiProperty({
+    description: "추가 옵션 금액 합계 (1개 기준)",
+    example: SWAGGER_EXAMPLES.ORDER_ITEM.optionsPrice,
+  })
+  optionsPrice: number;
+
   @ApiPropertyOptional({
-    description: "레터링 메시지",
+    description: "[레거시] 레터링 메시지 (selectedOptions의 첫 직접입력형 값, 정리 단계에서 삭제)",
     example: SWAGGER_EXAMPLES.ORDER_ITEM.letteringMessage,
   })
   letteringMessage?: string;
