@@ -2,6 +2,7 @@ import { Order, OrderItem } from "@apps/backend/infra/database/prisma/generated/
 import {
   OrderItemResponseDto,
   OrderResponseDto,
+  SelectedOptionResponseDto,
 } from "@apps/backend/modules/order/dto/order-detail.dto";
 import {
   OrderMyReviewUiStatus,
@@ -101,6 +102,11 @@ export class OrderMapperUtil {
       flavorId: orderItem.flavorId ?? undefined,
       flavorDisplayName: orderItem.flavorDisplayName ?? undefined,
       flavorPrice: orderItem.flavorPrice ?? undefined,
+      // 추가 옵션 (주문 시점 스냅샷)
+      selectedOptions: Array.isArray(orderItem.selectedOptions)
+        ? (orderItem.selectedOptions as unknown as SelectedOptionResponseDto[])
+        : [],
+      optionsPrice: orderItem.optionsPrice,
       // 기타 옵션
       letteringMessage: orderItem.letteringMessage ?? undefined,
       requestMessage: orderItem.requestMessage ?? undefined,

@@ -9,12 +9,54 @@ import {
   IsDateString,
   Min,
   MaxLength,
+  ArrayMaxSize,
+  IsInt,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
 import { SWAGGER_EXAMPLES } from "@apps/backend/modules/order/constants/order.constants";
+import { CUSTOM_OPTION_LIMITS } from "@apps/backend/modules/product/constants/product.constants";
 import { PickupAddressDto } from "@apps/backend/modules/product/dto/product-common.dto";
 import { IsValidStoreName } from "@apps/backend/modules/store/decorators/validators.decorator";
 import { IsValidKoreanPhone } from "@apps/backend/common/decorators/validators.decorator";
+
+/**
+ * 주문 항목의 추가 옵션 선택값
+ * 옵션명·가격은 보내지 않습니다. 서버가 상품의 현재 옵션 기준으로 검증하고 스냅샷을 만듭니다.
+ */
+export class OrderItemOptionInputDto {
+  @ApiProperty({ description: "추가 옵션 ID", example: "opt_candle01" })
+  @IsNotEmpty()
+  @IsString()
+  optionId: string;
+
+  @ApiPropertyOptional({
+    description: "선택한 옵션값 ID 목록 (선택형은 1개, 다중선택형은 1개 이상)",
+    type: [String],
+    example: ["choice_candle_big"],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(CUSTOM_OPTION_LIMITS.MAX_CHOICES)
+  @IsString({ each: true })
+  choiceIds?: string[];
+
+  @ApiPropertyOptional({ description: "입력한 글자 (직접입력형)", example: "생일 축하해" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  text?: string;
+
+  @ApiPropertyOptional({
+    description: "첨부한 사진 URL 목록 (사진첨부형, 업로드 API로 받은 URL)",
+    type: [String],
+    example: [],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(CUSTOM_OPTION_LIMITS.MAX_IMAGE_COUNT)
+  @IsString({ each: true })
+  imageUrls?: string[];
+}
 
 /**
  * 주문 항목 생성 요청 DTO
@@ -90,7 +132,19 @@ export class CreateOrderItemDto {
   flavorPrice?: number;
 
   @ApiPropertyOptional({
-    description: "레터링 메시지 (최대 500자)",
+    description: "추가 옵션 선택값 목록 (옵션 ID 기준, 한 옵션당 1개)",
+    type: [OrderItemOptionInputDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(CUSTOM_OPTION_LIMITS.MAX_OPTIONS)
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemOptionInputDto)
+  options?: OrderItemOptionInputDto[];
+
+  @ApiPropertyOptional({
+    description:
+      "[레거시] 레터링 메시지 (최대 500자). options를 보내지 않은 구버전 요청만 상품의 첫 직접입력형 옵션으로 변환",
     example: SWAGGER_EXAMPLES.ORDER_ITEM.letteringMessage,
   })
   @IsOptional()
@@ -116,7 +170,8 @@ export class CreateOrderItemDto {
   quantity: number;
 
   @ApiPropertyOptional({
-    description: "업로드한 이미지 URL 목록 (커스텀 케이크용, 없으면 빈 배열 또는 생략)",
+    description:
+      "[레거시] 업로드한 이미지 URL 목록. options를 보내지 않은 구버전 요청만 상품의 사진첨부형 옵션으로 변환",
     example: SWAGGER_EXAMPLES.ORDER_ITEM.imageUrls,
     type: [String],
   })
@@ -190,6 +245,16 @@ export class CreateOrderRequestDto extends PickupAddressDto {
   @IsNumber()
   @Min(0)
   totalPrice: number;
+
+  @ApiPropertyOptional({
+    description:
+      "구매자가 옵션을 고를 때 본 상품의 optionsVersion. 현재 값과 다르면 409로 거절 (생략 시 확인하지 않음 — 구버전 클라이언트 호환)",
+    example: SWAGGER_EXAMPLES.ORDER_DATA.productOptionsVersion,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  productOptionsVersion?: number;
 
   @ApiProperty({
     description: "스토어명 (주문 시점의 스토어명 보존)",

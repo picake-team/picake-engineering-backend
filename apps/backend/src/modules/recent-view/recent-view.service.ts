@@ -70,7 +70,7 @@ export class RecentViewService {
     const likedIds = await this.getLikedProductIds(userId, productIds);
 
     const data: ProductResponseDto[] = products.map((product: ProductWithReviewsAndStore) =>
-      ProductMapperUtil.mapToProductResponse(product, likedIds.has(product.id)),
+      ProductMapperUtil.mapToProductResponse(product, likedIds.has(product.id), "list"),
     );
 
     const meta = calculatePaginationMeta(page, limit, totalItems);

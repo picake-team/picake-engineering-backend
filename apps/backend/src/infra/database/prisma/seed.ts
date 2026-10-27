@@ -554,7 +554,7 @@ async function upsertStores(seller: Awaited<ReturnType<typeof upsertSeedUsers>>[
  *
  * 특징:
  * - 100개의 상품 생성 (store1에 70개, store2에 30개)
- * - index % 3 === 0이면 BASIC_CAKE (imageUploadEnabled: DISABLE), 나머지는 CUSTOM_CAKE
+ * - index % 3 === 0이면 BASIC_CAKE (사진첨부형 옵션 없음), 나머지는 CUSTOM_CAKE (참고사진 옵션 포함)
  * - 상품이 하나라도 있으면 아무것도 하지 않음
  */
 async function upsertProducts(stores: Awaited<ReturnType<typeof upsertStores>>) {
@@ -598,11 +598,38 @@ async function upsertProducts(stores: Awaited<ReturnType<typeof upsertStores>>) 
         likeCount: 25,
         cakeSizeOptions: SEED_PRODUCT_BASE.SIZE_OPTIONS,
         cakeFlavorOptions: SEED_PRODUCT_BASE.FLAVOR_OPTIONS,
+        customOptions: [
+          {
+            id: "opt_lettering",
+            type: "TEXT",
+            name: "레터링 문구",
+            required: true,
+            visible: "ENABLE",
+            maxLength: SEED_PRODUCT_BASE.LETTERING.MAX_LENGTH,
+            placeholder: "케이크에 들어갈 문구를 적어주세요.",
+          },
+          ...(imageUploadEnabled === "ENABLE"
+            ? [
+                {
+                  id: "opt_image",
+                  type: "IMAGE",
+                  name: "참고사진",
+                  required: true,
+                  visible: "ENABLE",
+                  maxCount: 3,
+                },
+              ]
+            : []),
+        ],
         letteringVisible: SEED_PRODUCT_BASE.LETTERING.VISIBLE as "ENABLE" | "DISABLE",
         letteringMaxLength: SEED_PRODUCT_BASE.LETTERING.MAX_LENGTH,
         imageUploadEnabled,
         productType,
-        productCategoryTypes: SEED_PRODUCT_BASE.PRODUCT_CATEGORY_TYPES,
+        // 카테고리 '커스텀'은 상품 유형을 따라간다 (서버 저장 규칙과 동일)
+        productCategoryTypes:
+          productType === "CUSTOM_CAKE"
+            ? [...SEED_PRODUCT_BASE.PRODUCT_CATEGORY_TYPES, ProductCategoryType.LETTERING]
+            : SEED_PRODUCT_BASE.PRODUCT_CATEGORY_TYPES,
         searchTags: SEED_PRODUCT_BASE.SEARCH_TAGS,
         detailDescription: SEED_PRODUCT_BASE.DETAIL_DESCRIPTION,
         productNumber,

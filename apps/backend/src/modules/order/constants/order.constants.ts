@@ -26,6 +26,14 @@ export const ORDER_ERROR_MESSAGES = {
   ORDER_CREATE_FAILED: "주문 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
   /** 픽업 일시가 스토어 영업 캘린더(정기 휴무·표준 시간·일별 예외)에 맞지 않음 */
   PICKUP_OUTSIDE_STORE_BUSINESS_HOURS: "선택한 픽업 일시가 스토어 영업 시간에 포함되지 않습니다.",
+  /** 구매자가 옵션을 고르는 사이 판매자가 사이즈·맛·추가 옵션을 바꿈 (409) */
+  PRODUCT_OPTIONS_CHANGED: "판매자가 상품 옵션을 변경했어요. 옵션을 다시 선택해주세요.",
+  SIZE_REQUIRED: "사이즈를 선택해주세요.",
+  FLAVOR_REQUIRED: "맛을 선택해주세요.",
+  REQUIRED_OPTION_MISSING: "필수 옵션을 모두 선택해주세요.",
+  INVALID_OPTION_SELECTION: "선택한 옵션을 다시 확인해주세요.",
+  INVALID_OPTION_TEXT: "입력한 옵션 문구를 다시 확인해주세요.",
+  INVALID_OPTION_IMAGE: "첨부한 사진을 다시 확인해주세요.",
 } as const;
 
 /**
@@ -110,10 +118,28 @@ const ORDER_ITEM_EXAMPLE = {
   flavorDisplayName: "초콜릿",
   flavorPrice: 10000,
   // 기타 옵션
+  // 추가 옵션 (주문 시점 스냅샷)
+  selectedOptions: [
+    {
+      optionId: "opt_lettering",
+      type: "TEXT",
+      name: "레터링 문구",
+      text: "생일 축하해",
+      price: 0,
+    },
+    {
+      optionId: "opt_candle01",
+      type: "SINGLE_SELECT",
+      name: "초 추가",
+      choices: [{ id: "choice_candle_big", label: "큰초", price: 1000 }],
+      price: 1000,
+    },
+  ],
+  optionsPrice: 1000,
   letteringMessage: "생일 축하해",
   requestMessage: "케이크 박스에 리본 부탁드려요",
   quantity: 1,
-  itemPrice: 85000, // 기본 가격(50000) + 사이즈(25000) + 맛(10000)
+  itemPrice: 86000, // 기본 가격(50000) + 사이즈(25000) + 맛(10000) + 추가 옵션(1000)
   imageUrls: [],
   createdAt: new Date("2024-01-15T12:00:00.000Z"),
   updatedAt: new Date("2024-01-15T12:00:00.000Z"),
@@ -138,6 +164,7 @@ export const SWAGGER_EXAMPLES = {
     storeRefundCancellationPolicy: STORE_SWAGGER_EXAMPLES.REFUND_CANCELLATION_POLICY,
     totalQuantity: 2,
     totalPrice: 140000,
+    productOptionsVersion: 3,
     pickupDate: new Date("2024-01-15T14:00:00.000Z"),
     pickupAddress: STORE_SWAGGER_EXAMPLES.ADDRESS,
     pickupRoadAddress: STORE_SWAGGER_EXAMPLES.ROAD_ADDRESS,

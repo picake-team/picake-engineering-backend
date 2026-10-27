@@ -29,6 +29,7 @@ import {
   SubmitRefundAccountRequestDto,
 } from "@apps/backend/modules/order/dto/order-user-action.dto";
 import {
+  UpdateReservationOrderItemRequestDto,
   UpdateReservationOrderItemsRequestDto,
   UpdateReservationPickupDateRequestDto,
 } from "@apps/backend/modules/order/dto/order-user-reservation-edit.dto";
@@ -147,7 +148,17 @@ export class OrderService {
     return this.orderUserReservationEditService.updatePickupDate(orderId, user.sub, dto);
   }
 
-  /** 예약신청 단계 주문 항목(옵션) 변경 (사용자) */
+  /** 예약신청 단계 주문 항목 1개 옵션 변경 (사용자) */
+  async updateReservationOrderItemForUser(
+    orderId: string,
+    itemId: string,
+    user: JwtVerifiedPayload,
+    dto: UpdateReservationOrderItemRequestDto,
+  ): Promise<{ id: string }> {
+    return this.orderUserReservationEditService.updateOrderItem(orderId, itemId, user.sub, dto);
+  }
+
+  /** [레거시] 예약신청 단계 주문 항목 전체 교체 (구버전 web-user, 정리 단계에서 삭제) */
   async updateReservationOrderItemsForUser(
     orderId: string,
     user: JwtVerifiedPayload,
