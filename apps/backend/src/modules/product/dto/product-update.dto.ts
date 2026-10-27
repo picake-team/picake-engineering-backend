@@ -8,16 +8,20 @@ import {
   IsOptional,
   IsEnum,
   Min,
+  ArrayMaxSize,
 } from "class-validator";
 import { Type } from "class-transformer";
 import {
   EnableStatus,
   ProductCategoryType,
+  ProductType,
+  CUSTOM_OPTION_LIMITS,
 } from "@apps/backend/modules/product/constants/product.constants";
 import { SWAGGER_EXAMPLES as PRODUCT_SWAGGER_EXAMPLES } from "@apps/backend/modules/product/constants/product.constants";
 import {
   CreateCakeFlavorOptionDto,
   CreateCakeSizeOptionDto,
+  CustomOptionDto,
 } from "@apps/backend/modules/product/dto/product-create.dto";
 
 /**
@@ -127,31 +131,25 @@ export class UpdateProductRequestDto {
   cakeFlavorOptions?: UpdateCakeFlavorOptionDto[];
 
   @ApiPropertyOptional({
-    description: "레터링 문구 사용 여부",
-    enum: EnableStatus,
-    example: EnableStatus.ENABLE,
+    description: "추가 옵션 목록 전체 (전달하면 통째로 교체, 빈 배열이면 전체 제거)",
+    type: [CustomOptionDto],
+    example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.customOptions,
   })
   @IsOptional()
-  @IsEnum(EnableStatus)
-  letteringVisible?: EnableStatus;
+  @IsArray()
+  @ArrayMaxSize(CUSTOM_OPTION_LIMITS.MAX_OPTIONS)
+  @ValidateNested({ each: true })
+  @Type(() => CustomOptionDto)
+  customOptions?: CustomOptionDto[];
 
   @ApiPropertyOptional({
-    description: "레터링 최대 글자 수",
-    example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.letteringMaxLength,
+    description: "상품 유형 (스토어 상세 기본/커스텀 탭 분류)",
+    enum: ProductType,
+    example: ProductType.CUSTOM_CAKE,
   })
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  letteringMaxLength?: number;
-
-  @ApiPropertyOptional({
-    description: "이미지 등록 사용여부",
-    enum: EnableStatus,
-    example: EnableStatus.ENABLE,
-  })
-  @IsOptional()
-  @IsEnum(EnableStatus)
-  imageUploadEnabled?: EnableStatus;
+  @IsEnum(ProductType)
+  productType?: ProductType;
 
   @ApiPropertyOptional({
     description: "상세 설명 (HTML)",
@@ -163,7 +161,7 @@ export class UpdateProductRequestDto {
 
   @ApiPropertyOptional({
     description:
-      "상품 카테고리 타입 (없거나 여러 개) - 생일, 연인, 친구, 가족, 기념일, 당일픽업, 커스텀, 캐릭터, 심플, 꽃, 사진. 빈 배열이면 전체 제거",
+      "상품 카테고리 타입 (없거나 여러 개) - 생일, 연인, 친구, 가족, 기념일, 당일픽업, 캐릭터, 심플, 꽃, 사진. 빈 배열이면 전체 제거. 커스텀(LETTERING)은 상품 유형에 따라 서버가 자동으로 넣고 뺍니다",
     enum: ProductCategoryType,
     isArray: true,
     example: [ProductCategoryType.BIRTHDAY, ProductCategoryType.SIMPLE],

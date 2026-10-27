@@ -54,7 +54,7 @@ export class ProductDetailService {
       }
     }
 
-    return ProductMapperUtil.mapToProductResponse(product, isLiked);
+    return ProductMapperUtil.mapToProductResponse(product, isLiked, "consumerDetail");
   }
 
   /**

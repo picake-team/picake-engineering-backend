@@ -185,7 +185,7 @@ export class LikeUserListService {
     });
 
     const data: ProductResponseDto[] = productLikes.map((productLike) => {
-      return ProductMapperUtil.mapToProductResponse(productLike.product, true);
+      return ProductMapperUtil.mapToProductResponse(productLike.product, true, "list");
     });
 
     const meta = calculatePaginationMeta(page, limit, totalItems);

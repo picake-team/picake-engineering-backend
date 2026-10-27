@@ -1,10 +1,13 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { CreateProductRequestDto } from "@apps/backend/modules/product/dto/product-create.dto";
+import { PRODUCT_ERROR_MESSAGES } from "@apps/backend/modules/product/constants/product.constants";
 import {
-  EnableStatus,
-  ProductType,
-} from "@apps/backend/modules/product/constants/product.constants";
+  deriveLegacyOptionFields,
+  hasVisibleOption,
+  normalizeCustomOptionsForSave,
+  syncCustomCategory,
+} from "@apps/backend/modules/product/utils/product-custom-option.util";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { ProductOwnershipUtil } from "@apps/backend/modules/product/utils/product-ownership.util";
@@ -40,6 +43,14 @@ export class ProductCreateService {
 
     validateProductPrices(createProductDto.originalPrice, createProductDto.salePrice);
 
+    if (!hasVisibleOption(createProductDto.cakeSizeOptions)) {
+      throw new BadRequestException(PRODUCT_ERROR_MESSAGES.SIZE_OPTION_REQUIRED);
+    }
+    if (!hasVisibleOption(createProductDto.cakeFlavorOptions)) {
+      throw new BadRequestException(PRODUCT_ERROR_MESSAGES.FLAVOR_OPTION_REQUIRED);
+    }
+    const customOptions = normalizeCustomOptionsForSave(createProductDto.customOptions ?? [], []);
+
     try {
       return await this.prisma.$transaction(
         async (tx) => {
@@ -56,24 +67,15 @@ export class ProductCreateService {
           const randomPart = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
           const productNumber = `${dateStr}-${timePart}${randomPart}`;
 
-          const productType =
-            createProductDto.imageUploadEnabled === EnableStatus.ENABLE
-              ? ProductType.CUSTOM_CAKE
-              : ProductType.BASIC_CAKE;
+          const cakeSizeOptionsWithId = createProductDto.cakeSizeOptions.map((option) => ({
+            ...option,
+            id: option.id ?? this.generateOptionId("size"),
+          }));
 
-          const cakeSizeOptionsWithId = createProductDto.cakeSizeOptions
-            ? createProductDto.cakeSizeOptions.map((option) => ({
-                ...option,
-                id: option.id ?? this.generateOptionId("size"),
-              }))
-            : [];
-
-          const cakeFlavorOptionsWithId = createProductDto.cakeFlavorOptions
-            ? createProductDto.cakeFlavorOptions.map((option) => ({
-                ...option,
-                id: option.id ?? this.generateOptionId("flavor"),
-              }))
-            : [];
+          const cakeFlavorOptionsWithId = createProductDto.cakeFlavorOptions.map((option) => ({
+            ...option,
+            id: option.id ?? this.generateOptionId("flavor"),
+          }));
 
           const productData: Prisma.ProductCreateInput = {
             store: {
@@ -89,11 +91,13 @@ export class ProductCreateService {
             visibilityStatus: createProductDto.visibilityStatus,
             cakeSizeOptions: cakeSizeOptionsWithId as unknown as Prisma.InputJsonValue,
             cakeFlavorOptions: cakeFlavorOptionsWithId as unknown as Prisma.InputJsonValue,
-            letteringVisible: createProductDto.letteringVisible,
-            letteringMaxLength: createProductDto.letteringMaxLength,
-            imageUploadEnabled: createProductDto.imageUploadEnabled,
-            productType,
-            productCategoryTypes: createProductDto.productCategoryTypes ?? [],
+            customOptions: customOptions as unknown as Prisma.InputJsonValue,
+            ...deriveLegacyOptionFields(customOptions),
+            productType: createProductDto.productType,
+            productCategoryTypes: syncCustomCategory(
+              createProductDto.productCategoryTypes ?? [],
+              createProductDto.productType,
+            ),
             searchTags: createProductDto.searchTags ?? [],
             detailDescription: createProductDto.detailDescription,
             productNumber,

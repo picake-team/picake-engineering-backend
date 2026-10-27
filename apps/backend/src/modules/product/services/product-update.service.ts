@@ -1,10 +1,19 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { UpdateProductRequestDto } from "@apps/backend/modules/product/dto/product-update.dto";
 import {
-  EnableStatus,
+  PRODUCT_ERROR_MESSAGES,
+  ProductCategoryType,
   ProductType,
 } from "@apps/backend/modules/product/constants/product.constants";
+import {
+  canonicalJson,
+  deriveLegacyOptionFields,
+  hasVisibleOption,
+  normalizeCustomOptionsForSave,
+  parseCustomOptions,
+  syncCustomCategory,
+} from "@apps/backend/modules/product/utils/product-custom-option.util";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { ProductOwnershipUtil } from "@apps/backend/modules/product/utils/product-ownership.util";
@@ -86,6 +95,9 @@ export class ProductUpdateService {
         salePrice: true,
         cakeSizeOptions: true,
         cakeFlavorOptions: true,
+        customOptions: true,
+        productType: true,
+        productCategoryTypes: true,
       },
     });
 
@@ -95,6 +107,8 @@ export class ProductUpdateService {
     validateProductPrices(nextOriginalPrice, nextSalePrice);
 
     const updateData: Prisma.ProductUpdateInput = {};
+    // 사이즈·맛·추가 옵션 중 하나라도 실제로 바뀌면 optionsVersion을 올린다
+    let optionsChanged = false;
 
     if (updateProductDto.name !== undefined) {
       updateData.name = updateProductDto.name;
@@ -124,6 +138,10 @@ export class ProductUpdateService {
         "size",
       );
 
+      if (!hasVisibleOption(nextSizeOptions)) {
+        throw new BadRequestException(PRODUCT_ERROR_MESSAGES.SIZE_OPTION_REQUIRED);
+      }
+      optionsChanged ||= canonicalJson(nextSizeOptions) !== canonicalJson(existingSizeOptions);
       updateData.cakeSizeOptions = nextSizeOptions as unknown as Prisma.InputJsonValue;
     }
 
@@ -137,26 +155,41 @@ export class ProductUpdateService {
         "flavor",
       );
 
+      if (!hasVisibleOption(nextFlavorOptions)) {
+        throw new BadRequestException(PRODUCT_ERROR_MESSAGES.FLAVOR_OPTION_REQUIRED);
+      }
+      optionsChanged ||= canonicalJson(nextFlavorOptions) !== canonicalJson(existingFlavorOptions);
       updateData.cakeFlavorOptions = nextFlavorOptions as unknown as Prisma.InputJsonValue;
     }
-    if (updateProductDto.letteringVisible !== undefined) {
-      updateData.letteringVisible = updateProductDto.letteringVisible;
+    if (updateProductDto.customOptions !== undefined) {
+      const nextCustomOptions = normalizeCustomOptionsForSave(
+        updateProductDto.customOptions,
+        product!.customOptions,
+      );
+      optionsChanged ||=
+        canonicalJson(nextCustomOptions) !==
+        canonicalJson(parseCustomOptions(product!.customOptions));
+      updateData.customOptions = nextCustomOptions as unknown as Prisma.InputJsonValue;
+      Object.assign(updateData, deriveLegacyOptionFields(nextCustomOptions));
     }
-    if (updateProductDto.letteringMaxLength !== undefined) {
-      updateData.letteringMaxLength = updateProductDto.letteringMaxLength;
+    if (optionsChanged) {
+      updateData.optionsVersion = { increment: 1 };
     }
-    if (updateProductDto.imageUploadEnabled !== undefined) {
-      updateData.imageUploadEnabled = updateProductDto.imageUploadEnabled;
-      updateData.productType =
-        updateProductDto.imageUploadEnabled === EnableStatus.ENABLE
-          ? ProductType.CUSTOM_CAKE
-          : ProductType.BASIC_CAKE;
+    if (updateProductDto.productType !== undefined) {
+      updateData.productType = updateProductDto.productType;
+    }
+    if (
+      updateProductDto.productType !== undefined ||
+      updateProductDto.productCategoryTypes !== undefined
+    ) {
+      updateData.productCategoryTypes = syncCustomCategory(
+        updateProductDto.productCategoryTypes ??
+          (product!.productCategoryTypes as ProductCategoryType[]),
+        updateProductDto.productType ?? (product!.productType as ProductType),
+      );
     }
     if (updateProductDto.detailDescription !== undefined) {
       updateData.detailDescription = updateProductDto.detailDescription;
-    }
-    if (updateProductDto.productCategoryTypes !== undefined) {
-      updateData.productCategoryTypes = updateProductDto.productCategoryTypes;
     }
     if (updateProductDto.searchTags !== undefined) {
       updateData.searchTags = updateProductDto.searchTags;
