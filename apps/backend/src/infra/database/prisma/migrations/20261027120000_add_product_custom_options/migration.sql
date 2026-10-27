@@ -1,7 +1,7 @@
 -- 상품 추가 옵션(커스텀 옵션) 도입
 -- 1) 컬럼 추가: products.custom_options / options_version, order_items.selected_options / options_price
 -- 2) 레거시 레터링·이미지 등록 설정을 추가 옵션(직접입력형·사진첨부형)으로 변환
--- 3) 상품 유형 초기값 정리 + 카테고리 '커스텀'(LETTERING)을 상품 유형과 일치시킴
+-- 3) 카테고리 '커스텀'(LETTERING)을 상품 유형과 일치시킴 (상품 유형은 그대로 유지)
 -- 4) 기존 주문 항목의 레터링·참고사진을 selected_options로 복사 (레거시 컬럼은 정리 단계까지 유지)
 
 -- AlterTable
@@ -45,13 +45,14 @@ SET "custom_options" = (
 )
 WHERE p."custom_options" = '[]'::jsonb;
 
--- 상품 유형 초기값: 이미지 등록 사용(기존 CUSTOM_CAKE) 또는 카테고리 '커스텀'이 있으면 커스텀
+-- 카테고리 '커스텀'은 상품 유형을 따라간다 (검색·지도 필터와 스토어 상세 탭 결과를 일치)
+-- 상품 유형은 바꾸지 않는다: 스토어 상세 기본/커스텀 탭이 상품 유형 기준이라, 바꾸면 구매자가 보던 탭이 달라진다.
+-- (운영에는 카테고리를 전부 체크해 '커스텀'이 들어간 기본 케이크가 있어, 카테고리 기준으로 바꾸면 기본 탭이 비게 됨)
 UPDATE "products"
-SET "product_type" = 'CUSTOM_CAKE'
+SET "product_category_types" = array_remove("product_category_types", 'LETTERING'::"ProductCategoryType")
 WHERE "product_type"::text = 'BASIC_CAKE'
   AND 'LETTERING'::"ProductCategoryType" = ANY(COALESCE("product_category_types", ARRAY[]::"ProductCategoryType"[]));
 
--- 카테고리 '커스텀'은 상품 유형을 따라간다 (검색·지도 필터와 스토어 상세 탭 결과를 일치)
 UPDATE "products"
 SET "product_category_types" = array_append(
   COALESCE("product_category_types", ARRAY[]::"ProductCategoryType"[]),
