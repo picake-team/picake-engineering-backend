@@ -104,6 +104,38 @@ export class NaverPlaceBusinessHoursDto {
 }
 
 /**
+ * 네이버 영업시간을 Picake 영업 캘린더 형식으로 바꾼 제안값 (판매자가 골라야 반영)
+ */
+export class NaverPlaceCalendarSuggestionDto {
+  @ApiPropertyOptional({
+    description: "정기 휴무 요일 (0=일 … 6=토). 영업시간 정보가 없으면 null",
+    example: [2],
+    type: [Number],
+    nullable: true,
+  })
+  weeklyClosedWeekdays: number[] | null;
+
+  @ApiPropertyOptional({
+    description: "표준 영업 시작 HH:mm (가장 많은 요일이 쓰는 시간, 30분 단위가 아니면 null)",
+    example: "11:00",
+    nullable: true,
+  })
+  standardOpenTime: string | null;
+
+  @ApiPropertyOptional({ description: "표준 영업 종료 HH:mm", example: "19:00", nullable: true })
+  standardCloseTime: string | null;
+
+  @ApiProperty({
+    description: "그대로 옮길 수 없어 직접 설정해야 하는 항목 (요일마다 다른 시간, 쉬는 시간 등)",
+    example: [
+      "영업시간이 다른 요일이 있어요: 목요일 14:00~19:00. 날짜별 예외로 따로 설정해 주세요.",
+    ],
+    type: [String],
+  })
+  warnings: string[];
+}
+
+/**
  * 네이버 플레이스 미리보기 응답 DTO
  */
 export class NaverPlacePreviewResponseDto {
@@ -131,6 +163,13 @@ export class NaverPlacePreviewResponseDto {
     type: NaverPlaceBusinessHoursDto,
   })
   businessHours: NaverPlaceBusinessHoursDto;
+
+  @ApiProperty({
+    description:
+      "네이버 영업시간을 영업 캘린더(정기 휴무·표준 영업시간) 형식으로 바꾼 제안값. 자동으로 반영하지 않습니다.",
+    type: NaverPlaceCalendarSuggestionDto,
+  })
+  calendarSuggestion: NaverPlaceCalendarSuggestionDto;
 
   @ApiProperty({
     description: "그대로 쓸 수 없거나 확인이 필요한 항목",

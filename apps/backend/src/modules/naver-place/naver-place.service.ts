@@ -23,7 +23,10 @@ import {
   NaverPlaceInfo,
   parseNaverPlace,
 } from "@apps/backend/modules/naver-place/utils/naver-place-parser.util";
-import { toStorePrefill } from "@apps/backend/modules/naver-place/utils/naver-place-store-prefill.util";
+import {
+  mapNaverBusinessHours,
+  toStorePrefill,
+} from "@apps/backend/modules/naver-place/utils/naver-place-store-prefill.util";
 import { ExternalApiErrorUtil } from "@apps/backend/common/utils/external-api-error.util";
 import { NaverPlacePreviewResponseDto } from "@apps/backend/modules/naver-place/dto/naver-place-preview.dto";
 
@@ -74,6 +77,7 @@ export class NaverPlaceService {
         })),
         freeText: info.businessHours.freeText,
       },
+      calendarSuggestion: mapNaverBusinessHours(info),
       warnings,
     };
   }
