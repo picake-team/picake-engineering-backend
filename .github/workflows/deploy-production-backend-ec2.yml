@@ -113,9 +113,9 @@ jobs:
 
             # 오래된 백업 파일 정리 (항상 실행, 디스크 사용량에 따라 유지 개수만 조정)
             echo "🗑️ 오래된 백업 파일 정리 중..."
-            cleanup_old_backups "서버" "~/picake.backup.*" "$USE_PERCENT"
-            cleanup_old_backups "DB" "~/db-backup.*.sql.gz" "$USE_PERCENT"
-            cleanup_old_backups "DB" "~/db-backup.*.dump" "$USE_PERCENT"
+            cleanup_old_backups "서버" "$HOME/picake.backup.*" "$USE_PERCENT"
+            cleanup_old_backups "DB" "$HOME/db-backup.*.sql.gz" "$USE_PERCENT"
+            cleanup_old_backups "DB" "$HOME/db-backup.*.dump" "$USE_PERCENT"
 
             # 디스크 사용량이 80% 이상이면 추가 정리 작업 수행
             if [ "$USE_PERCENT" -gt 80 ]; then
@@ -219,9 +219,9 @@ jobs:
 
             if [ "$USE_PERCENT" -gt 90 ]; then
               echo "⚠️ 디스크 사용량이 ${USE_PERCENT}%로 높습니다. 추가 정리 중..."
-              cleanup_old_backups "서버" "~/picake.backup.*" "$USE_PERCENT"
-              cleanup_old_backups "DB" "~/db-backup.*.sql.gz" "$USE_PERCENT"
-              cleanup_old_backups "DB" "~/db-backup.*.dump" "$USE_PERCENT"
+              cleanup_old_backups "서버" "$HOME/picake.backup.*" "$USE_PERCENT"
+              cleanup_old_backups "DB" "$HOME/db-backup.*.sql.gz" "$USE_PERCENT"
+              cleanup_old_backups "DB" "$HOME/db-backup.*.dump" "$USE_PERCENT"
               USE_PERCENT=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
               echo "추가 정리 후 디스크 사용량: ${USE_PERCENT}%"
             fi
@@ -385,6 +385,19 @@ jobs:
 
             cd ~/picake
 
+            echo "💾 스왑 메모리 확인 (서버에서 빌드할 때 메모리가 모자라 멈추지 않게)"
+            ensure_swap() {
+              if swapon --show 2>/dev/null | grep -q '/swapfile'; then echo "스왑 있음"; return 0; fi
+              if [ ! -f /swapfile ]; then
+                sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile >/dev/null || return 1
+              fi
+              sudo swapon /swapfile || return 1
+              grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+              echo "스왑 2GB 켬"
+            }
+            ensure_swap || echo "⚠️ 스왑을 켜지 못했어요 (배포는 계속)"
+            free -m | sed -n '1,3p' || true
+
             echo "🔨 Backend build"
             yarn run backend:build || {
               echo "❌ 빌드 실패"
@@ -405,6 +418,12 @@ jobs:
 
             # 배포 성공 시 trap 해제
             trap - ERR
+
+            # 서버를 재부팅해도 앱이 다시 켜지게 (한 번만 설정, 실패해도 배포는 성공으로 둔다)
+            if ! systemctl is-enabled pm2-ec2-user >/dev/null 2>&1; then
+              sudo env PATH="$PATH:$(dirname "$(command -v node)")" "$(command -v pm2)" startup systemd -u ec2-user --hp /home/ec2-user >/dev/null 2>&1 \
+                && echo "pm2 자동 시작 설정함" || echo "⚠️ pm2 자동 시작 설정 실패 (배포는 계속)"
+            fi
 
             echo "✅ 배포 완료!"
             pm2 list
@@ -460,9 +479,9 @@ jobs:
 
             # 배포 성공 후 오래된 백업 정리 (디스크 사용량에 따라 동적 조정)
             USE_PERCENT=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
-            cleanup_old_backups "서버" "~/picake.backup.*" "$USE_PERCENT"
-            cleanup_old_backups "DB" "~/db-backup.*.sql.gz" "$USE_PERCENT"
-            cleanup_old_backups "DB" "~/db-backup.*.dump" "$USE_PERCENT"
+            cleanup_old_backups "서버" "$HOME/picake.backup.*" "$USE_PERCENT"
+            cleanup_old_backups "DB" "$HOME/db-backup.*.sql.gz" "$USE_PERCENT"
+            cleanup_old_backups "DB" "$HOME/db-backup.*.dump" "$USE_PERCENT"
 
       - name: Verify SSL certificate and HTTPS health
         if: success()
