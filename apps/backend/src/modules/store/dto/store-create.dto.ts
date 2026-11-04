@@ -1,6 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { ValidateNested, IsEnum, IsOptional, IsString } from "class-validator";
+import { ValidateNested, IsEnum, IsOptional, IsString, Matches } from "class-validator";
+import { NAVER_PLACE_ID_REGEX } from "@apps/backend/modules/naver-place/utils/naver-place-url.util";
 import {
   BusinessValidationRequestDto,
   OnlineTradingCompanyDetailRequestDto,
@@ -92,6 +93,17 @@ export class CreateStoreRequestDto extends StoreAddressDto {
   @IsOptional()
   @IsString()
   instagramId?: string;
+
+  @ApiProperty({
+    description:
+      "연결할 네이버 플레이스 ID (네이버 미리보기에서 받은 값). 판매자가 자기 매장이 맞다고 확인한 경우에만 보냅니다.",
+    example: "1234567890",
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(NAVER_PLACE_ID_REGEX, { message: "네이버 플레이스 ID 형식이 아닙니다." })
+  naverPlaceId?: string;
 
   @ApiProperty({
     description: "정산 계좌번호 (숫자, 하이픈, 공백)",

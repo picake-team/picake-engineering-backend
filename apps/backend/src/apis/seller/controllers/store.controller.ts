@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Put,
+  Delete,
   Body,
   HttpCode,
   HttpStatus,
@@ -11,6 +12,13 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiExtraModels } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
+import { StoreNaverPlaceService } from "@apps/backend/modules/store/services/store-naver-place.service";
+import {
+  ConnectNaverPlaceRequestDto,
+  NaverPlacePreviewResponseDto,
+} from "@apps/backend/modules/naver-place/dto/naver-place-preview.dto";
+import { NAVER_PLACE_ERROR_MESSAGES } from "@apps/backend/modules/naver-place/constants/naver-place.constants";
 import { StoreService } from "@apps/backend/modules/store/store.service";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
@@ -62,7 +70,10 @@ import {
 @Controller(`${AUDIENCE.SELLER}/store`)
 @Auth({ isPublic: false, audiences: ["seller"] }) // 판매자 JWT(aud: seller)만 허용
 export class SellerStoreController {
-  constructor(private readonly storeService: StoreService) {}
+  constructor(
+    private readonly storeService: StoreService,
+    private readonly storeNaverPlaceService: StoreNaverPlaceService,
+  ) {}
 
   /**
    * 스토어 생성 API (3단계)
@@ -225,5 +236,52 @@ export class SellerStoreController {
     @Request() req: { user: JwtVerifiedPayload },
   ) {
     return await this.storeService.updateStoreForSeller(id, updateStoreDto, req.user);
+  }
+
+  /**
+   * 네이버 플레이스 연결 API
+   * 매장 정보 가져오기·갱신에 쓸 네이버 매장을 정해 둡니다. 스토어 정보는 바꾸지 않습니다.
+   */
+  @Put(":id/naver-place")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({
+    summary: "(로그인 필요) 스토어에 네이버 플레이스 연결",
+    description:
+      "미리보기에서 받은 플레이스 ID를 스토어에 연결합니다. 네이버에서 매장을 다시 확인한 뒤 저장하고, 확인한 매장 정보를 돌려줍니다. \n이미 연결돼 있으면 새 플레이스로 바꿉니다. 스토어 정보(이름·주소 등)는 바꾸지 않습니다. \n연결은 매장 소유 인증이 아닙니다.",
+  })
+  @SwaggerResponse(200, { dataDto: NaverPlacePreviewResponseDto })
+  @SwaggerAuthResponses()
+  @SwaggerResponse(403, { dataExample: createMessageObject(STORE_ERROR_MESSAGES.FORBIDDEN) })
+  @SwaggerResponse(404, { dataExample: createMessageObject(NAVER_PLACE_ERROR_MESSAGES.NOT_FOUND) })
+  @SwaggerResponse(502, {
+    dataExample: createMessageObject(NAVER_PLACE_ERROR_MESSAGES.FETCH_FAILED),
+  })
+  async connectNaverPlace(
+    @Param("id") id: string,
+    @Body() body: ConnectNaverPlaceRequestDto,
+    @Request() req: { user: JwtVerifiedPayload },
+  ) {
+    return await this.storeNaverPlaceService.connectForSeller(id, body.placeId, req.user);
+  }
+
+  /**
+   * 네이버 플레이스 연결 해제 API
+   */
+  @Delete(":id/naver-place")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "(로그인 필요) 스토어의 네이버 플레이스 연결 해제",
+    description: "네이버 플레이스 연결을 끊습니다. 이미 가져와 저장한 스토어 정보는 그대로 둡니다.",
+  })
+  @SwaggerResponse(200, { dataDto: UpdateStoreResponseDto })
+  @SwaggerAuthResponses()
+  @SwaggerResponse(403, { dataExample: createMessageObject(STORE_ERROR_MESSAGES.FORBIDDEN) })
+  @SwaggerResponse(404, { dataExample: createMessageObject(STORE_ERROR_MESSAGES.NOT_FOUND) })
+  async disconnectNaverPlace(
+    @Param("id") id: string,
+    @Request() req: { user: JwtVerifiedPayload },
+  ) {
+    return await this.storeNaverPlaceService.disconnectForSeller(id, req.user);
   }
 }

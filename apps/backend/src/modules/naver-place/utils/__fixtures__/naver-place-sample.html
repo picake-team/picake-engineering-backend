@@ -1,0 +1,286 @@
+<!doctype html>
+<!-- 테스트용으로 만든 가짜 네이버 플레이스 페이지. 실제 매장 정보가 아니다. 파서가 읽는 구조만 따라 만들었다. -->
+<html lang="ko">
+<head><meta charset="utf-8" /><title>피케이크 샘플 공방 : 네이버</title></head>
+<body>
+<div id="app-root"></div>
+<script>
+window.__APOLLO_STATE__ = {
+ "ROOT_QUERY": {
+  "__typename": "Query",
+  "placeDetail({\"input\":{\"deviceType\":\"mobile\",\"id\":\"1234567890\",\"isNx\":false}})": {
+   "__ref": "PlaceDetail:1234567890"
+  }
+ },
+ "PlaceDetail:1234567890": {
+  "__typename": "PlaceDetail",
+  "base": {
+   "__ref": "PlaceDetailBase:1234567890"
+  },
+  "description": "피케이크 샘플 공방은 2020년 문을 연 주문 제작 레터링 케이크 공방입니다.",
+  "phoneInfo": {
+   "phone": "0507-1234-5678",
+   "isVirtualPhone": true
+  },
+  "newBusinessHours": [
+   {
+    "businessStatusDescription": {
+     "status": "영업 중",
+     "description": "19:00에 영업 종료"
+    },
+    "businessHours": [
+     {
+      "day": "월",
+      "businessHours": {
+       "start": "11:00",
+       "end": "19:00"
+      },
+      "breakHours": [],
+      "lastOrderTimes": [
+       {
+        "type": "",
+        "time": "18:30"
+       }
+      ],
+      "description": null
+     },
+     {
+      "day": "화",
+      "businessHours": null,
+      "breakHours": [],
+      "lastOrderTimes": [],
+      "description": "매주 화요일 정기휴무"
+     },
+     {
+      "day": "수",
+      "businessHours": {
+       "start": "11:00",
+       "end": "19:00"
+      },
+      "breakHours": [],
+      "lastOrderTimes": [],
+      "description": null
+     },
+     {
+      "day": "목",
+      "businessHours": {
+       "start": "14:00",
+       "end": "19:00"
+      },
+      "breakHours": [
+       {
+        "start": "16:00",
+        "end": "16:30"
+       }
+      ],
+      "lastOrderTimes": [],
+      "description": null
+     },
+     {
+      "day": "금",
+      "businessHours": {
+       "start": "11:00",
+       "end": "19:00"
+      },
+      "breakHours": [],
+      "lastOrderTimes": [],
+      "description": null
+     },
+     {
+      "day": "토",
+      "businessHours": {
+       "start": "11:00",
+       "end": "19:00"
+      },
+      "breakHours": [],
+      "lastOrderTimes": [],
+      "description": null
+     },
+     {
+      "day": "일",
+      "businessHours": {
+       "start": "11:00",
+       "end": "19:00"
+      },
+      "breakHours": [],
+      "lastOrderTimes": [],
+      "description": null
+     }
+    ],
+    "freeText": "모든 케이크는 사전예약제로 운영합니다"
+   }
+  ],
+  "homepages": {
+   "repr": {
+    "type": "인스타그램",
+    "url": "http://instagram.com/picake_sample",
+    "landingUrl": "http://instagram.com/picake_sample"
+   },
+   "etc": [
+    {
+     "type": "블로그",
+     "url": "https://blog.example.com/picake_sample"
+    },
+    {
+     "type": "홈페이지",
+     "url": "https://picake-sample.example.com"
+    }
+   ]
+  },
+  "placeMenus": {
+   "categories": [
+    {
+     "__ref": "PlaceMenuCategory:recommend"
+    }
+   ],
+   "items": [
+    {
+     "__ref": "PlaceMenu:m1"
+    },
+    {
+     "__ref": "PlaceMenu:m2"
+    },
+    {
+     "__ref": "PlaceMenu:m3"
+    }
+   ]
+  },
+  "menuImages": [
+   {
+    "imageUrl": "https://example.com/menu-board.jpg"
+   }
+  ],
+  "topPhotos": {
+   "total": 12,
+   "items": [
+    {
+     "__ref": "Photo:p1"
+    },
+    {
+     "__ref": "Photo:p2"
+    },
+    {
+     "__ref": "Photo:p3"
+    }
+   ]
+  },
+  "images": {
+   "images": [
+    {
+     "origin": "https://example.com/fallback.jpg"
+    }
+   ]
+  },
+  "visitorReviewStats": {
+   "__ref": "VisitorReviewStatsResult:1234567890"
+  },
+  "informationTab": {
+   "keywordList": [
+    "레터링케이크",
+    "제작케이크"
+   ],
+   "parkingInfo": {
+    "description": "건물 뒤 공영주차장을 이용해 주세요"
+   }
+  },
+  "naverBooking": {
+   "naverBookingUrl": "https://booking.naver.com/booking/6/bizes/000000"
+  }
+ },
+ "PlaceDetailBase:1234567890": {
+  "__typename": "PlaceDetailBase",
+  "id": "1234567890",
+  "name": "피케이크 샘플 공방",
+  "category": "카페,디저트",
+  "roadAddress": "서울 마포구 샘플로 1 1층",
+  "address": "서울 마포구 샘플동 1-1",
+  "coordinate": {
+   "x": "126.9",
+   "y": "37.55"
+  },
+  "road": "샘플역 1번 출구에서 100m",
+  "conveniences": [
+   "포장",
+   "예약"
+  ],
+  "paymentInfo": [
+   "제로페이"
+  ],
+  "visitorReviewsTotal": 10,
+  "visitorReviewsScore": 4.9,
+  "cafeBlogReviewsTotal": 3,
+  "missingInfo": {
+   "isDescriptionMissing": false,
+   "isMenuImageMissing": false
+  }
+ },
+ "PlaceMenuCategory:recommend": {
+  "kind": "recommend",
+  "itemIds": [
+   "m1"
+  ]
+ },
+ "PlaceMenu:m1": {
+  "id": "m1",
+  "name": "레터링 케이크 1호",
+  "price": {
+   "displayText": "35,000원"
+  },
+  "description": "원하는 문구를 올려 드려요",
+  "images": [
+   "https://example.com/m1.jpg"
+  ]
+ },
+ "PlaceMenu:m2": {
+  "id": "m2",
+  "name": "생크림 케이크 2호",
+  "price": {
+   "price": "42000"
+  },
+  "description": null,
+  "thumbnailUrl": "https://example.com/m2.jpg"
+ },
+ "PlaceMenu:m3": {
+  "id": "m3",
+  "name": "휘낭시에",
+  "price": null,
+  "description": null
+ },
+ "Photo:p1": {
+  "mediaFormat": "image",
+  "originalUrl": "https://example.com/p1.jpg"
+ },
+ "Photo:p2": {
+  "mediaFormat": "image",
+  "thumbnailUrl": "https://example.com/p2.jpg"
+ },
+ "Photo:p3": {
+  "mediaFormat": "video",
+  "originalUrl": "https://example.com/p3.mp4"
+ },
+ "VisitorReviewStatsResult:1234567890": {
+  "review": {
+   "totalCount": 10,
+   "avgRating": 4.9,
+   "imageReviewCount": 3
+  },
+  "analysis": {
+   "votedKeyword": {
+    "details": [
+     {
+      "displayName": "디저트가 맛있어요",
+      "count": 7
+     },
+     {
+      "displayName": "친절해요",
+      "count": 5
+     }
+    ]
+   }
+  }
+ }
+};
+window.__PLACE_STATE__ = {"note":"뒤따르는 스크립트의 };는 무시해야 한다"};
+</script>
+</body>
+</html>

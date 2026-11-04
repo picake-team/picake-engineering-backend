@@ -431,6 +431,10 @@ model Store {
   kakaoChannelId String? @map("kakao_channel_id") // 카카오채널 ID
   instagramId    String? @map("instagram_id") // 인스타그램 ID
 
+  // 비즈니스 필드 - 네이버 플레이스 연결 (매장 정보 가져오기·갱신용. 연결은 매장 소유 인증이 아니다)
+  naverPlaceId          String?   @map("naver_place_id") // 연결한 네이버 플레이스 ID
+  naverPlaceConnectedAt DateTime? @map("naver_place_connected_at") // 연결한 시각
+
   // 비즈니스 필드 - 영업 캘린더 (판매자 설정, Asia/Seoul 기준)
   /** 정기 휴무 요일 (0=일 … 6=토, 프론트 Date.getDay()와 동일) */
   weeklyClosedWeekdays Int[] @default([]) @map("weekly_closed_weekdays")
