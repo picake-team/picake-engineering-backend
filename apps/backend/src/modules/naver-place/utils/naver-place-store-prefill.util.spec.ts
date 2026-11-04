@@ -61,8 +61,8 @@ describe("toStorePrefill", () => {
     expect(warnings.some((w) => w.includes("이름을 고쳐 주세요"))).toBe(true);
   });
 
-  it("소개가 500자를 넘으면 자르지 않고 경고한다", () => {
-    const long = "가".repeat(501);
+  it("소개가 250자를 넘으면 자르지 않고 경고한다", () => {
+    const long = "가".repeat(251);
     const { storePrefill, warnings } = toStorePrefill({ ...sample, description: long });
     expect(storePrefill.description).toBe(long);
     expect(warnings.some((w) => w.includes("소개를 고쳐 주세요"))).toBe(true);
