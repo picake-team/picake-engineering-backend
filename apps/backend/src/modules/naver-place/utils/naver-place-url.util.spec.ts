@@ -14,6 +14,10 @@ describe("extractNaverPlaceId", () => {
     ["https://pcmap.place.naver.com/place/1234567890", "1234567890"],
     ["m.place.naver.com/restaurant/1234567890", "1234567890"],
     ["https://m.map.naver.com/siteview.naver?code=1234567890", "1234567890"],
+    [
+      "https://map.naver.com/?app=Y&pinType=site&appname=com.nhn.android.nmap&appMenu=location&pinId=1234567890&menu=location&version=2",
+      "1234567890",
+    ],
   ])("%s → %s", (input, expected) => {
     expect(extractNaverPlaceId(input)).toBe(expected);
   });
