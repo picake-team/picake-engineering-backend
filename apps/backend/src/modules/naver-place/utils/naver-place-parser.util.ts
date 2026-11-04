@@ -130,6 +130,15 @@ const num = (value: unknown): number | null => {
   return value !== null && value !== undefined && value !== "" && Number.isFinite(n) ? n : null;
 };
 
+/** 주소의 호스트가 instagram.com(또는 그 하위 도메인)인지 */
+const isInstagramUrl = (value: string): boolean => {
+  try {
+    return /(^|\.)instagram\.com$/i.test(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+};
+
 const strList = (value: unknown): string[] =>
   Array.isArray(value) ? value.map(str).filter((v): v is string => v !== null) : [];
 
@@ -167,7 +176,7 @@ export function parseNaverPlace(state: ApolloState, placeId: string): NaverPlace
     .map((h: any) => ({ type: str(h.type) ?? "", url: str(h.landingUrl) ?? str(h.url) ?? "" }))
     .filter((h) => h.url);
   const instagram =
-    allLinks.find((h) => h.type === "인스타그램" || /instagram\.com/i.test(h.url))?.url ?? null;
+    allLinks.find((h) => h.type === "인스타그램" || isInstagramUrl(h.url))?.url ?? null;
 
   const placeMenus = detail.placeMenus ?? {};
   const recommendedIds = new Set<string>(

@@ -1,9 +1,3 @@
-/**
- * 네이버 플레이스 상세 페이지 (모바일). `{placeId}` 자리에 플레이스 ID를 넣는다.
- * 업종(restaurant, hairshop 등)이 달라도 `/place/`로 요청하면 알맞은 경로로 리다이렉트된다.
- */
-export const NAVER_PLACE_HOME_URL = "https://m.place.naver.com/place/{placeId}/home";
-
 /** 상세 페이지 HTML 안에 화면 데이터를 담아 두는 전역 변수 */
 export const NAVER_PLACE_APOLLO_STATE_MARKER = "window.__APOLLO_STATE__";
 

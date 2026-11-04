@@ -22,12 +22,18 @@ export function parseNaverUrl(input: string): URL | null {
   }
 }
 
+/** 단축 링크 코드: 영문·숫자만 (예: naver.me/xAbCdEf 의 xAbCdEf) */
+export const NAVER_SHORT_CODE_REGEX = /^[A-Za-z0-9]{1,30}$/;
+
 /**
- * 네이버 지도 공유 단축 링크(naver.me)인지 확인한다.
+ * 네이버 지도 공유 단축 링크(naver.me)에서 코드를 꺼낸다. 단축 링크가 아니면 null.
+ * 요청 주소는 이 코드로만 다시 만들어, 입력한 주소로 직접 요청하지 않는다.
  */
-export function isNaverShortUrl(input: string): boolean {
+export function extractNaverShortCode(input: string): string | null {
   const url = parseNaverUrl(input);
-  return url?.hostname === NAVER_SHORT_URL_HOST;
+  if (url?.hostname !== NAVER_SHORT_URL_HOST) return null;
+  const code = url.pathname.split("/").filter(Boolean)[0];
+  return code && NAVER_SHORT_CODE_REGEX.test(code) ? code : null;
 }
 
 /**

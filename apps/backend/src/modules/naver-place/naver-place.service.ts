@@ -9,14 +9,14 @@ import {
   NAVER_PLACE_CACHE_MAX_SIZE,
   NAVER_PLACE_CACHE_TTL_MS,
   NAVER_PLACE_ERROR_MESSAGES,
-  NAVER_PLACE_HOME_URL,
   NAVER_PLACE_REQUEST_TIMEOUT_MS,
   NAVER_PLACE_USER_AGENT,
   NAVER_SHORT_URL_MAX_REDIRECTS,
 } from "@apps/backend/modules/naver-place/constants/naver-place.constants";
 import {
   extractNaverPlaceId,
-  isNaverShortUrl,
+  extractNaverShortCode,
+  NAVER_PLACE_ID_REGEX,
 } from "@apps/backend/modules/naver-place/utils/naver-place-url.util";
 import {
   extractApolloState,
@@ -87,9 +87,10 @@ export class NaverPlaceService {
       const placeId = extractNaverPlaceId(current);
       if (placeId) return placeId;
       // 단축 링크만 따라간다 (다른 도메인으로는 요청하지 않음)
-      if (!isNaverShortUrl(current)) break;
+      const shortCode = extractNaverShortCode(current);
+      if (!shortCode) break;
 
-      const location = await this.fetchRedirectLocation(current);
+      const location = await this.fetchShortUrlRedirect(shortCode);
       if (!location) break;
       current = new URL(location, current).toString();
     }
@@ -97,9 +98,11 @@ export class NaverPlaceService {
   }
 
   /**
-   * 리다이렉트 응답의 Location 헤더만 읽습니다.
+   * 단축 링크의 리다이렉트 응답에서 Location 헤더만 읽습니다.
+   * 요청 주소는 고정된 naver.me 주소와 검증한 코드로만 만듭니다.
    */
-  private async fetchRedirectLocation(url: string): Promise<string | null> {
+  private async fetchShortUrlRedirect(shortCode: string): Promise<string | null> {
+    const url = `https://naver.me/${encodeURIComponent(shortCode)}`;
     try {
       const response = await this.axiosInstance.get(url, {
         maxRedirects: 0,
@@ -144,8 +147,15 @@ export class NaverPlaceService {
     return { info, fetchedAt };
   }
 
+  /**
+   * 플레이스 상세 페이지(모바일)를 받습니다. 업종이 달라도 `/place/`로 요청하면 알맞은 경로로 리다이렉트됩니다.
+   * 요청 주소는 고정된 네이버 주소와 숫자만 있는 플레이스 ID로만 만듭니다.
+   */
   private async fetchPlaceHtml(placeId: string): Promise<string> {
-    const url = NAVER_PLACE_HOME_URL.replace("{placeId}", placeId);
+    if (!NAVER_PLACE_ID_REGEX.test(placeId)) {
+      throw new BadRequestException(NAVER_PLACE_ERROR_MESSAGES.INVALID_URL);
+    }
+    const url = `https://m.place.naver.com/place/${encodeURIComponent(placeId)}/home`;
     try {
       const response = await this.axiosInstance.get<string>(url, { responseType: "text" });
       return response.data;

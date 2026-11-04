@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { extractNaverPlaceId, isNaverShortUrl } from "./naver-place-url.util";
+import { extractNaverPlaceId, extractNaverShortCode } from "./naver-place-url.util";
 
 describe("extractNaverPlaceId", () => {
   it.each([
@@ -29,10 +29,17 @@ describe("extractNaverPlaceId", () => {
   });
 });
 
-describe("isNaverShortUrl", () => {
-  it("naver.me 링크만 단축 링크로 본다", () => {
-    expect(isNaverShortUrl("https://naver.me/xAbCdEf")).toBe(true);
-    expect(isNaverShortUrl("naver.me/xAbCdEf")).toBe(true);
-    expect(isNaverShortUrl("https://map.naver.com/p/entry/place/1234567890")).toBe(false);
+describe("extractNaverShortCode", () => {
+  it("naver.me 링크에서만 코드를 꺼낸다", () => {
+    expect(extractNaverShortCode("https://naver.me/xAbCdEf")).toBe("xAbCdEf");
+    expect(extractNaverShortCode("naver.me/xAbCdEf")).toBe("xAbCdEf");
+    expect(extractNaverShortCode("https://map.naver.com/p/entry/place/1234567890")).toBeNull();
+  });
+
+  it("다른 호스트나 이상한 코드는 받지 않는다", () => {
+    expect(extractNaverShortCode("https://naver.me.evil.example.com/xAbCdEf")).toBeNull();
+    expect(extractNaverShortCode("https://evil.example.com/naver.me/xAbCdEf")).toBeNull();
+    expect(extractNaverShortCode("https://naver.me/abc%2F..%2Fx")).toBeNull();
+    expect(extractNaverShortCode("https://naver.me/")).toBeNull();
   });
 });
