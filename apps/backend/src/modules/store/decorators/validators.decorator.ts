@@ -134,9 +134,9 @@ export class IsValidStoreDescriptionConstraint implements ValidatorConstraintInt
       return true;
     }
 
-    // 500자 초과 체크
-    if (description.length > 500) {
-      this.errorType = "500자초과";
+    // 250자 초과 체크 (판매자 화면·기획 P-46과 같은 기준)
+    if (description.length > 250) {
+      this.errorType = "250자초과";
       return false;
     }
 
@@ -152,8 +152,8 @@ export class IsValidStoreDescriptionConstraint implements ValidatorConstraintInt
   }
 
   defaultMessage(): string {
-    if (this.errorType === "500자초과") {
-      return "스토어 설명은 500자 이하로 입력해주세요.";
+    if (this.errorType === "250자초과") {
+      return "스토어 설명은 250자 이하로 입력해주세요.";
     }
     if (this.errorType === "HTML태그") {
       return "스토어 설명에는 HTML 태그를 사용할 수 없습니다.";
