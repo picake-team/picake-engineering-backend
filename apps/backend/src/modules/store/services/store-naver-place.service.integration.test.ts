@@ -29,6 +29,12 @@ describe("스토어 네이버 플레이스 연결 (integration)", () => {
       longitude: null,
     },
     businessHours: { days: [], freeText: null },
+    calendarSuggestion: {
+      weeklyClosedWeekdays: null,
+      standardOpenTime: null,
+      standardCloseTime: null,
+      warnings: [],
+    },
     warnings: [],
   });
 
