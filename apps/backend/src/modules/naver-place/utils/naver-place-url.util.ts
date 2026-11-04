@@ -46,6 +46,7 @@ export function extractNaverShortCode(input: string): string | null {
  * - https://map.naver.com/p/search/케이크/place/1855763938
  * - https://m.place.naver.com/restaurant/1855763938/home
  * - https://pcmap.place.naver.com/place/1855763938
+ * - https://map.naver.com/?app=Y&pinType=site&pinId=1855763938 (지도 앱 공유 링크가 넘어가는 주소)
  */
 export function extractNaverPlaceId(input: string): string | null {
   const trimmed = input.trim();
@@ -57,7 +58,13 @@ export function extractNaverPlaceId(input: string): string | null {
   const match = url.pathname.match(PLACE_ID_IN_PATH_REGEX);
   if (match) return match[1];
 
+  // 지도 앱 공유 링크(naver.me)가 넘어가는 형식: https://map.naver.com/?pinType=site&pinId=123456
   // 예전 형식: https://m.map.naver.com/siteview.naver?code=123456
-  const code = url.searchParams.get("code") ?? url.searchParams.get("id");
+  const pinType = url.searchParams.get("pinType");
+  const pinId =
+    pinType === null || pinType === "site" || pinType === "place"
+      ? url.searchParams.get("pinId")
+      : null;
+  const code = pinId ?? url.searchParams.get("code") ?? url.searchParams.get("id");
   return code && NAVER_PLACE_ID_REGEX.test(code) ? code : null;
 }
