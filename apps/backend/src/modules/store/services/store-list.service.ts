@@ -12,6 +12,7 @@ import {
 } from "@apps/backend/modules/product/constants/product.constants";
 import { StoreMapperUtil } from "@apps/backend/modules/store/utils/store-mapper.util";
 import { StoreResponseDto } from "@apps/backend/modules/store/dto/store-detail.dto";
+import { toStoreNaverPlace } from "@apps/backend/modules/store/utils/store-naver-place.util";
 import {
   GetStoresRequestDto,
   GetSellerStoresRequestDto,
@@ -312,6 +313,7 @@ export class StoreListService {
       this.prisma,
     )) as StoreResponseDto;
     storeResponse.isLiked = isLiked;
+    storeResponse.naverPlace = toStoreNaverPlace(store);
 
     return storeResponse;
   }

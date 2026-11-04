@@ -12,6 +12,23 @@ import { RefundCancellationPolicyDto } from "@apps/backend/modules/store/dto/sto
 import { SWAGGER_EXAMPLES as PRODUCT_SWAGGER_EXAMPLES } from "@apps/backend/modules/product/constants/product.constants";
 
 /**
+ * 스토어에 연결한 네이버 플레이스 (판매자 상세 조회에서만 제공)
+ */
+export class StoreNaverPlaceDto {
+  @ApiProperty({ description: "네이버 플레이스 ID", example: "1234567890" })
+  placeId: string;
+
+  @ApiProperty({
+    description: "네이버 지도 매장 주소",
+    example: "https://map.naver.com/p/entry/place/1234567890",
+  })
+  placeUrl: string;
+
+  @ApiProperty({ description: "연결한 시각", example: "2026-11-04T09:00:00.000Z" })
+  connectedAt: Date;
+}
+
+/**
  * 스토어 상품 대표이미지 (상품당 1장)
  */
 export class StoreProductRepresentativeImageDto {
@@ -154,6 +171,13 @@ export class StoreResponseDto extends StoreAddressDto {
     example: true,
   })
   isLiked?: boolean | null;
+
+  @ApiPropertyOptional({
+    description: "연결한 네이버 플레이스 (판매자 상세 조회에서만 제공, 연결 안 했으면 null)",
+    type: StoreNaverPlaceDto,
+    nullable: true,
+  })
+  naverPlace?: StoreNaverPlaceDto | null;
 
   @ApiProperty({
     description: "평균 별점 (해당 스토어의 모든 상품 후기들의 평균 별점)",

@@ -89,6 +89,9 @@ export class StoreCreateService {
               // 채널 정보
               kakaoChannelId: createStoreDto.kakaoChannelId?.trim(),
               instagramId: createStoreDto.instagramId?.trim(),
+              // 네이버 플레이스 연결 (판매자가 확인한 경우만)
+              naverPlaceId: createStoreDto.naverPlaceId ?? null,
+              naverPlaceConnectedAt: createStoreDto.naverPlaceId ? new Date() : null,
               refundCancellationPolicy: sanitizeRefundCancellationPolicyForDb(
                 createStoreDto.refundCancellationPolicy,
               ),
