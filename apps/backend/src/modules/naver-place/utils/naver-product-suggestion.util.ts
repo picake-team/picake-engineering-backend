@@ -11,9 +11,9 @@ import type {
 
 /**
  * 네이버 옵션을 Picake에서 어떻게 쓸지에 대한 제안
- * SIZE 사이즈 / FLAVOR 맛 / EXTRA 추가 옵션 선택지 / BASE 이 상품의 기본 가격(판매가)
+ * SIZE 사이즈 / EXTRA 추가 옵션 선택지(맛도 여기, 그룹 이름 "맛") / BASE 이 상품의 기본 가격(판매가)
  */
-export type NaverOptionRole = "SIZE" | "FLAVOR" | "EXTRA" | "BASE";
+export type NaverOptionRole = "SIZE" | "EXTRA" | "BASE";
 
 export type NaverProductOptionSuggestion = {
   optionId: string;
@@ -64,7 +64,10 @@ const SIZE_PATTERNS: { pattern: RegExp; displayName: CakeSizeDisplayName }[] = [
   { pattern: /(^|[^0-9])3\s*호/, displayName: CakeSizeDisplayName.SIZE_3 },
 ];
 
-/** 분류 이름으로 사이즈·맛 분류를 알아본다 (예: "케이크 사이즈 선택", "케이크 맛 선택", "맛") */
+/**
+ * 분류 이름으로 사이즈·맛 분류를 알아본다 (예: "케이크 사이즈 선택", "케이크 맛 선택", "맛").
+ * 맛은 따로 두지 않고 "맛"이라는 추가 옵션(하나 고르기, 필수)으로 넣는다.
+ */
 const SIZE_CATEGORY = /사이즈|크기|호수|size/i;
 const FLAVOR_CATEGORY = /맛(?!있)|flavou?r/i;
 
@@ -79,13 +82,17 @@ const PAYMENT_OPTION_NAME = /계약금|결제\s*창|개인\s*결제|선결제/;
 
 /** 추가 옵션 그룹 기본 이름 */
 export const NAVER_EXTRA_GROUP_NAME = "추가 선택";
+/** 맛 분류를 넣을 추가 옵션 이름 */
+export const NAVER_FLAVOR_GROUP_NAME = "맛";
 const REQUIRED_CATEGORY = /필수/;
 const GROUP_NAME_MAX = CUSTOM_OPTION_LIMITS.MAX_NAME_LENGTH;
 
 /** 분류 이름을 추가 옵션 그룹 이름으로: "(필수선택)" 같은 표시는 빼고 20자까지 */
 function toGroupName(categoryName: string | null): string {
   const cleaned = (categoryName ?? "").replace(/\(?\s*필수\s*선택\s*\)?/g, "").trim();
-  if (!cleaned || /^(사이즈|맛)$/.test(cleaned)) return NAVER_EXTRA_GROUP_NAME;
+  if (!cleaned || /^사이즈$/.test(cleaned)) return NAVER_EXTRA_GROUP_NAME;
+  // "케이크 맛 선택"처럼 맛 분류는 손님이 알아보기 쉽게 "맛"으로 줄인다
+  if (FLAVOR_CATEGORY.test(cleaned)) return NAVER_FLAVOR_GROUP_NAME;
   return cleaned.slice(0, GROUP_NAME_MAX);
 }
 
@@ -119,7 +126,7 @@ function decideRole(o: NaverBookingOption): {
   if (o.categoryName && SIZE_CATEGORY.test(o.categoryName))
     return { role: "SIZE", sizeDisplayName };
   if (o.categoryName && FLAVOR_CATEGORY.test(o.categoryName)) {
-    return { role: "FLAVOR", sizeDisplayName: null };
+    return { role: "EXTRA", sizeDisplayName: null };
   }
   return sizeDisplayName ? { role: "SIZE", sizeDisplayName } : { role: "EXTRA", sizeDisplayName };
 }
@@ -167,7 +174,10 @@ export function toNaverProductSuggestion(
       selectedByDefault: !invalidReason,
       invalidReason,
       groupName: toGroupName(o.categoryName),
-      groupRequired: !!o.categoryName && REQUIRED_CATEGORY.test(o.categoryName),
+      // 맛은 손님이 하나를 꼭 고르게 한다
+      groupRequired:
+        !!o.categoryName &&
+        (REQUIRED_CATEGORY.test(o.categoryName) || FLAVOR_CATEGORY.test(o.categoryName)),
     };
   });
 
@@ -179,7 +189,7 @@ export function toNaverProductSuggestion(
     if (!s.sizeDisplayName) continue;
     if (seenSize.has(s.sizeDisplayName)) {
       s.selectedByDefault = false;
-      s.invalidReason = `'${s.sizeDisplayName}' 사이즈가 이미 있어요. 맛이 다른 옵션이면 맛으로 따로 넣어 주세요.`;
+      s.invalidReason = `'${s.sizeDisplayName}' 사이즈가 이미 있어요. 맛이 다른 옵션이면 추가 옵션으로 넣어 주세요.`;
     }
     seenSize.add(s.sizeDisplayName);
   }
@@ -249,10 +259,6 @@ export function toNaverProductSuggestion(
     extras.slice(CUSTOM_OPTION_LIMITS.MAX_CHOICES).forEach((e) => (e.selectedByDefault = false));
   }
 
-  if (!suggestions.some((s) => s.role === "FLAVOR")) {
-    warnings.push(NAVER_PRODUCT_WARNINGS.FLAVOR_REQUIRED);
-  }
-
   const soldOutOptionNames = suggestions.filter((s) => s.isSoldOut).map((s) => s.name);
   if (soldOutOptionNames.length > 0) {
     warnings.push(NAVER_PRODUCT_WARNINGS.SOLD_OUT(soldOutOptionNames.join(", ")));
@@ -288,10 +294,7 @@ export function toNaverOptionProductSuggestion(
   item: NaverBookingItem,
   option: NaverBookingOption,
 ): NaverProductSuggestion {
-  const warnings = [
-    NAVER_PRODUCT_WARNINGS.OPTION_AS_PRODUCT(item.name),
-    NAVER_PRODUCT_WARNINGS.FLAVOR_REQUIRED,
-  ];
+  const warnings = [NAVER_PRODUCT_WARNINGS.OPTION_AS_PRODUCT(item.name)];
   if (option.isSoldOut) warnings.push(NAVER_PRODUCT_WARNINGS.SOLD_OUT(option.name));
   if (item.isClosed) warnings.push(NAVER_PRODUCT_WARNINGS.ITEM_CLOSED);
 

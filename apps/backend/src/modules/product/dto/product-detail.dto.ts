@@ -9,7 +9,6 @@ import { SWAGGER_EXAMPLES as STORE_SWAGGER_EXAMPLES } from "@apps/backend/module
 import { SWAGGER_EXAMPLES as UPLOAD_SWAGGER_EXAMPLES } from "@apps/backend/modules/upload/constants/upload.constants";
 import {
   CreateCakeSizeOptionDto,
-  CreateCakeFlavorOptionDto,
   CustomOptionDto,
 } from "@apps/backend/modules/product/dto/product-create.dto";
 import { PickupAddressDto } from "@apps/backend/modules/product/dto/product-common.dto";
@@ -22,17 +21,6 @@ export class CakeSizeOptionResponseDto extends CreateCakeSizeOptionDto {
   @ApiProperty({
     description: "옵션 고유 ID",
     example: SWAGGER_EXAMPLES.PRODUCT_DATA.cakeSizeOptions[0].id,
-  })
-  declare id: string;
-}
-
-/**
- * 케이크 맛 옵션 응답 DTO
- */
-export class CakeFlavorOptionResponseDto extends CreateCakeFlavorOptionDto {
-  @ApiProperty({
-    description: "옵션 고유 ID",
-    example: SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions[0].id,
   })
   declare id: string;
 }
@@ -98,13 +86,6 @@ export class ProductResponseDto extends PickupAddressDto {
     example: SWAGGER_EXAMPLES.PRODUCT_DATA.cakeSizeOptions,
   })
   cakeSizeOptions?: CakeSizeOptionResponseDto[] | null;
-
-  @ApiPropertyOptional({
-    description: "케이크 옵션 - 맛 목록",
-    type: [CakeFlavorOptionResponseDto],
-    example: SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions,
-  })
-  cakeFlavorOptions?: CakeFlavorOptionResponseDto[] | null;
 
   @ApiProperty({
     description:

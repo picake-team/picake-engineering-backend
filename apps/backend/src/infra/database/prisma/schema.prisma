@@ -323,10 +323,11 @@ model Product {
 
   // 비즈니스 필드 - 케이크 옵션
   cakeSizeOptions   Json? @map("cake_size_options") // 케이크 사이즈 옵션
-  cakeFlavorOptions  Json? @map("cake_flavor_options") // 케이크 맛 옵션
+  // 레거시: 맛은 추가 옵션 '맛'(하나 고르기)으로 옮김(20261105150000). 코드에서 쓰지 않고 정리 단계에서 삭제
+  cakeFlavorOptions  Json? @map("cake_flavor_options")
   // 추가 옵션(선택형·다중선택형·직접입력형·사진첨부형) 목록. 배열 순서가 구매자 화면 노출 순서
   customOptions      Json @default("[]") @map("custom_options")
-  // 사이즈·맛·추가 옵션이 바뀔 때마다 +1. 주문 시 클라이언트가 본 옵션과 다르면 거절하는 기준
+  // 사이즈·추가 옵션이 바뀔 때마다 +1. 주문 시 클라이언트가 본 옵션과 다르면 거절하는 기준
   optionsVersion     Int @default(0) @map("options_version")
   // 아래 3개는 customOptions로 이전된 레거시 필드. customOptions에서 계산해 저장하며 정리 단계에서 삭제
   letteringVisible   EnableStatus @map("lettering_visible") // 레터링 표시 여부
@@ -817,7 +818,7 @@ model ConsumerFcmToken {
 
 // OrderItem model for order items
 // 하나의 주문(Order)에 여러 개의 주문 항목(OrderItem)이 포함될 수 있습니다.
-// 각 OrderItem은 독립적인 옵션 조합을 가지며, 서로 다른 사이즈, 맛 등을 가질 수 있습니다.
+// 각 OrderItem은 독립적인 옵션 조합을 가지며, 서로 다른 사이즈·추가 옵션을 가질 수 있습니다.
 model OrderItem {
   // Primary Key
   id String @id @default(cuid())
@@ -833,10 +834,10 @@ model OrderItem {
   sizeLengthCm    Int? @map("size_length_cm") // 선택한 사이즈 길이 (cm 단위)
   sizeDescription String? @map("size_description") // 선택한 사이즈 설명
   sizePrice       Int? @map("size_price") // 사이즈 추가 가격
-  // 맛 옵션 정보
-  flavorId        String? @map("flavor_id") // 선택한 맛 옵션 ID
-  flavorDisplayName String? @map("flavor_display_name") // 선택한 맛 표시명 (예: "초콜릿", "바닐라")
-  flavorPrice     Int? @map("flavor_price") // 맛 추가 가격
+  // 레거시: 고른 맛은 selected_options의 '맛'으로 옮김(20261105150000). 코드에서 쓰지 않고 정리 단계에서 삭제
+  flavorId        String? @map("flavor_id")
+  flavorDisplayName String? @map("flavor_display_name")
+  flavorPrice     Int? @map("flavor_price")
   // 추가 옵션 선택 내역 (주문 시점 옵션명·선택지·가격 스냅샷)
   selectedOptions  Json @default("[]") @map("selected_options")
   optionsPrice     Int @default(0) @map("options_price") // 추가 옵션 금액 합계 (1개 기준)
@@ -844,7 +845,7 @@ model OrderItem {
   letteringMessage String? @map("lettering_message") @db.VarChar(500) // 레터링 메시지 (최대 500자)
   requestMessage   String? @map("request_message") @db.Text // 요청 사항
   quantity         Int // 수량
-  itemPrice        Int @map("item_price") // 개별 항목 가격 (기본 가격 + 사이즈 + 맛 + 추가 옵션 금액)
+  itemPrice        Int @map("item_price") // 개별 항목 가격 (기본 가격 + 사이즈 + 추가 옵션 금액)
   imageUrls        String[] @default([]) @map("image_urls") // 업로드한 이미지 URL 목록 (커스텀 케이크용)
 
   // 시스템 필드

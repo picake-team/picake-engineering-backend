@@ -87,45 +87,6 @@ export class CreateCakeSizeOptionDto {
 }
 
 /**
- * 케이크 맛 옵션 DTO (생성용 - id 선택적)
- */
-export class CreateCakeFlavorOptionDto {
-  @ApiPropertyOptional({
-    description: "옵션 고유 ID (신규 생성 시 생략 가능, 백엔드에서 자동 생성)",
-    example: "flavor_efgh5678",
-  })
-  @IsOptional()
-  @IsString()
-  id?: string;
-
-  @ApiProperty({
-    description: "노출 여부",
-    enum: EnableStatus,
-    example: EnableStatus.ENABLE,
-  })
-  @IsNotEmpty()
-  @IsEnum(EnableStatus)
-  visible: EnableStatus;
-
-  @ApiProperty({
-    description: "표시명",
-    example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions[0].displayName,
-  })
-  @IsNotEmpty()
-  @IsString()
-  displayName: string;
-
-  @ApiProperty({
-    description: "해당 맛 옵션의 추가 가격",
-    example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions[0].price,
-  })
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(0)
-  price: number;
-}
-
-/**
  * 추가 옵션 선택지 DTO (선택형·다중선택형)
  */
 export class CustomOptionChoiceDto {
@@ -319,17 +280,6 @@ export class CreateProductRequestDto {
   @ValidateNested({ each: true })
   @Type(() => CreateCakeSizeOptionDto)
   cakeSizeOptions: CreateCakeSizeOptionDto[];
-
-  @ApiProperty({
-    description:
-      "케이크 옵션 - 맛 목록 (선택. 비우거나 모두 숨기면 손님은 맛을 고르지 않고, 노출 중인 맛이 있으면 하나를 꼭 고른다)",
-    type: [CreateCakeFlavorOptionDto],
-    example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions,
-  })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateCakeFlavorOptionDto)
-  cakeFlavorOptions: CreateCakeFlavorOptionDto[];
 
   @ApiPropertyOptional({
     description: "추가 옵션 목록 (배열 순서가 구매자 화면 노출 순서). 생략 시 없음",

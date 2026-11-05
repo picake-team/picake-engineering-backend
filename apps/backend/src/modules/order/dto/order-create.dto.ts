@@ -105,32 +105,6 @@ export class CreateOrderItemDto {
   @Min(0)
   sizePrice?: number;
 
-  // 맛 옵션 정보 (옵션이 없는 상품의 경우 생략 가능)
-  @ApiPropertyOptional({
-    description: "선택한 맛 옵션 ID (맛 옵션이 없는 상품의 경우 생략)",
-    example: SWAGGER_EXAMPLES.ORDER_ITEM.flavorId,
-  })
-  @IsOptional()
-  @IsString()
-  flavorId?: string;
-
-  @ApiPropertyOptional({
-    description: "선택한 맛 표시명 (맛 옵션이 없는 상품의 경우 생략)",
-    example: SWAGGER_EXAMPLES.ORDER_ITEM.flavorDisplayName,
-  })
-  @IsOptional()
-  @IsString()
-  flavorDisplayName?: string;
-
-  @ApiPropertyOptional({
-    description: "맛 추가 가격 (맛 옵션이 없으면 0 또는 생략)",
-    example: SWAGGER_EXAMPLES.ORDER_ITEM.flavorPrice,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  flavorPrice?: number;
-
   @ApiPropertyOptional({
     description: "추가 옵션 선택값 목록 (옵션 ID 기준, 한 옵션당 1개)",
     type: [OrderItemOptionInputDto],
