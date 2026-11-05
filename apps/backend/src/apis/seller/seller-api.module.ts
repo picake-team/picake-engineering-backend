@@ -24,6 +24,8 @@ import { TermsModule } from "@apps/backend/modules/terms/terms.module";
 import { SellerTermsController } from "@apps/backend/apis/seller/controllers/terms.controller";
 import { NaverPlaceModule } from "@apps/backend/modules/naver-place/naver-place.module";
 import { SellerNaverPlaceController } from "@apps/backend/apis/seller/controllers/naver-place.controller";
+import { SellerProductNaverController } from "@apps/backend/apis/seller/controllers/product-naver.controller";
+import { ProductNaverModule } from "@apps/backend/modules/product-naver/product-naver.module";
 
 /**
  * Seller API 모듈
@@ -44,6 +46,7 @@ import { SellerNaverPlaceController } from "@apps/backend/apis/seller/controller
     NotificationModule,
     TermsModule,
     NaverPlaceModule,
+    ProductNaverModule,
     // ChatModule,
   ],
   controllers: [
@@ -60,6 +63,7 @@ import { SellerNaverPlaceController } from "@apps/backend/apis/seller/controller
     SellerMypageController,
     SellerTermsController,
     SellerNaverPlaceController,
+    SellerProductNaverController,
     // SellerChatController,
   ],
 })

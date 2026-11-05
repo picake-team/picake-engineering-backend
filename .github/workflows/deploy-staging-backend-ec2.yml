@@ -319,6 +319,9 @@ jobs:
             SOLAPI_API_SECRET=${{ secrets.SOLAPI_API_SECRET }}
             SOLAPI_SENDER_PHONE=${{ secrets.SOLAPI_SENDER_PHONE }}
             SOLAPI_PFID=${{ secrets.SOLAPI_PFID }}
+
+            # Claude API (상품 상세설명 AI 초안) - staging & production (공용). 없으면 AI 초안만 꺼진다
+            ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
             EOF
 
             # 환경 변수 파일 권한 설정
