@@ -61,11 +61,16 @@ describe("toStorePrefill", () => {
     expect(warnings.some((w) => w.includes("이름을 고쳐 주세요"))).toBe(true);
   });
 
-  it("소개가 250자를 넘으면 자르지 않고 경고한다", () => {
-    const long = "가".repeat(251);
+  it("소개가 2,000자를 넘으면 자르지 않고 경고한다", () => {
+    const long = "가".repeat(2001);
     const { storePrefill, warnings } = toStorePrefill({ ...sample, description: long });
     expect(storePrefill.description).toBe(long);
     expect(warnings.some((w) => w.includes("소개를 고쳐 주세요"))).toBe(true);
+  });
+
+  it("소개가 2,000자 이하면 경고하지 않는다 (네이버 소개글 한도)", () => {
+    const { warnings } = toStorePrefill({ ...sample, description: "가".repeat(2000) });
+    expect(warnings.some((w) => w.includes("소개를 고쳐 주세요"))).toBe(false);
   });
 
   it("연락처 형식이 맞지 않으면 안심번호 대신 형식 경고를 낸다", () => {

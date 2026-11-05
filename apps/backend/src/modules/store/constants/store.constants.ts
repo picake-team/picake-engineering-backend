@@ -5,6 +5,9 @@
 import { StoreBankName } from "@apps/backend/infra/database/prisma/generated/client";
 export { StoreBankName };
 
+/** 스토어 설명 최대 글자 수 (P-46). 네이버 플레이스 소개글 한도와 같다 */
+export const STORE_DESCRIPTION_MAX_LENGTH = 2000;
+
 export const STORE_ERROR_MESSAGES = {
   BUSINESS_REGISTRATION_NUMBER_MISMATCH:
     "1단계(사업자등록번호 진위확인)와 2단계(통신판매사업자 등록상세 조회)의 사업자등록번호가 일치하지 않습니다.",
