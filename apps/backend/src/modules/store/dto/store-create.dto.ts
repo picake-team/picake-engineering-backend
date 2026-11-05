@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import { ValidateNested, IsEnum, IsOptional, IsString, Matches } from "class-validator";
 import { NAVER_PLACE_ID_REGEX } from "@apps/backend/modules/naver-place/utils/naver-place-url.util";
@@ -36,14 +36,17 @@ export class CreateStoreRequestDto extends StoreAddressDto {
   @Type(() => BusinessValidationRequestDto)
   businessValidation: BusinessValidationRequestDto;
 
-  // 2단계: 통신판매사업자 등록상세 조회 요청
-  @ApiProperty({
-    description: "2단계 통신판매사업자 등록상세 조회 요청 정보",
+  // 2단계(선택): 통신판매사업자 등록상세 조회 요청
+  // 동네 가게가 근처 손님에게 음식료를 파는 거래는 전자상거래법 제3조 ④로 통신판매업 신고(제12조)가
+  // 적용되지 않아(2026-11 법 검토) 받지 않는다. 보내면 지금처럼 공정위 조회로 확인하고 신고번호를 저장한다
+  @ApiPropertyOptional({
+    description: "2단계 통신판매사업자 등록상세 조회 요청 정보 (선택)",
     type: OnlineTradingCompanyDetailRequestDto,
   })
+  @IsOptional()
   @ValidateNested()
   @Type(() => OnlineTradingCompanyDetailRequestDto)
-  onlineTradingCompanyDetail: OnlineTradingCompanyDetailRequestDto;
+  onlineTradingCompanyDetail?: OnlineTradingCompanyDetailRequestDto;
 
   // 3단계: 스토어 정보
   @ApiProperty({

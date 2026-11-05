@@ -236,8 +236,8 @@ export class StoreManagementDetailResponseDto extends StoreManagementItemRespons
   @ApiProperty({ description: "업태" })
   businessType: string;
 
-  @ApiProperty({ description: "통신판매사업자 인허가관리번호" })
-  permissionManagementNumber: string;
+  @ApiProperty({ nullable: true, description: "통신판매사업자 인허가관리번호 (선택)" })
+  permissionManagementNumber: string | null;
 
   @ApiProperty({ nullable: true, description: "정산 계좌번호" })
   bankAccountNumber: string | null;
