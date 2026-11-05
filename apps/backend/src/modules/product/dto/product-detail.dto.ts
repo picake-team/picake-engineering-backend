@@ -168,6 +168,16 @@ export class ProductResponseDto extends PickupAddressDto {
   })
   detailDescription?: string | null;
 
+  @ApiPropertyOptional({
+    description: "연결한 네이버 예약 상품 ID (판매자가 네이버에서 다시 불러올 때 씀)",
+    example: "7954953",
+    nullable: true,
+  })
+  naverBizItemId?: string | null;
+
+  @ApiPropertyOptional({ description: "네이버 상품을 연결한 시각", nullable: true })
+  naverLinkedAt?: Date | null;
+
   @ApiProperty({
     description: "상품번호",
     example: SWAGGER_EXAMPLES.PRODUCT_DATA.productNumber,
