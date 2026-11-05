@@ -22,6 +22,7 @@ yarn backend:build
 yarn backend:test:unit
 yarn backend:test:integration   # .env.test + 로컬 Postgres 필요
 yarn backend:test:e2e           # .env.test + 로컬 Postgres 필요
+yarn workspace @picake/backend ai:draft-smoke   # 실제 Claude API로 AI 초안 점검 (ANTHROPIC_API_KEY 필요, 보통은 GitHub Actions `AI Draft Smoke`로)
 yarn common:lint && yarn common:format:check
 ```
 

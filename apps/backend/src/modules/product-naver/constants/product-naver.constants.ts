@@ -14,15 +14,19 @@ export const NAVER_OPTION_ITEM_KEY_REGEX = /^(\d{1,15})-o(\d{1,15})$/;
 /** 목록에 보여 줄 설명 길이 */
 export const NAVER_PRODUCT_SUMMARY_LENGTH = 60;
 
-/** AI 상세설명 초안 설정 */
-export const PRODUCT_AI_DRAFT_MODEL = "claude-sonnet-5-5";
+/**
+ * AI 상세설명 초안 기본 모델. 짧은 문안이라 가장 싼 Haiku로 충분하다(입력·출력 단가가 Sonnet의 1/20).
+ * 바꾸려면 서버 환경 변수 ANTHROPIC_DRAFT_MODEL (예: claude-sonnet-5-5)
+ */
+export const PRODUCT_AI_DRAFT_MODEL = "claude-haiku-5-5";
 
 export const PRODUCT_AI_DRAFT_LIMITS = {
   MAX_NAME_LENGTH: 100,
   MAX_SOURCE_LENGTH: 4000,
   MAX_FACTS_LENGTH: 2000,
   MAX_OPTIONS_LENGTH: 1000,
-  MAX_OUTPUT_TOKENS: 2000,
+  /** 초안 3~6문단 + 질문이면 1천 토큰 안팎. 넘치면 잘린 응답 대신 실패로 처리 */
+  MAX_OUTPUT_TOKENS: 1500,
   /** 판매자 1명이 하루에 만들 수 있는 초안 수 */
   DAILY_PER_SELLER: 30,
 };

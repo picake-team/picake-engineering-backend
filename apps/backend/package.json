@@ -24,6 +24,7 @@
     "test:integration": "yarn db:migrate:test && dotenv -e ./.env.test -- vitest run -c vitest.integration.config.ts",
     "test:e2e": "yarn db:migrate:test && dotenv -e ./.env.test -- vitest run -c vitest.e2e.config.ts",
     "start:test": "dotenv -e ./.env.test -- nest start",
+    "ai:draft-smoke": "ts-node -r tsconfig-paths/register -O '{\"module\":\"CommonJS\"}' scripts/ai-draft-smoke.script.ts",
     "seed:e2e-fixture": "dotenv -e ./.env.test -- ts-node -r tsconfig-paths/register -O '{\"module\":\"CommonJS\"}' src/test/e2e/fixture-seed.script.ts"
   },
   "dependencies": {
