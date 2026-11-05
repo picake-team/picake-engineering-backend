@@ -40,8 +40,15 @@ const escapeTags = (text: string) =>
   text
     .replace(/</g, "‹")
     .replace(/>/g, "›")
-    .replace(/[ \t\u00a0]+/g, " ")
-    .replace(/ *\n */g, "\n")
+    .split("\n")
+    // 줄마다 앞뒤 공백을 자르고 줄 안의 연속 공백은 하나로 (정규식 반복 없이 줄 단위로 처리)
+    .map((line) =>
+      line
+        .trim()
+        .split(/[ \t\u00a0]+/)
+        .join(" "),
+    )
+    .join("\n")
     .replace(/\n{3,}/g, "\n\n");
 
 export function buildDescriptionDraftPrompt(request: ProductDescriptionDraftRequestDto): string {
