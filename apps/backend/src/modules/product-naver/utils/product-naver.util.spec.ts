@@ -43,3 +43,15 @@ describe("parseDescriptionDraft", () => {
     expect(parseDescriptionDraft(JSON.stringify({ paragraphs: ["a"] }))).toBeNull();
   });
 });
+
+describe("SELLER_CHECK_PATTERN", () => {
+  it("확인 필요 표시의 두 형태를 모두 찾는다", async () => {
+    const { SELLER_CHECK_PATTERN } =
+      await import("@apps/backend/modules/product-naver/utils/product-ai-draft.util");
+    expect(SELLER_CHECK_PATTERN.test("보관은 [판매자 확인 필요]")).toBe(true);
+    expect(SELLER_CHECK_PATTERN.test("소비기한은 [판매자 확인 필요: 제작일 기준]입니다")).toBe(
+      true,
+    );
+    expect(SELLER_CHECK_PATTERN.test("판매자 확인을 마쳤어요")).toBe(false);
+  });
+});

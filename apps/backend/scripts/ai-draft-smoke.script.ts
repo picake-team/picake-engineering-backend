@@ -8,7 +8,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { generateDescriptionDraft } from "@apps/backend/modules/product-naver/utils/product-ai-draft.generator";
-import { SELLER_CHECK_MARK } from "@apps/backend/modules/product-naver/utils/product-ai-draft.util";
+import { SELLER_CHECK_PATTERN } from "@apps/backend/modules/product-naver/utils/product-ai-draft.util";
 import type { ProductDescriptionDraftRequestDto } from "@apps/backend/modules/product-naver/dto/product-naver.dto";
 
 /** 100만 토큰당 달러 (입력, 출력). 2026-11 기준 Claude API 가격 */
@@ -46,10 +46,13 @@ const CASES: Case[] = [
       productName: "샘플 레터링 케이크",
       sourceText: "원하는 문구를 올려 드리는 레터링 케이크예요.",
     },
+    // 손님이 읽을 문단만 본다 (질문에는 재료 이름이 나와도 됨)
     check: (text) => [
-      text.includes(SELLER_CHECK_MARK) ? "" : `${SELLER_CHECK_MARK} 표시가 없음`,
-      /우유|밀가루|계란|달걀|견과/.test(text) && !text.includes(SELLER_CHECK_MARK)
-        ? "자료에 없는 재료를 지어냄"
+      SELLER_CHECK_PATTERN.test(text) ? "" : "[판매자 확인 필요] 표시가 없음",
+      text
+        .split("\n")
+        .some((line) => /우유|밀가루|계란|달걀|견과/.test(line) && !SELLER_CHECK_PATTERN.test(line))
+        ? "자료에 없는 재료를 단정해 씀"
         : "",
     ],
   },
@@ -88,7 +91,8 @@ async function main() {
         const r = await generateDescriptionDraft(client, model, c.request);
         inTotal += r.usage.inputTokens;
         outTotal += r.usage.outputTokens;
-        const text = r.draft ? [...r.draft.paragraphs, ...r.draft.questions].join("\n") : "";
+        // 규칙 검사는 손님이 읽을 문단으로만 한다 (판매자에게 묻는 질문은 제외)
+        const text = r.draft ? r.draft.paragraphs.join("\n") : "";
         const problems = r.draft ? c.check(text).filter(Boolean) : ["초안을 읽지 못함"];
         if (problems.length) failed++;
         console.log(`\n--- ${c.name}`);
