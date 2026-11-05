@@ -37,7 +37,7 @@ export class ProductUpdateService {
    * 케이크 옵션용 랜덤 ID 생성
    * - 생성 시 한 번만 부여되고 이후에는 변경되지 않도록 사용
    */
-  private generateOptionId(prefix: "size" | "flavor"): string {
+  private generateOptionId(prefix: "size"): string {
     const random = Math.random().toString(36).substring(2, 10);
     return `${prefix}_${random}`;
   }
@@ -48,7 +48,7 @@ export class ProductUpdateService {
   private processCakeOptionsWithIds(
     existingOptions: unknown[],
     newOptions: Array<{ id?: string }>,
-    prefix: "size" | "flavor",
+    prefix: "size",
   ): Array<{ id: string }> {
     const existingOptionsById = new Map<string, Record<string, unknown> & { id: string }>();
 
@@ -94,7 +94,6 @@ export class ProductUpdateService {
         originalPrice: true,
         salePrice: true,
         cakeSizeOptions: true,
-        cakeFlavorOptions: true,
         customOptions: true,
         productType: true,
         productCategoryTypes: true,
@@ -145,22 +144,6 @@ export class ProductUpdateService {
       updateData.cakeSizeOptions = nextSizeOptions as unknown as Prisma.InputJsonValue;
     }
 
-    if (updateProductDto.cakeFlavorOptions !== undefined) {
-      const existingFlavorOptions = Array.isArray(product?.cakeFlavorOptions)
-        ? product.cakeFlavorOptions
-        : [];
-      const nextFlavorOptions = this.processCakeOptionsWithIds(
-        existingFlavorOptions,
-        updateProductDto.cakeFlavorOptions ?? [],
-        "flavor",
-      );
-
-      if (!hasVisibleOption(nextFlavorOptions)) {
-        throw new BadRequestException(PRODUCT_ERROR_MESSAGES.FLAVOR_OPTION_REQUIRED);
-      }
-      optionsChanged ||= canonicalJson(nextFlavorOptions) !== canonicalJson(existingFlavorOptions);
-      updateData.cakeFlavorOptions = nextFlavorOptions as unknown as Prisma.InputJsonValue;
-    }
     if (updateProductDto.customOptions !== undefined) {
       const nextCustomOptions = normalizeCustomOptionsForSave(
         updateProductDto.customOptions,

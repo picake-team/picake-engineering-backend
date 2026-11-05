@@ -26,13 +26,6 @@ export type ParsedSizeOption = {
   price: number;
 };
 
-export type ParsedFlavorOption = {
-  id: string;
-  visible: EnableStatus;
-  displayName: string;
-  price: number;
-};
-
 /** 주문 항목에 저장하는 추가 옵션 스냅샷 (order_items.selected_options) */
 export type SelectedOptionSnapshot = {
   optionId: string;
@@ -50,9 +43,6 @@ export type NormalizedOrderItemForCreate = {
   sizeLengthCm: number | null;
   sizeDescription: string | null;
   sizePrice: number | null;
-  flavorId: string | null;
-  flavorDisplayName: string | null;
-  flavorPrice: number | null;
   selectedOptions: Prisma.InputJsonValue;
   optionsPrice: number;
   letteringMessage: string | null;
@@ -65,7 +55,6 @@ export type NormalizedOrderItemForCreate = {
 /** 주문 항목 검증에 필요한 상품 정보 (DB 기준) */
 export type OrderItemNormalizeContext = {
   sizeOptionMap: Map<string, ParsedSizeOption>;
-  flavorOptionMap: Map<string, ParsedFlavorOption>;
   customOptions: CustomOption[];
   baseSalePrice: number;
 };
@@ -112,52 +101,17 @@ export function parseSizeOptions(options: unknown): ParsedSizeOption[] {
     .filter((option): option is ParsedSizeOption => option !== null);
 }
 
-export function parseFlavorOptions(options: unknown): ParsedFlavorOption[] {
-  if (!Array.isArray(options)) {
-    return [];
-  }
-
-  return options
-    .map((option) => {
-      if (!option || typeof option !== "object") {
-        return null;
-      }
-
-      const candidate = option as Record<string, unknown>;
-      if (
-        typeof candidate.id !== "string" ||
-        typeof candidate.visible !== "string" ||
-        typeof candidate.displayName !== "string" ||
-        typeof candidate.price !== "number"
-      ) {
-        return null;
-      }
-
-      return {
-        id: candidate.id,
-        visible: candidate.visible as EnableStatus,
-        displayName: candidate.displayName,
-        price: candidate.price,
-      };
-    })
-    .filter((option): option is ParsedFlavorOption => option !== null);
-}
-
 /**
  * 상품 엔티티에서 주문 항목 검증 컨텍스트를 만듭니다.
  */
 export function buildOrderItemNormalizeContext(product: {
   cakeSizeOptions: unknown;
-  cakeFlavorOptions: unknown;
   customOptions?: unknown;
   salePrice: number;
 }): OrderItemNormalizeContext {
   return {
     sizeOptionMap: new Map(
       parseSizeOptions(product.cakeSizeOptions).map((option) => [option.id, option]),
-    ),
-    flavorOptionMap: new Map(
-      parseFlavorOptions(product.cakeFlavorOptions).map((option) => [option.id, option]),
     ),
     customOptions: parseCustomOptions(product.customOptions),
     baseSalePrice: product.salePrice,
@@ -391,13 +345,12 @@ export function validateAndNormalizeOrderItem(
   item: CreateOrderItemDto,
   context: OrderItemNormalizeContext,
 ): NormalizedOrderItemForCreate {
-  const { sizeOptionMap, flavorOptionMap, customOptions, baseSalePrice } = context;
+  const { sizeOptionMap, customOptions, baseSalePrice } = context;
   const hasSizePayload =
     item.sizeDisplayName !== undefined ||
     item.sizeLengthCm !== undefined ||
     item.sizeDescription !== undefined ||
     item.sizePrice !== undefined;
-  const hasFlavorPayload = item.flavorDisplayName !== undefined || item.flavorPrice !== undefined;
 
   let selectedSize: {
     id: string;
@@ -431,33 +384,9 @@ export function validateAndNormalizeOrderItem(
     reject(ORDER_ERROR_MESSAGES.SIZE_REQUIRED, "노출 중인 사이즈가 있는데 sizeId 없음");
   }
 
-  let selectedFlavor: { id: string; displayName: string; price: number } | null = null;
-  if (item.flavorId) {
-    const matchedFlavor = flavorOptionMap.get(item.flavorId);
-    if (!matchedFlavor || matchedFlavor.visible !== EnableStatus.ENABLE) {
-      LoggerUtil.log(
-        `주문 항목 검증 실패: 유효하지 않은 맛 옵션 - flavorId: ${item.flavorId}, visible: ${matchedFlavor?.visible}`,
-      );
-      throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_ORDER_ITEMS);
-    }
-    selectedFlavor = {
-      id: matchedFlavor.id,
-      displayName: matchedFlavor.displayName,
-      price: matchedFlavor.price,
-    };
-  } else if (hasFlavorPayload) {
-    LoggerUtil.log(
-      `주문 항목 검증 실패: flavorId 없이 맛 정보 제공 - hasFlavorPayload: ${hasFlavorPayload}`,
-    );
-    throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_ORDER_ITEMS);
-  } else if (hasVisible(flavorOptionMap.values())) {
-    reject(ORDER_ERROR_MESSAGES.FLAVOR_REQUIRED, "노출 중인 맛이 있는데 flavorId 없음");
-  }
-
   const { selectedOptions, optionsPrice } = normalizeSelectedOptions(item, customOptions);
 
-  const itemPrice =
-    baseSalePrice + (selectedSize?.price ?? 0) + (selectedFlavor?.price ?? 0) + optionsPrice;
+  const itemPrice = baseSalePrice + (selectedSize?.price ?? 0) + optionsPrice;
 
   // 레거시 컬럼: 정리 단계 전까지 구버전 화면이 읽을 수 있게 첫 직접입력형·사진첨부형 값을 함께 기록
   const firstText = selectedOptions.find((snapshot) => snapshot.type === CustomOptionType.TEXT);
@@ -469,9 +398,6 @@ export function validateAndNormalizeOrderItem(
     sizeLengthCm: selectedSize?.lengthCm ?? null,
     sizeDescription: selectedSize?.description ?? null,
     sizePrice: selectedSize?.price ?? null,
-    flavorId: selectedFlavor?.id ?? null,
-    flavorDisplayName: selectedFlavor?.displayName ?? null,
-    flavorPrice: selectedFlavor?.price ?? null,
     selectedOptions: selectedOptions as unknown as Prisma.InputJsonValue,
     optionsPrice,
     letteringMessage: firstText?.text ?? null,

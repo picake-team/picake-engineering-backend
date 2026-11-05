@@ -163,7 +163,6 @@ export class ProductMapperUtil {
           : options;
       return {
         cakeSizeOptions: visibleOnly(product.cakeSizeOptions),
-        cakeFlavorOptions: visibleOnly(product.cakeFlavorOptions),
         customOptions: toVisibleCustomOptions(product.customOptions),
       };
     }

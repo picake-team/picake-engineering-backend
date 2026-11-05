@@ -24,10 +24,6 @@ const PRODUCT = {
     { id: "size_1", visible: EnableStatus.ENABLE, displayName: "1호", lengthCm: 15, price: 5000 },
     { id: "size_hidden", visible: EnableStatus.DISABLE, displayName: "2호", price: 9000 },
   ],
-  cakeFlavorOptions: [
-    { id: "flavor_choco", visible: EnableStatus.ENABLE, displayName: "초코", price: 0 },
-    { id: "flavor_hidden", visible: EnableStatus.DISABLE, displayName: "말차", price: 2000 },
-  ],
   customOptions: [
     {
       id: "opt_candle",
@@ -86,7 +82,6 @@ const context = () => buildOrderItemNormalizeContext(PRODUCT);
 function item(overrides: Partial<CreateOrderItemDto> = {}): CreateOrderItemDto {
   return {
     sizeId: "size_mini",
-    flavorId: "flavor_choco",
     quantity: 1,
     options: [{ optionId: "opt_lettering", text: "축하해" }],
     ...overrides,
@@ -258,23 +253,21 @@ describe("validateAndNormalizeOrderItem - 추가 옵션", () => {
     expect(ok.imageUrls).toEqual([UPLOAD_URL, UPLOAD_URL_2]);
   });
 
-  it("노출 중인 사이즈·맛이 있으면 선택해야 하고, 숨김 사이즈·맛은 고를 수 없다", () => {
+  it("노출 중인 사이즈가 있으면 선택해야 하고, 숨김 사이즈는 고를 수 없다", () => {
     expectBadRequest(
       () => validateAndNormalizeOrderItem(item({ sizeId: undefined }), context()),
       ORDER_ERROR_MESSAGES.SIZE_REQUIRED,
     );
     expectBadRequest(
-      () => validateAndNormalizeOrderItem(item({ flavorId: undefined }), context()),
-      ORDER_ERROR_MESSAGES.FLAVOR_REQUIRED,
-    );
-    expectBadRequest(
       () => validateAndNormalizeOrderItem(item({ sizeId: "size_hidden" }), context()),
       ORDER_ERROR_MESSAGES.INVALID_ORDER_ITEMS,
     );
-    expectBadRequest(
-      () => validateAndNormalizeOrderItem(item({ flavorId: "flavor_hidden" }), context()),
-      ORDER_ERROR_MESSAGES.INVALID_ORDER_ITEMS,
-    );
+  });
+
+  it("예전 맛 필드(flavorId)는 받지 않는다 (맛은 추가 옵션 '맛'으로 고른다)", () => {
+    const ok = validateAndNormalizeOrderItem(item(), context());
+    expect(ok).not.toHaveProperty("flavorId");
+    expect(ok).not.toHaveProperty("flavorDisplayName");
   });
 
   it("options와 레거시 필드를 함께 보내면 거절한다", () => {

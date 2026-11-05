@@ -4,6 +4,7 @@ import {
   ValidatorConstraintInterface,
   ValidationOptions,
 } from "class-validator";
+import { STORE_DESCRIPTION_MAX_LENGTH } from "@apps/backend/modules/store/constants/store.constants";
 
 /**
  * 스토어 로고 이미지 URL 유효성 검증 제약 조건
@@ -134,9 +135,9 @@ export class IsValidStoreDescriptionConstraint implements ValidatorConstraintInt
       return true;
     }
 
-    // 250자 초과 체크 (판매자 화면·기획 P-46과 같은 기준)
-    if (description.length > 250) {
-      this.errorType = "250자초과";
+    // 글자 수 체크 (판매자 화면·기획 P-46과 같은 기준, 네이버 플레이스 소개글 한도와 같음)
+    if (description.length > STORE_DESCRIPTION_MAX_LENGTH) {
+      this.errorType = "글자수초과";
       return false;
     }
 
@@ -152,8 +153,8 @@ export class IsValidStoreDescriptionConstraint implements ValidatorConstraintInt
   }
 
   defaultMessage(): string {
-    if (this.errorType === "250자초과") {
-      return "스토어 설명은 250자 이하로 입력해주세요.";
+    if (this.errorType === "글자수초과") {
+      return `스토어 설명은 ${STORE_DESCRIPTION_MAX_LENGTH.toLocaleString()}자 이하로 입력해주세요.`;
     }
     if (this.errorType === "HTML태그") {
       return "스토어 설명에는 HTML 태그를 사용할 수 없습니다.";

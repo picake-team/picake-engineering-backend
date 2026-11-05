@@ -25,10 +25,11 @@ export class StoreCreateService {
    * 1단계, 2단계 API를 다시 호출하여 검증하고 스토어를 생성합니다.
    */
   async createStoreForSeller(sellerId: string, createStoreDto: CreateStoreRequestDto) {
-    // 1) 1단계와 2단계의 사업자등록번호가 일치하는지 검증
+    // 1) 2단계(통신판매, 선택)를 보냈으면 1단계와 사업자등록번호가 일치하는지 검증
     // 하이픈 제거 후 비교
+    const onlineTrading = createStoreDto.onlineTradingCompanyDetail;
     const businessNo1 = createStoreDto.businessValidation.b_no.replace(/[-\s]/g, "");
-    const businessNo2 = createStoreDto.onlineTradingCompanyDetail.brno.replace(/[-\s]/g, "");
+    const businessNo2 = onlineTrading?.brno.replace(/[-\s]/g, "") ?? businessNo1;
     if (businessNo1 !== businessNo2) {
       LoggerUtil.log(
         `스토어 생성 실패: 사업자등록번호 불일치 - sellerId: ${sellerId}, businessNo1: ${businessNo1}, businessNo2: ${businessNo2}`,
@@ -43,11 +44,12 @@ export class StoreCreateService {
     // 응답 값은 저장하지 않음 - 필요시 외부 API 호출로 최신 상태 조회
     await this.businessService.verifyBusinessRegistration(createStoreDto.businessValidation);
 
-    // 3) 2단계: 통신판매사업자 등록상세 조회 (재검증)
+    // 3) 2단계(선택): 통신판매사업자 등록상세 조회 (재검증)
+    // 동네 가게의 음식료 판매는 전자상거래법 제3조 ④로 통신판매업 신고 의무가 없어 받지 않을 수 있다(2026-11 법 검토)
     // 응답 값은 저장하지 않음 - 필요시 외부 API 호출로 최신 상태 조회
-    await this.businessService.getOnlineTradingCompanyDetail(
-      createStoreDto.onlineTradingCompanyDetail,
-    );
+    if (onlineTrading) {
+      await this.businessService.getOnlineTradingCompanyDetail(onlineTrading);
+    }
 
     // DB에 스토어 저장 및 사용자 role 업데이트 - 트랜잭션으로 원자성 보장
     // 사업자등록번호는 정규화(하이픈 제거)하여 저장하여 일관성 유지
@@ -66,7 +68,7 @@ export class StoreCreateService {
               businessType: createStoreDto.businessValidation.b_type,
 
               // 통신판매사업자 정보 (2단계 - 사용자 입력값만 저장)
-              permissionManagementNumber: createStoreDto.onlineTradingCompanyDetail.prmmiMnno,
+              permissionManagementNumber: onlineTrading?.prmmiMnno ?? null,
               // 응답 값(businessStatus, taxType, onlineTradingCompanyDetail 등)은 저장하지 않음
               // 필요시 외부 API를 호출하여 최신 상태 조회
 

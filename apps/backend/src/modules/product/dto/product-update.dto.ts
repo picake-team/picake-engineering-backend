@@ -19,7 +19,6 @@ import {
 } from "@apps/backend/modules/product/constants/product.constants";
 import { SWAGGER_EXAMPLES as PRODUCT_SWAGGER_EXAMPLES } from "@apps/backend/modules/product/constants/product.constants";
 import {
-  CreateCakeFlavorOptionDto,
   CreateCakeSizeOptionDto,
   CustomOptionDto,
 } from "@apps/backend/modules/product/dto/product-create.dto";
@@ -31,19 +30,6 @@ export class UpdateCakeSizeOptionDto extends CreateCakeSizeOptionDto {
   @ApiProperty({
     description: "옵션 고유 ID (수정 시 필수, 기존 ID 그대로 전달)",
     example: "size_abcd1234",
-  })
-  @IsNotEmpty()
-  @IsString()
-  declare id: string;
-}
-
-/**
- * 케이크 맛 옵션 DTO (수정용 - id 필수)
- */
-export class UpdateCakeFlavorOptionDto extends CreateCakeFlavorOptionDto {
-  @ApiProperty({
-    description: "옵션 고유 ID (수정 시 필수, 기존 ID 그대로 전달)",
-    example: "flavor_efgh5678",
   })
   @IsNotEmpty()
   @IsString()
@@ -120,17 +106,6 @@ export class UpdateProductRequestDto {
   cakeSizeOptions?: UpdateCakeSizeOptionDto[];
 
   @ApiPropertyOptional({
-    description: "케이크 옵션 - 맛 목록",
-    type: [UpdateCakeFlavorOptionDto],
-    example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions,
-  })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => UpdateCakeFlavorOptionDto)
-  cakeFlavorOptions?: UpdateCakeFlavorOptionDto[];
-
-  @ApiPropertyOptional({
     description: "추가 옵션 목록 전체 (전달하면 통째로 교체, 빈 배열이면 전체 제거)",
     type: [CustomOptionDto],
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.customOptions,
@@ -203,6 +178,8 @@ export class UpdateProductRequestDto {
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeOrigin,
   })
   @IsOptional()
+  // 원산지는 고시 항목 중 유일한 필수 항목이라, 보낼 때는 비울 수 없다(원산지표시법)
+  @IsNotEmpty()
   @IsString()
   productNoticeOrigin?: string;
 

@@ -1,3 +1,4 @@
+import { NAVER_PRODUCT_LINK_KEY_REGEX } from "@apps/backend/modules/naver-place/constants/naver-booking.constants";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsNotEmpty,
@@ -14,6 +15,7 @@ import {
   MaxLength,
   ArrayMinSize,
   ArrayMaxSize,
+  Matches,
 } from "class-validator";
 import { Type } from "class-transformer";
 import {
@@ -82,45 +84,6 @@ export class CreateCakeSizeOptionDto {
   @IsOptional()
   @IsString()
   description?: string;
-}
-
-/**
- * 케이크 맛 옵션 DTO (생성용 - id 선택적)
- */
-export class CreateCakeFlavorOptionDto {
-  @ApiPropertyOptional({
-    description: "옵션 고유 ID (신규 생성 시 생략 가능, 백엔드에서 자동 생성)",
-    example: "flavor_efgh5678",
-  })
-  @IsOptional()
-  @IsString()
-  id?: string;
-
-  @ApiProperty({
-    description: "노출 여부",
-    enum: EnableStatus,
-    example: EnableStatus.ENABLE,
-  })
-  @IsNotEmpty()
-  @IsEnum(EnableStatus)
-  visible: EnableStatus;
-
-  @ApiProperty({
-    description: "표시명",
-    example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions[0].displayName,
-  })
-  @IsNotEmpty()
-  @IsString()
-  displayName: string;
-
-  @ApiProperty({
-    description: "해당 맛 옵션의 추가 가격",
-    example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions[0].price,
-  })
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(0)
-  price: number;
 }
 
 /**
@@ -318,17 +281,6 @@ export class CreateProductRequestDto {
   @Type(() => CreateCakeSizeOptionDto)
   cakeSizeOptions: CreateCakeSizeOptionDto[];
 
-  @ApiProperty({
-    description: "케이크 옵션 - 맛 목록 (노출 중인 맛 1개 이상 필수)",
-    type: [CreateCakeFlavorOptionDto],
-    example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions,
-  })
-  @IsArray()
-  @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => CreateCakeFlavorOptionDto)
-  cakeFlavorOptions: CreateCakeFlavorOptionDto[];
-
   @ApiPropertyOptional({
     description: "추가 옵션 목록 (배열 순서가 구매자 화면 노출 순서). 생략 시 없음",
     type: [CustomOptionDto],
@@ -348,6 +300,16 @@ export class CreateProductRequestDto {
   @IsOptional()
   @IsString()
   detailDescription?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "네이버에서 가져온 상품이면 네이버 예약 상품 ID(상품 안 옵션 하나를 가져왔으면 `상품ID-o옵션ID`). 스토어에 네이버 매장이 연결돼 있어야 하고, 같은 스토어의 다른 상품과 겹치면 안 됩니다.",
+    example: "7954953",
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(NAVER_PRODUCT_LINK_KEY_REGEX)
+  naverBizItemId?: string;
 
   @ApiPropertyOptional({
     description:
@@ -371,117 +333,120 @@ export class CreateProductRequestDto {
   @IsString({ each: true })
   searchTags?: string[];
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "식품의 유형",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeFoodType,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticeFoodType: string;
+  productNoticeFoodType?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "제조사",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeProducer,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticeProducer: string;
+  productNoticeProducer?: string;
 
   @ApiProperty({
     description: "원산지",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeOrigin,
   })
+  // 고시 항목 중 원산지만 필수(2026-11 법 검토). 동네 가게의 음식료 판매는 전자상거래법 제3조 ④로
+  // 상품정보제공고시(제13조)가 적용되지 않고, 원산지는 원산지표시법(통신판매 포함)에 따라 표시한다.
+  // 나머지 항목은 선택이며 비우면 빈 문자열로 저장한다(손님 화면에서 빈 항목은 보이지 않음)
   @IsNotEmpty()
   @IsString()
   productNoticeOrigin: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "소재지",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeAddress,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticeAddress: string;
+  productNoticeAddress?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "제조연월일",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeManufactureDate,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticeManufactureDate: string;
+  productNoticeManufactureDate?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "소비기한 또는 품질유지기한",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeExpirationDate,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticeExpirationDate: string;
+  productNoticeExpirationDate?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "포장단위별 용량/수량",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticePackageCapacity,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticePackageCapacity: string;
+  productNoticePackageCapacity?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "포장 단위별 수량",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticePackageQuantity,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticePackageQuantity: string;
+  productNoticePackageQuantity?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "원재료명 및 함량",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeIngredients,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticeIngredients: string;
+  productNoticeIngredients?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "영양성분",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeCalories,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticeCalories: string;
+  productNoticeCalories?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "소비자안전을 위한 주의사항",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeSafetyNotice,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticeSafetyNotice: string;
+  productNoticeSafetyNotice?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "유전자변형식품에 해당하는 경우의 표시",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeGmoNotice,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticeGmoNotice: string;
+  productNoticeGmoNotice?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "수입식품의 경우",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeImportNotice,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticeImportNotice: string;
+  productNoticeImportNotice?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "고객센터",
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeCustomerService,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  productNoticeCustomerService: string;
+  productNoticeCustomerService?: string;
 }
 
 /**

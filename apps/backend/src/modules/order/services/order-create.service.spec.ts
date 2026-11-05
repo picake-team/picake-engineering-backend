@@ -28,7 +28,6 @@ const BASE_PRODUCT = {
   salesStatus: EnableStatus.ENABLE,
   visibilityStatus: EnableStatus.ENABLE,
   cakeSizeOptions: [],
-  cakeFlavorOptions: [],
   store: {
     weeklyClosedWeekdays: [],
     standardOpenTime: "00:00",
@@ -140,11 +139,20 @@ describe("OrderCreateService.createOrderForUser", () => {
     ).rejects.toThrow(ORDER_ERROR_MESSAGES.INVALID_TOTAL_PRICE);
   });
 
-  it("사이즈/맛 옵션 가격이 총 금액 계산에 반영된다", async () => {
+  it("사이즈와 추가 옵션 '맛' 가격이 총 금액 계산에 반영된다", async () => {
     prismaMock.product.findUnique.mockResolvedValue({
       ...BASE_PRODUCT,
       cakeSizeOptions: [{ id: "size-1", visible: "ENABLE", displayName: "1호", price: 3000 }],
-      cakeFlavorOptions: [{ id: "flavor-1", visible: "ENABLE", displayName: "초코", price: 2000 }],
+      customOptions: [
+        {
+          id: "opt_flavor",
+          type: "SINGLE_SELECT",
+          name: "맛",
+          required: true,
+          visible: "ENABLE",
+          choices: [{ id: "choice_choco", label: "초코", price: 2000, visible: "ENABLE" }],
+        },
+      ],
     } as any);
     txOrderMock.create.mockResolvedValue({ id: "order-1", orderItems: [] });
 
@@ -152,7 +160,13 @@ describe("OrderCreateService.createOrderForUser", () => {
     const result = await service.createOrderForUser(
       "user-1",
       buildDto({
-        items: [{ quantity: 1, sizeId: "size-1", flavorId: "flavor-1" }] as any,
+        items: [
+          {
+            quantity: 1,
+            sizeId: "size-1",
+            options: [{ optionId: "opt_flavor", choiceIds: ["choice_choco"] }],
+          },
+        ] as any,
         totalQuantity: 1,
         totalPrice: 15000,
       }),

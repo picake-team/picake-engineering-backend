@@ -90,6 +90,8 @@ describe("parseNaverPlace", () => {
     });
     expect(info.reviews.keywords[0]).toEqual({ label: "디저트가 맛있어요", count: 7 });
     expect(info.naverBookingUrl).toContain("booking.naver.com");
+    expect(info.bookingBusinessId).toBe("000000");
+    expect(info.bookingBusinessTypeId).toBe(6);
   });
 
   it("다른 플레이스 ID로 찾으면 null", () => {

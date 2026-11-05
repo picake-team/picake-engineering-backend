@@ -13,6 +13,7 @@ import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { ProductOwnershipUtil } from "@apps/backend/modules/product/utils/product-ownership.util";
 import { validateProductPrices } from "@apps/backend/modules/product/utils/product-price.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
+import { ProductNaverLinkUtil } from "@apps/backend/modules/product/utils/product-naver-link.util";
 
 @Injectable()
 export class ProductCreateService {
@@ -22,7 +23,7 @@ export class ProductCreateService {
    * 케이크 옵션용 랜덤 ID 생성
    * - 생성 시 한 번만 부여되고 이후에는 변경되지 않도록 사용
    */
-  private generateOptionId(prefix: "size" | "flavor"): string {
+  private generateOptionId(prefix: "size"): string {
     const random = Math.random().toString(36).substring(2, 10);
     return `${prefix}_${random}`;
   }
@@ -43,11 +44,17 @@ export class ProductCreateService {
 
     validateProductPrices(createProductDto.originalPrice, createProductDto.salePrice);
 
+    // 네이버에서 가져온 상품이면 연결을 함께 저장한다 (스토어 안에서 한 상품에만)
+    if (createProductDto.naverBizItemId) {
+      await ProductNaverLinkUtil.assertLinkable(
+        this.prisma,
+        createProductDto.storeId,
+        createProductDto.naverBizItemId,
+      );
+    }
+
     if (!hasVisibleOption(createProductDto.cakeSizeOptions)) {
       throw new BadRequestException(PRODUCT_ERROR_MESSAGES.SIZE_OPTION_REQUIRED);
-    }
-    if (!hasVisibleOption(createProductDto.cakeFlavorOptions)) {
-      throw new BadRequestException(PRODUCT_ERROR_MESSAGES.FLAVOR_OPTION_REQUIRED);
     }
     const customOptions = normalizeCustomOptionsForSave(createProductDto.customOptions ?? [], []);
 
@@ -72,11 +79,6 @@ export class ProductCreateService {
             id: option.id ?? this.generateOptionId("size"),
           }));
 
-          const cakeFlavorOptionsWithId = createProductDto.cakeFlavorOptions.map((option) => ({
-            ...option,
-            id: option.id ?? this.generateOptionId("flavor"),
-          }));
-
           const productData: Prisma.ProductCreateInput = {
             store: {
               connect: {
@@ -90,7 +92,6 @@ export class ProductCreateService {
             salesStatus: createProductDto.salesStatus,
             visibilityStatus: createProductDto.visibilityStatus,
             cakeSizeOptions: cakeSizeOptionsWithId as unknown as Prisma.InputJsonValue,
-            cakeFlavorOptions: cakeFlavorOptionsWithId as unknown as Prisma.InputJsonValue,
             customOptions: customOptions as unknown as Prisma.InputJsonValue,
             ...deriveLegacyOptionFields(customOptions),
             productType: createProductDto.productType,
@@ -100,21 +101,24 @@ export class ProductCreateService {
             ),
             searchTags: createProductDto.searchTags ?? [],
             detailDescription: createProductDto.detailDescription,
+            ...(createProductDto.naverBizItemId
+              ? { naverBizItemId: createProductDto.naverBizItemId, naverLinkedAt: now }
+              : {}),
             productNumber,
-            productNoticeFoodType: createProductDto.productNoticeFoodType,
-            productNoticeProducer: createProductDto.productNoticeProducer,
+            productNoticeFoodType: createProductDto.productNoticeFoodType ?? "",
+            productNoticeProducer: createProductDto.productNoticeProducer ?? "",
             productNoticeOrigin: createProductDto.productNoticeOrigin,
-            productNoticeAddress: createProductDto.productNoticeAddress,
-            productNoticeManufactureDate: createProductDto.productNoticeManufactureDate,
-            productNoticeExpirationDate: createProductDto.productNoticeExpirationDate,
-            productNoticePackageCapacity: createProductDto.productNoticePackageCapacity,
-            productNoticePackageQuantity: createProductDto.productNoticePackageQuantity,
-            productNoticeIngredients: createProductDto.productNoticeIngredients,
-            productNoticeCalories: createProductDto.productNoticeCalories,
-            productNoticeSafetyNotice: createProductDto.productNoticeSafetyNotice,
-            productNoticeGmoNotice: createProductDto.productNoticeGmoNotice,
-            productNoticeImportNotice: createProductDto.productNoticeImportNotice,
-            productNoticeCustomerService: createProductDto.productNoticeCustomerService,
+            productNoticeAddress: createProductDto.productNoticeAddress ?? "",
+            productNoticeManufactureDate: createProductDto.productNoticeManufactureDate ?? "",
+            productNoticeExpirationDate: createProductDto.productNoticeExpirationDate ?? "",
+            productNoticePackageCapacity: createProductDto.productNoticePackageCapacity ?? "",
+            productNoticePackageQuantity: createProductDto.productNoticePackageQuantity ?? "",
+            productNoticeIngredients: createProductDto.productNoticeIngredients ?? "",
+            productNoticeCalories: createProductDto.productNoticeCalories ?? "",
+            productNoticeSafetyNotice: createProductDto.productNoticeSafetyNotice ?? "",
+            productNoticeGmoNotice: createProductDto.productNoticeGmoNotice ?? "",
+            productNoticeImportNotice: createProductDto.productNoticeImportNotice ?? "",
+            productNoticeCustomerService: createProductDto.productNoticeCustomerService ?? "",
           };
 
           const product = await tx.product.create({
@@ -131,6 +135,10 @@ export class ProductCreateService {
         },
       );
     } catch (error: unknown) {
+      // 동시에 같은 네이버 상품을 연결하면 유니크 제약에 걸린다
+      if (ProductNaverLinkUtil.isDuplicateLinkError(error)) {
+        throw ProductNaverLinkUtil.duplicateLinkException();
+      }
       LoggerUtil.log(
         `상품 생성 실패: 트랜잭션 에러 - userId: ${user.sub}, storeId: ${createProductDto.storeId}, error: ${error instanceof Error ? error.message : String(error)}`,
       );

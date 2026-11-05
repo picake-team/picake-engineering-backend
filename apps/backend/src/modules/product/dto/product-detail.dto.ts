@@ -9,7 +9,6 @@ import { SWAGGER_EXAMPLES as STORE_SWAGGER_EXAMPLES } from "@apps/backend/module
 import { SWAGGER_EXAMPLES as UPLOAD_SWAGGER_EXAMPLES } from "@apps/backend/modules/upload/constants/upload.constants";
 import {
   CreateCakeSizeOptionDto,
-  CreateCakeFlavorOptionDto,
   CustomOptionDto,
 } from "@apps/backend/modules/product/dto/product-create.dto";
 import { PickupAddressDto } from "@apps/backend/modules/product/dto/product-common.dto";
@@ -22,17 +21,6 @@ export class CakeSizeOptionResponseDto extends CreateCakeSizeOptionDto {
   @ApiProperty({
     description: "옵션 고유 ID",
     example: SWAGGER_EXAMPLES.PRODUCT_DATA.cakeSizeOptions[0].id,
-  })
-  declare id: string;
-}
-
-/**
- * 케이크 맛 옵션 응답 DTO
- */
-export class CakeFlavorOptionResponseDto extends CreateCakeFlavorOptionDto {
-  @ApiProperty({
-    description: "옵션 고유 ID",
-    example: SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions[0].id,
   })
   declare id: string;
 }
@@ -99,13 +87,6 @@ export class ProductResponseDto extends PickupAddressDto {
   })
   cakeSizeOptions?: CakeSizeOptionResponseDto[] | null;
 
-  @ApiPropertyOptional({
-    description: "케이크 옵션 - 맛 목록",
-    type: [CakeFlavorOptionResponseDto],
-    example: SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions,
-  })
-  cakeFlavorOptions?: CakeFlavorOptionResponseDto[] | null;
-
   @ApiProperty({
     description:
       "추가 옵션 목록 (구매자 상세 응답은 노출 중인 옵션·옵션값만 포함, 목록 응답은 빈 배열)",
@@ -167,6 +148,16 @@ export class ProductResponseDto extends PickupAddressDto {
     example: SWAGGER_EXAMPLES.PRODUCT_DATA.detailDescription,
   })
   detailDescription?: string | null;
+
+  @ApiPropertyOptional({
+    description: "연결한 네이버 예약 상품 ID (판매자가 네이버에서 다시 불러올 때 씀)",
+    example: "7954953",
+    nullable: true,
+  })
+  naverBizItemId?: string | null;
+
+  @ApiPropertyOptional({ description: "네이버 상품을 연결한 시각", nullable: true })
+  naverLinkedAt?: Date | null;
 
   @ApiProperty({
     description: "상품번호",
