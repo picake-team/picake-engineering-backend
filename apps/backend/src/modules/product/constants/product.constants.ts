@@ -48,8 +48,8 @@ export const CUSTOM_OPTION_LIMITS = {
   MAX_IMAGE_OPTIONS: 1,
 } as const;
 
-/** 사이즈·맛과 겹쳐 구매자가 헷갈리는 추가 옵션명 (고정 옵션에서 설정) */
-export const RESERVED_CUSTOM_OPTION_NAMES = ["사이즈", "맛"] as const;
+/** 사이즈와 겹쳐 구매자가 헷갈리는 추가 옵션명 (사이즈는 고정 옵션에서 설정). 맛은 추가 옵션 "맛"으로 받는다 */
+export const RESERVED_CUSTOM_OPTION_NAMES = ["사이즈"] as const;
 
 /**
  * 상품 관련 성공 메시지 상수
@@ -153,21 +153,18 @@ export const SWAGGER_EXAMPLES = {
         description: "2~3인용",
       },
     ],
-    cakeFlavorOptions: [
-      {
-        id: "flavor_ijkl9012",
-        visible: EnableStatus.ENABLE,
-        displayName: "초콜릿",
-        price: 10000,
-      },
-      {
-        id: "flavor_mnop3456",
-        visible: EnableStatus.ENABLE,
-        displayName: "바닐라",
-        price: 20000,
-      },
-    ],
     customOptions: [
+      {
+        id: "opt_flavor",
+        type: CustomOptionType.SINGLE_SELECT,
+        name: "맛",
+        required: true,
+        visible: EnableStatus.ENABLE,
+        choices: [
+          { id: "choice_choco01", label: "초콜릿", price: 0, visible: EnableStatus.ENABLE },
+          { id: "choice_vanil01", label: "바닐라", price: 2000, visible: EnableStatus.ENABLE },
+        ],
+      },
       {
         id: "opt_lettering",
         type: CustomOptionType.TEXT,

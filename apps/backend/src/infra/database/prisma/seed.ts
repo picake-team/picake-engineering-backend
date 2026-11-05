@@ -159,20 +159,18 @@ const SEED_PRODUCT_BASE = {
       description: "4~5인용",
     },
   ],
-  FLAVOR_OPTIONS: [
-    {
-      id: "flavor_seed_choco",
-      visible: "ENABLE",
-      displayName: "초콜릿",
-      price: 2000,
-    },
-    {
-      id: "flavor_seed_vanilla",
-      visible: "ENABLE",
-      displayName: "바닐라",
-      price: 3000,
-    },
-  ],
+  // 맛은 따로 두지 않고 추가 옵션 '맛'(하나 고르기, 필수)으로 받는다
+  FLAVOR_OPTION: {
+    id: "opt_flavor",
+    type: "SINGLE_SELECT",
+    name: "맛",
+    required: true,
+    visible: "ENABLE",
+    choices: [
+      { id: "choice_seed_choco", label: "초콜릿", price: 2000, visible: "ENABLE" },
+      { id: "choice_seed_vanilla", label: "바닐라", price: 3000, visible: "ENABLE" },
+    ],
+  },
   LETTERING: {
     VISIBLE: "ENABLE",
     MAX_LENGTH: 20,
@@ -597,8 +595,8 @@ async function upsertProducts(stores: Awaited<ReturnType<typeof upsertStores>>) 
         visibilityStatus: "ENABLE",
         likeCount: 25,
         cakeSizeOptions: SEED_PRODUCT_BASE.SIZE_OPTIONS,
-        cakeFlavorOptions: SEED_PRODUCT_BASE.FLAVOR_OPTIONS,
         customOptions: [
+          SEED_PRODUCT_BASE.FLAVOR_OPTION,
           {
             id: "opt_lettering",
             type: "TEXT",

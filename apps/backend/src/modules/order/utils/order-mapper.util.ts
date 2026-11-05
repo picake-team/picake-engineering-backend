@@ -99,9 +99,6 @@ export class OrderMapperUtil {
       sizeDescription: orderItem.sizeDescription ?? undefined,
       sizePrice: orderItem.sizePrice ?? undefined,
       // 맛 옵션 정보
-      flavorId: orderItem.flavorId ?? undefined,
-      flavorDisplayName: orderItem.flavorDisplayName ?? undefined,
-      flavorPrice: orderItem.flavorPrice ?? undefined,
       // 추가 옵션 (주문 시점 스냅샷)
       selectedOptions: Array.isArray(orderItem.selectedOptions)
         ? (orderItem.selectedOptions as unknown as SelectedOptionResponseDto[])

@@ -19,9 +19,6 @@ import {
 const SIZE_OPTIONS = [
   { id: "size_mini", visible: EnableStatus.ENABLE, displayName: "미니", lengthCm: 10, price: 0 },
 ];
-const FLAVOR_OPTIONS = [
-  { id: "flavor_choco", visible: EnableStatus.ENABLE, displayName: "초코", price: 0 },
-];
 const candleOption = (bigPrice: number) => ({
   id: "opt_candle",
   type: CustomOptionType.SINGLE_SELECT,
@@ -52,7 +49,6 @@ describe("OrderUserReservationEditService.updateOrderItem (integration)", () => 
     const store = await createTestStore(prisma, seller.id);
     const product = await createTestProduct(prisma, store.id, {
       cakeSizeOptions: SIZE_OPTIONS,
-      cakeFlavorOptions: FLAVOR_OPTIONS,
       customOptions: [candleOption(1000)],
       optionsVersion: 1,
     });
@@ -63,9 +59,6 @@ describe("OrderUserReservationEditService.updateOrderItem (integration)", () => 
       sizeDisplayName: "미니",
       sizeLengthCm: 10,
       sizePrice: 0,
-      flavorId: "flavor_choco",
-      flavorDisplayName: "초코",
-      flavorPrice: 0,
       selectedOptions: [
         {
           optionId: "opt_candle",
@@ -108,7 +101,6 @@ describe("OrderUserReservationEditService.updateOrderItem (integration)", () => 
 
     await service.updateOrderItem(order.id, items[0].id, consumer.id, {
       sizeId: "size_mini",
-      flavorId: "flavor_choco",
       quantity: 2,
       options: [{ optionId: "opt_candle", choiceIds: ["c_big"] }],
       // 다른 항목 31000×1 + 변경 항목 (30000+3000)×2
@@ -138,7 +130,6 @@ describe("OrderUserReservationEditService.updateOrderItem (integration)", () => 
     await expect(
       service.updateOrderItem(order.id, items[0].id, consumer.id, {
         sizeId: "size_mini",
-        flavorId: "flavor_choco",
         quantity: 1,
         options: [],
         totalPrice: 31000 + 30000,

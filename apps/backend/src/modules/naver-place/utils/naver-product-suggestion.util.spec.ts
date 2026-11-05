@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  NAVER_EXTRA_GROUP_NAME,
   detectLengthCm,
   detectSizeDisplayName,
   toNaverOptionProductSuggestion,
@@ -74,7 +75,6 @@ describe("toNaverProductSuggestion", () => {
     ]);
     expect(s.suggestedSalePrice).toBe(38000);
     expect(s.precautions).toBe("주의\n3일 전까지 취소");
-    expect(s.warnings).toContain(NAVER_PRODUCT_WARNINGS.FLAVOR_REQUIRED);
     expect(s.warnings).not.toContain(NAVER_PRODUCT_WARNINGS.PRICE_AMBIGUOUS);
   });
 
@@ -135,14 +135,17 @@ describe("toNaverProductSuggestion", () => {
     expect(s.options[1].invalidReason).toContain("사이즈");
   });
 
-  it("분류 이름이 '맛'이면 맛으로 보고, 맛 직접 입력 안내를 뺀다", () => {
+  it("분류 이름이 '맛'이면 '맛'이라는 필수 추가 옵션(하나 고르기)으로 제안한다", () => {
     const s = toNaverProductSuggestion(item(), [
       option({ optionId: "1", name: "샘플 케이크 1호", price: 50000 }),
       option({ optionId: "2", categoryName: "케이크 맛 선택", name: "초코", price: 0 }),
       option({ optionId: "3", categoryName: "맛", name: "얼그레이", price: 2000 }),
     ]);
-    expect(s.options.map((o) => o.role)).toEqual(["SIZE", "FLAVOR", "FLAVOR"]);
-    expect(s.warnings).not.toContain(NAVER_PRODUCT_WARNINGS.FLAVOR_REQUIRED);
+    expect(s.options.map((o) => [o.role, o.groupName, o.groupRequired])).toEqual([
+      ["SIZE", NAVER_EXTRA_GROUP_NAME, false],
+      ["EXTRA", "맛", true],
+      ["EXTRA", "맛", true],
+    ]);
   });
 
   it("'맛있는'처럼 맛이 들어간 다른 말은 맛 분류로 보지 않는다", () => {

@@ -12,7 +12,6 @@ import { PRODUCT_ERROR_MESSAGES } from "@apps/backend/modules/product/constants/
 import {
   ProductResponseDto,
   CakeSizeOptionResponseDto,
-  CakeFlavorOptionResponseDto,
 } from "@apps/backend/modules/product/dto/product-detail.dto";
 import { PaginationMetaResponseDto } from "@apps/backend/common/dto/pagination-response.dto";
 import { createMessageObject } from "@apps/backend/common/utils/message.util";
@@ -37,7 +36,6 @@ import {
   ProductResponseDto,
   PaginationMetaResponseDto,
   CakeSizeOptionResponseDto,
-  CakeFlavorOptionResponseDto,
   RefundCancellationPolicyDto,
   RefundRuleItemDto,
 )

@@ -41,14 +41,6 @@ const FIXTURE = {
         description: "1~2인용",
       },
     ],
-    FLAVOR_OPTIONS: [
-      {
-        id: "e2e-flavor-choco",
-        visible: "ENABLE",
-        displayName: "초콜릿",
-        price: 0,
-      },
-    ],
     // 0이면 레터링 textarea의 maxLength가 0이 되어 아예 입력이 안 되므로 반드시 0보다 커야 함
     LETTERING_MAX_LENGTH: 20,
     // web-user e2e가 옵션 라벨·안내 문구로 입력칸을 찾는다.
@@ -132,7 +124,6 @@ async function upsertProduct(storeId: string) {
       salesStatus: "ENABLE",
       visibilityStatus: "ENABLE",
       cakeSizeOptions: FIXTURE.PRODUCT.SIZE_OPTIONS,
-      cakeFlavorOptions: FIXTURE.PRODUCT.FLAVOR_OPTIONS,
       customOptions: FIXTURE.PRODUCT.CUSTOM_OPTIONS,
       letteringVisible: "ENABLE",
       letteringMaxLength: FIXTURE.PRODUCT.LETTERING_MAX_LENGTH,

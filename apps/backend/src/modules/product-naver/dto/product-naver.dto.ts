@@ -95,10 +95,10 @@ export class NaverProductOptionDto {
   isSoldOut: boolean;
 
   @ApiProperty({
-    enum: ["SIZE", "FLAVOR", "EXTRA", "BASE"],
-    description: "제안 용도 (사이즈 / 맛 / 추가 옵션 선택지 / 이 상품의 기본 가격)",
+    enum: ["SIZE", "EXTRA", "BASE"],
+    description: "제안 용도 (사이즈 / 추가 옵션 선택지(맛은 그룹 이름 '맛') / 이 상품의 기본 가격)",
   })
-  role: "SIZE" | "FLAVOR" | "EXTRA" | "BASE";
+  role: "SIZE" | "EXTRA" | "BASE";
 
   @ApiProperty({ description: "추가 옵션으로 넣을 때의 그룹 이름", example: "추가 선택" })
   groupName: string;

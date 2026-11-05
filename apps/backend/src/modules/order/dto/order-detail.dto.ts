@@ -97,25 +97,6 @@ export class OrderItemResponseDto {
   })
   sizePrice?: number;
 
-  // 맛 옵션 정보 (옵션이 없는 상품의 경우 null)
-  @ApiPropertyOptional({
-    description: "선택한 맛 옵션 ID (맛 옵션이 없는 상품의 경우 null)",
-    example: SWAGGER_EXAMPLES.ORDER_ITEM.flavorId,
-  })
-  flavorId?: string;
-
-  @ApiPropertyOptional({
-    description: "선택한 맛 표시명 (맛 옵션이 없는 상품의 경우 null)",
-    example: SWAGGER_EXAMPLES.ORDER_ITEM.flavorDisplayName,
-  })
-  flavorDisplayName?: string;
-
-  @ApiPropertyOptional({
-    description: "맛 추가 가격 (맛 옵션이 없으면 0 또는 null)",
-    example: SWAGGER_EXAMPLES.ORDER_ITEM.flavorPrice,
-  })
-  flavorPrice?: number;
-
   @ApiProperty({
     description: "추가 옵션 선택 내역 (주문 시점 스냅샷, 판매자가 정한 옵션 순서)",
     type: [SelectedOptionResponseDto],

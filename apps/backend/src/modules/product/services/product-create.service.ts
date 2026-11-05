@@ -23,7 +23,7 @@ export class ProductCreateService {
    * 케이크 옵션용 랜덤 ID 생성
    * - 생성 시 한 번만 부여되고 이후에는 변경되지 않도록 사용
    */
-  private generateOptionId(prefix: "size" | "flavor"): string {
+  private generateOptionId(prefix: "size"): string {
     const random = Math.random().toString(36).substring(2, 10);
     return `${prefix}_${random}`;
   }
@@ -79,11 +79,6 @@ export class ProductCreateService {
             id: option.id ?? this.generateOptionId("size"),
           }));
 
-          const cakeFlavorOptionsWithId = createProductDto.cakeFlavorOptions.map((option) => ({
-            ...option,
-            id: option.id ?? this.generateOptionId("flavor"),
-          }));
-
           const productData: Prisma.ProductCreateInput = {
             store: {
               connect: {
@@ -97,7 +92,6 @@ export class ProductCreateService {
             salesStatus: createProductDto.salesStatus,
             visibilityStatus: createProductDto.visibilityStatus,
             cakeSizeOptions: cakeSizeOptionsWithId as unknown as Prisma.InputJsonValue,
-            cakeFlavorOptions: cakeFlavorOptionsWithId as unknown as Prisma.InputJsonValue,
             customOptions: customOptions as unknown as Prisma.InputJsonValue,
             ...deriveLegacyOptionFields(customOptions),
             productType: createProductDto.productType,
