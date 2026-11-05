@@ -139,6 +139,7 @@ export const NAVER_PRODUCT_WARNINGS = {
   SOLD_OUT: (names: string) => `네이버에서 품절인 옵션이 있어요: ${names}`,
   ITEM_CLOSED: "네이버에서 예약을 받지 않는 상품이에요. 판매 상태를 확인해 주세요.",
   OPTION_NO_PRICE: "가격이 없는 안내 항목이라 넣지 않았어요.",
+  PAYMENT_OPTION: "계약금·결제창 같은 결제 항목이라 넣지 않았어요.",
   TOO_MANY_EXTRAS: (max: number) =>
     `추가 옵션 선택지는 ${max}개까지예요. 넣을 선택지를 골라 주세요.`,
 };

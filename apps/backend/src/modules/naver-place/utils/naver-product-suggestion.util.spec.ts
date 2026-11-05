@@ -239,6 +239,50 @@ describe("기본 가격 옵션과 추가 옵션 그룹", () => {
   });
 });
 
+describe("묶음 주문서 판단 (조사한 매장 형식을 본뜬 예시)", () => {
+  it("조각 케이크·커피처럼 5천 원 넘는 옵션이 3개 이상이면 묶음 주문서", () => {
+    const s = toNaverProductSuggestion(item({ name: "샘플 케이크 주문" }), [
+      option({ optionId: "1", categoryName: "케이크", name: "모둠조각 케이크", price: 65000 }),
+      option({ optionId: "2", categoryName: "케이크", name: "얼그레이 조각", price: 8000 }),
+      option({ optionId: "3", categoryName: "케이크", name: "바스크 조각", price: 8000 }),
+      option({ optionId: "4", categoryName: "coffee", name: "아메리카노", price: 4500 }),
+    ]);
+    expect(s.menuLike).toBe(true);
+    expect(s.options.some((o) => o.role === "BASE")).toBe(false);
+  });
+
+  it("이름이 '포장주문'이면 옵션이 하나여도 묶음 주문서", () => {
+    const s = toNaverProductSuggestion(item({ name: "포장주문" }), [
+      option({ name: "샘플 케이크", price: 68000 }),
+    ]);
+    expect(s.menuLike).toBe(true);
+  });
+
+  it("기본 가격 옵션은 다른 옵션보다 2배 이상 비쌀 때만", () => {
+    const yes = toNaverProductSuggestion(item(), [
+      option({ optionId: "1", name: "샘플 장미 케이크", price: 29000 }),
+      option({ optionId: "2", name: "생화 추가", price: 8000 }),
+      option({ optionId: "3", name: "초 추가", price: 2000 }),
+    ]);
+    expect(yes.options.map((o) => o.role)).toEqual(["BASE", "EXTRA", "EXTRA"]);
+    expect(yes.suggestedSalePrice).toBe(29000);
+
+    const no = toNaverProductSuggestion(item(), [
+      option({ optionId: "1", name: "샘플 케이크 A", price: 15000 }),
+      option({ optionId: "2", name: "포장 추가", price: 9000 }),
+    ]);
+    expect(no.options.map((o) => o.role)).toEqual(["EXTRA", "EXTRA"]);
+  });
+
+  it("계약금·개인결제창은 기본 가격으로 보지 않고 고르지 않는다", () => {
+    const s = toNaverProductSuggestion(item(), [
+      option({ name: "원하는 디자인(계약금)", price: 10000 }),
+    ]);
+    expect(s.options[0]).toMatchObject({ role: "EXTRA", selectedByDefault: false });
+    expect(s.options[0].invalidReason).toBe(NAVER_PRODUCT_WARNINGS.PAYMENT_OPTION);
+  });
+});
+
 describe("toNaverOptionProductSuggestion", () => {
   it("옵션 하나를 상품으로: 이름·설명·가격·사진은 옵션에서, 주의사항은 상품에서", () => {
     const s = toNaverOptionProductSuggestion(

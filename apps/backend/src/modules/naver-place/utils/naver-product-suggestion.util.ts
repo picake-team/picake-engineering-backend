@@ -68,8 +68,14 @@ const SIZE_PATTERNS: { pattern: RegExp; displayName: CakeSizeDisplayName }[] = [
 const SIZE_CATEGORY = /사이즈|크기|호수|size/i;
 const FLAVOR_CATEGORY = /맛(?!있)|flavou?r/i;
 
-/** 옵션이 따로 팔리는 상품처럼 보이는 가격 (원) */
+/** 옵션이 따로 팔리는 케이크처럼 보이는 가격 (원) */
 const MENU_LIKE_MIN_PRICE = 10_000;
+/** 커피·조각 케이크처럼 따로 팔리는 상품으로 볼 수 있는 가격 (원) */
+const MENU_ITEM_MIN_PRICE = 5_000;
+/** 이름으로 알 수 있는 묶음 주문서 (예: 포장주문, 테이블주문) */
+const MENU_LIKE_NAME = /(포장|테이블|매장|픽업)\s*주문|주문서|메뉴판|전체\s*메뉴/;
+/** 상품이 아닌 결제 항목 (계약금, 개인결제창) */
+const PAYMENT_OPTION_NAME = /계약금|결제\s*창|개인\s*결제|선결제/;
 
 /** 추가 옵션 그룹 기본 이름 */
 export const NAVER_EXTRA_GROUP_NAME = "추가 선택";
@@ -140,6 +146,8 @@ export function toNaverProductSuggestion(
     const { role, sizeDisplayName } = decideRole(o);
     let invalidReason: string | null = null;
     if (o.price === null) invalidReason = NAVER_PRODUCT_WARNINGS.OPTION_NO_PRICE;
+    else if (PAYMENT_OPTION_NAME.test(o.name))
+      invalidReason = NAVER_PRODUCT_WARNINGS.PAYMENT_OPTION;
     else if (role === "SIZE" && !sizeDisplayName) {
       invalidReason = "사이즈(도시락·미니·1~3호)를 골라 주세요.";
     } else if (role !== "SIZE" && o.name.length > CUSTOM_OPTION_LIMITS.MAX_CHOICE_LABEL_LENGTH) {
@@ -182,16 +190,33 @@ export function toNaverProductSuggestion(
     for (const s of sizes) s.selectedByDefault = false;
   }
 
-  // 사이즈 없이 비싼 옵션이 여러 개면 "여러 상품을 묶은 주문서"로 본다 (예: 포장주문)
-  const pricedExtras = suggestions.filter(
-    (s) => s.role === "EXTRA" && (s.price ?? 0) >= MENU_LIKE_MIN_PRICE,
+  // 사이즈 없이 상품처럼 팔리는 옵션이 여러 개면 "여러 상품을 묶은 주문서"로 본다 (예: 포장주문)
+  const extrasOnly = suggestions.filter(
+    (s) => s.role === "EXTRA" && !PAYMENT_OPTION_NAME.test(s.name),
   );
-  const menuLike = sizes.length === 0 && pricedExtras.length >= 2;
+  const countAtLeast = (min: number) => extrasOnly.filter((s) => (s.price ?? 0) >= min).length;
+  const menuLike =
+    sizes.length === 0 &&
+    suggestions.length > 0 &&
+    (MENU_LIKE_NAME.test(item.name) ||
+      countAtLeast(MENU_LIKE_MIN_PRICE) >= 2 ||
+      countAtLeast(MENU_ITEM_MIN_PRICE) >= 3);
 
-  // 사이즈 없이 비싼 옵션이 하나뿐이면 그 옵션이 이 상품의 기본 가격이다 (예: "빼낭시에 6구 29,000원" + 추가 선택)
-  // 추가 옵션으로 넣으면 판매가에 또 더해지므로 판매가로 쓴다
+  // 사이즈 없이 비싼 옵션이 하나뿐이고 다른 옵션보다 2배 이상 비싸면 그 옵션이 이 상품의 기본 가격이다
+  // (예: "빼낭시에 6구 29,000원" + 초 추가 500원). 추가 옵션으로 넣으면 판매가에 또 더해지므로 판매가로 쓴다
+  const baseCandidates = extrasOnly.filter((s) => (s.price ?? 0) >= MENU_LIKE_MIN_PRICE);
+  const otherMax = Math.max(
+    0,
+    ...extrasOnly.filter((s) => s !== baseCandidates[0]).map((s) => s.price ?? 0),
+  );
   const base =
-    sizes.length === 0 && pricedExtras.length === 1 && !itemPrice ? pricedExtras[0] : null;
+    sizes.length === 0 &&
+    !menuLike &&
+    !itemPrice &&
+    baseCandidates.length === 1 &&
+    (baseCandidates[0].price ?? 0) >= otherMax * 2
+      ? baseCandidates[0]
+      : null;
   if (base) {
     base.role = "BASE";
     // 기본 가격 옵션과 같은 분류의 다른 옵션은 '추가 선택' 그룹으로 (분류 이름이 상품 종류일 때가 많음)
