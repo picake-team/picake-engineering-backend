@@ -6,6 +6,7 @@ import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { BusinessService } from "@apps/backend/modules/business/business.service";
 import { CreateStoreRequestDto } from "@apps/backend/modules/store/dto/store-create.dto";
 import { STORE_ERROR_MESSAGES } from "@apps/backend/modules/store/constants/store.constants";
+import { BUSINESS_ERROR_MESSAGES } from "@apps/backend/modules/business/constants/business.contants";
 
 import { StoreCreateService } from "./store-create.service";
 
@@ -44,16 +45,18 @@ describe("StoreCreateService 통신판매업 정보(선택)", () => {
     verifyBusinessRegistration: vi.fn(),
     getOnlineTradingCompanyDetail: vi.fn(),
   };
-  const txStoreMock = { create: vi.fn() };
+  const txStoreMock = { create: vi.fn(), findFirst: vi.fn() };
+  const txExecuteRaw = vi.fn();
   const txSellerMock = { update: vi.fn() };
   let service: StoreCreateService;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     prismaMock.$transaction.mockImplementation((fn: any) =>
-      fn({ store: txStoreMock, seller: txSellerMock } as any),
+      fn({ store: txStoreMock, seller: txSellerMock, $executeRaw: txExecuteRaw } as any),
     );
     txStoreMock.create.mockResolvedValue({ id: "store-1" });
+    txStoreMock.findFirst.mockResolvedValue(null);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -94,6 +97,15 @@ describe("StoreCreateService 통신판매업 정보(선택)", () => {
         buildDto({ onlineTradingCompanyDetail: detail } as Partial<CreateStoreRequestDto>),
       ),
     ).rejects.toThrow(STORE_ERROR_MESSAGES.BUSINESS_REGISTRATION_NUMBER_MISMATCH);
+    expect(txStoreMock.create).not.toHaveBeenCalled();
+  });
+
+  it("같은 사업자등록번호 스토어가 그사이 생겼으면(등록 두 번 누름) 막는다", async () => {
+    txStoreMock.findFirst.mockResolvedValue({ id: "store-0" });
+    await expect(service.createStoreForSeller("seller-1", buildDto())).rejects.toThrow(
+      BUSINESS_ERROR_MESSAGES.BUSINESS_REGISTRATION_NUMBER_ALREADY_EXISTS,
+    );
+    expect(txExecuteRaw).toHaveBeenCalled();
     expect(txStoreMock.create).not.toHaveBeenCalled();
   });
 });
