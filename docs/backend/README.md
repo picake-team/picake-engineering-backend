@@ -10,6 +10,7 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 - **통합 인증 시스템**: JWT + Google/Kakao/Apple OAuth + 휴대폰 인증 + 앱스토어 심사용 로그인(`review-login`) + Admin TOTP
 - **상품 관리**: 상품 CRUD, 좋아요, 필터링, 검색 기능
 - **스토어 관리**: 스토어 등록, 수정, 목록 조회, 캘린더, 입점 요청(비입점 카카오 장소 등록 요청)
+- **네이버 플레이스 가져오기**: 판매자가 넣은 네이버 플레이스 링크(지도 앱 공유 링크 `naver.me` 포함)로 매장 이름·설명·연락처·인스타그램 ID·영업시간을 미리 보기, 스토어에 네이버 매장 연결·해제, 영업 캘린더 제안값. 캘린더 저장 때 진행 중인 예약과 겹치면 막음(`BUSINESS_CALENDAR_ORDER_CONFLICT`). 같은 매장 10분 캐시, 판매자당 1분 10회
 - **주문 관리**: 주문 생성, 조회, 상태 관리, 입금 마감·픽업 임박 자동 안내(배치)
 - **피드 관리**: 피드 작성, 조회, 상세
 - **리뷰 시스템**: 리뷰 작성 및 조회
@@ -65,6 +66,8 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
   - `/v1/seller/store/create` - 스토어 생성 (POST)
   - `/v1/seller/store/list` - 내 스토어 목록 조회 (GET)
   - `/v1/seller/store/:storeId` - 스토어 상세 조회/수정
+  - `/v1/seller/store/:storeId/naver-place` - 네이버 매장 연결 (PUT) / 연결 해제 (DELETE)
+- **네이버 플레이스**: `/v1/seller/naver-place/preview` - 네이버 플레이스 링크로 매장 정보 미리 보기 (GET)
 - **상품**: `/v1/seller/products/*` - 상품 CRUD
 - **주문**: `/v1/seller/orders/*` - 주문 관리
 - **피드**: `/v1/seller/feed/*` - 피드 CRUD
