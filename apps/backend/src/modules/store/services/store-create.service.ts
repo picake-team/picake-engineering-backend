@@ -3,6 +3,7 @@ import { BusinessService } from "@apps/backend/modules/business/business.service
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { CreateStoreRequestDto } from "@apps/backend/modules/store/dto/store-create.dto";
 import { STORE_ERROR_MESSAGES } from "@apps/backend/modules/store/constants/store.constants";
+import { BUSINESS_ERROR_MESSAGES } from "@apps/backend/modules/business/constants/business.contants";
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { sanitizeRefundCancellationPolicyForDb } from "@apps/backend/modules/store/utils/store-refund-cancellation-policy.util";
@@ -56,6 +57,19 @@ export class StoreCreateService {
     try {
       return await this.prisma.$transaction(
         async (tx) => {
+          // 같은 사업자등록번호로 동시에 들어온 요청(등록 버튼 두 번 누름 등)을 한 줄로 세운 뒤 다시 확인한다.
+          // 통신판매업 신고번호를 받지 않으면(null) DB 유니크 제약이 중복을 막지 못해서 여기서 막는다
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${normalizedBusinessNo}))`;
+          const existing = await tx.store.findFirst({
+            where: { businessNo: normalizedBusinessNo },
+            select: { id: true },
+          });
+          if (existing) {
+            throw new BadRequestException(
+              BUSINESS_ERROR_MESSAGES.BUSINESS_REGISTRATION_NUMBER_ALREADY_EXISTS,
+            );
+          }
+
           const store = await tx.store.create({
             data: {
               sellerId,
