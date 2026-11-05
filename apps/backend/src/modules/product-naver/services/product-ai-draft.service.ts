@@ -21,12 +21,8 @@ import {
   ProductDescriptionDraftRequestDto,
   ProductDescriptionDraftResponseDto,
 } from "@apps/backend/modules/product-naver/dto/product-naver.dto";
-import {
-  buildDescriptionDraftPrompt,
-  DESCRIPTION_DRAFT_OUTPUT_SCHEMA,
-  DESCRIPTION_DRAFT_SYSTEM_PROMPT,
-  parseDescriptionDraft,
-} from "@apps/backend/modules/product-naver/utils/product-ai-draft.util";
+import { generateDescriptionDraft } from "@apps/backend/modules/product-naver/utils/product-ai-draft.generator";
+import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 
 /**
  * 상품 상세설명 AI 초안 서비스 (Claude)
@@ -39,6 +35,7 @@ import {
 @Injectable()
 export class ProductAiDraftService {
   private readonly client: Anthropic | null;
+  private readonly model: string;
   private readonly dailyUsage = new Map<string, number>();
 
   constructor(
@@ -47,6 +44,7 @@ export class ProductAiDraftService {
   ) {
     const apiKey = configService.get<string>("ANTHROPIC_API_KEY");
     this.client = apiKey ? new Anthropic({ apiKey, maxRetries: 1, timeout: 60_000 }) : null;
+    this.model = configService.get<string>("ANTHROPIC_DRAFT_MODEL") || PRODUCT_AI_DRAFT_MODEL;
   }
 
   get isConfigured(): boolean {
@@ -67,18 +65,9 @@ export class ProductAiDraftService {
     }
     this.consumeDailyQuota(user.sub);
 
-    let response: Anthropic.Message;
+    let result;
     try {
-      response = await this.client.messages.create({
-        model: PRODUCT_AI_DRAFT_MODEL,
-        max_tokens: PRODUCT_AI_DRAFT_LIMITS.MAX_OUTPUT_TOKENS,
-        system: DESCRIPTION_DRAFT_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: buildDescriptionDraftPrompt(request) }],
-        output_config: {
-          effort: "low",
-          format: { type: "json_schema", schema: DESCRIPTION_DRAFT_OUTPUT_SCHEMA },
-        },
-      });
+      result = await generateDescriptionDraft(this.client, this.model, request);
     } catch (error: any) {
       ExternalApiErrorUtil.reportFailure(
         {
@@ -87,24 +76,20 @@ export class ProductAiDraftService {
           operation: "description-draft",
           httpStatus: error?.status,
           providerError: error?.error?.error?.type,
-          details: { storeId },
+          details: { storeId, model: this.model },
         },
         error,
       );
       throw new BadGatewayException(PRODUCT_AI_DRAFT_ERROR_MESSAGES.FAILED);
     }
 
-    if (response.stop_reason === "refusal") {
-      throw new BadGatewayException(PRODUCT_AI_DRAFT_ERROR_MESSAGES.FAILED);
-    }
-    const text = response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === "text")
-      .map((block) => block.text)
-      .join("");
-    const draft = parseDescriptionDraft(text);
-    if (!draft) throw new BadGatewayException(PRODUCT_AI_DRAFT_ERROR_MESSAGES.FAILED);
+    // 사용량을 남겨 비용을 볼 수 있게 한다 (글 내용은 남기지 않음)
+    LoggerUtil.log(
+      `AI 초안: model=${result.model} stop=${result.stopReason} in=${result.usage.inputTokens} out=${result.usage.outputTokens} storeId=${storeId}`,
+    );
+    if (!result.draft) throw new BadGatewayException(PRODUCT_AI_DRAFT_ERROR_MESSAGES.FAILED);
 
-    return { ...draft, model: PRODUCT_AI_DRAFT_MODEL };
+    return { ...result.draft, model: result.model };
   }
 
   /** 판매자당 하루(한국 시간) 사용 횟수 제한 */

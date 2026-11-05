@@ -32,8 +32,14 @@ export const DESCRIPTION_DRAFT_OUTPUT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-/** 자료 안에서 태그를 닫아 지시처럼 보이게 하는 것을 막는다 */
-const escapeTags = (text: string) => text.replace(/</g, "‹").replace(/>/g, "›");
+/** 자료 안에서 태그를 닫아 지시처럼 보이게 하는 것을 막고, 불필요한 공백·빈 줄을 줄여 토큰을 아낀다 */
+const escapeTags = (text: string) =>
+  text
+    .replace(/</g, "‹")
+    .replace(/>/g, "›")
+    .replace(/[ \t\u00a0]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n");
 
 export function buildDescriptionDraftPrompt(request: ProductDescriptionDraftRequestDto): string {
   const sections = [
