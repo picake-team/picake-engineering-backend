@@ -88,6 +88,8 @@ export class AuthWithdrawService {
         where: { id: accountId },
         data: this.buildAnonymizedWithdrawalData(accountId, reason),
       });
+      // 탈퇴한 판매자의 휴대폰으로 더 이상 푸시가 가지 않게 판매자 앱 토큰을 지움
+      await this.prisma.sellerFcmToken.deleteMany({ where: { sellerId: accountId } });
       return;
     }
 

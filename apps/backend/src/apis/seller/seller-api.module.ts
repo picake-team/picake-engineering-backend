@@ -26,6 +26,8 @@ import { NaverPlaceModule } from "@apps/backend/modules/naver-place/naver-place.
 import { SellerNaverPlaceController } from "@apps/backend/apis/seller/controllers/naver-place.controller";
 import { SellerProductNaverController } from "@apps/backend/apis/seller/controllers/product-naver.controller";
 import { ProductNaverModule } from "@apps/backend/modules/product-naver/product-naver.module";
+import { FcmModule } from "@apps/backend/modules/fcm/fcm.module";
+import { SellerFcmTokenController } from "@apps/backend/apis/seller/controllers/fcm-token.controller";
 
 /**
  * Seller API 모듈
@@ -47,9 +49,11 @@ import { ProductNaverModule } from "@apps/backend/modules/product-naver/product-
     TermsModule,
     NaverPlaceModule,
     ProductNaverModule,
+    FcmModule,
     // ChatModule,
   ],
   controllers: [
+    SellerFcmTokenController,
     SellerUploadController,
     SellerAuthController,
     SellerBusinessController,

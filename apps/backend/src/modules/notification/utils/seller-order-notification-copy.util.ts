@@ -122,3 +122,15 @@ export function buildSellerOrderNotificationCopy(
 
   return null;
 }
+
+/**
+ * 판매자 앱 휴대폰 푸시를 보낼지 (기획 I-48).
+ * 판매자가 직접 바꾼 상태는 이미 알고 있으므로 보내지 않고, 손님·자동 처리·관리자가 만든 변화만 보냅니다
+ * (새 예약신청, 입금완료, 손님 취소·환불 요청, 입금 기한 만료 취소, 관리자 변경).
+ * 판매자 페이지 안 알림(SELLER_WEB)은 이와 관계없이 지금처럼 모두 만듭니다.
+ */
+export function shouldSendSellerOrderPush(
+  payload: Pick<OrderStatusTransitionPayload, "source">,
+): boolean {
+  return !isSellerStatusUpdate(payload);
+}

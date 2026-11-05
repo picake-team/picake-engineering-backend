@@ -90,19 +90,20 @@ export class FcmService implements OnModuleInit {
    * - android: 안드로이드 알림 채널 및 우선순위 설정
    * - apns: iOS 알림 배지·사운드 설정
    *
-   * @returns 만료·무효로 판별된 토큰 목록 (DB 정리용)
+   * @returns 만료·무효로 판별된 토큰 목록 (DB 정리용)과 실제로 보낸(성공한) 토큰 수
    */
   async sendToTokens(params: SendFcmTokensParams): Promise<SendFcmTokensResult> {
     if (!this.app) {
-      return { invalidTokens: [] };
+      return { invalidTokens: [], successCount: 0 };
     }
 
     const tokens = FcmService.sanitizeTokens(params.tokens);
     if (tokens.length === 0) {
-      return { invalidTokens: [] };
+      return { invalidTokens: [], successCount: 0 };
     }
 
     const invalidTokenSet = new Set<string>();
+    let totalSuccessCount = 0;
     const tokenChunks = FcmService.splitIntoChunks(tokens, FCM_MAX_MULTICAST_TOKENS);
 
     try {
@@ -136,6 +137,7 @@ export class FcmService implements OnModuleInit {
         });
 
         successCount += response.successCount;
+        totalSuccessCount += response.successCount;
         failureCount += response.failureCount;
 
         response.responses.forEach((resp: admin.messaging.SendResponse, idx: number) => {
@@ -167,6 +169,7 @@ export class FcmService implements OnModuleInit {
 
     return {
       invalidTokens: Array.from(invalidTokenSet),
+      successCount: totalSuccessCount,
     };
   }
 }

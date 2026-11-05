@@ -229,6 +229,7 @@ model Seller {
   notificationPreferences UserNotificationPreference[]
   termsAgreements         SellerTermsAgreement[]
   segmentMemberships      SellerSegmentMembership[]
+  fcmTokens               SellerFcmToken[]
 
   @@index([phone])
   @@index([googleId])
@@ -799,6 +800,22 @@ model ConsumerNotificationPreference {
 
   @@unique([consumerId, appSurface])
   @@map("consumer_notification_preferences")
+}
+
+/// 판매자 앱(Flutter, 기획 I-48) FCM 토큰 (판매자 단위, 디바이스/설치 단위 1토큰). 구매자 토큰과 같은 규칙
+model SellerFcmToken {
+  id        String   @id @default(cuid())
+  sellerId  String   @map("seller_id")
+  deviceId  String   @map("device_id")
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId])
+  @@unique([sellerId, deviceId])
+  @@map("seller_fcm_tokens")
 }
 
 /// 구매자 앱(Flutter) FCM 토큰 (구매자 단위, 디바이스/설치 단위 1토큰)
