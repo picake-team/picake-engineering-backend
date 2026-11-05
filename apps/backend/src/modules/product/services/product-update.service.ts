@@ -155,9 +155,7 @@ export class ProductUpdateService {
         "flavor",
       );
 
-      if (!hasVisibleOption(nextFlavorOptions)) {
-        throw new BadRequestException(PRODUCT_ERROR_MESSAGES.FLAVOR_OPTION_REQUIRED);
-      }
+      // 맛은 선택이다(네이버 상품 대부분에 맛 옵션이 없음). 비우면 손님은 맛을 고르지 않는다
       optionsChanged ||= canonicalJson(nextFlavorOptions) !== canonicalJson(existingFlavorOptions);
       updateData.cakeFlavorOptions = nextFlavorOptions as unknown as Prisma.InputJsonValue;
     }

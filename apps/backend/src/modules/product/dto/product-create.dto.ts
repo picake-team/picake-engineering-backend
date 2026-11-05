@@ -321,12 +321,12 @@ export class CreateProductRequestDto {
   cakeSizeOptions: CreateCakeSizeOptionDto[];
 
   @ApiProperty({
-    description: "케이크 옵션 - 맛 목록 (노출 중인 맛 1개 이상 필수)",
+    description:
+      "케이크 옵션 - 맛 목록 (선택. 비우거나 모두 숨기면 손님은 맛을 고르지 않고, 노출 중인 맛이 있으면 하나를 꼭 고른다)",
     type: [CreateCakeFlavorOptionDto],
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions,
   })
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateCakeFlavorOptionDto)
   cakeFlavorOptions: CreateCakeFlavorOptionDto[];

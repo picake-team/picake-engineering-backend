@@ -56,9 +56,6 @@ export class ProductCreateService {
     if (!hasVisibleOption(createProductDto.cakeSizeOptions)) {
       throw new BadRequestException(PRODUCT_ERROR_MESSAGES.SIZE_OPTION_REQUIRED);
     }
-    if (!hasVisibleOption(createProductDto.cakeFlavorOptions)) {
-      throw new BadRequestException(PRODUCT_ERROR_MESSAGES.FLAVOR_OPTION_REQUIRED);
-    }
     const customOptions = normalizeCustomOptionsForSave(createProductDto.customOptions ?? [], []);
 
     try {

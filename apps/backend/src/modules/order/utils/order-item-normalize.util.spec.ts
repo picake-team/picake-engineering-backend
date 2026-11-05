@@ -277,6 +277,15 @@ describe("validateAndNormalizeOrderItem - 추가 옵션", () => {
     );
   });
 
+  it("맛이 없는(또는 모두 숨긴) 상품은 맛 없이 주문할 수 있다", () => {
+    for (const cakeFlavorOptions of [[], [PRODUCT.cakeFlavorOptions[1]]]) {
+      const ctx = buildOrderItemNormalizeContext({ ...PRODUCT, cakeFlavorOptions });
+      const ok = validateAndNormalizeOrderItem(item({ flavorId: undefined }), ctx);
+      expect(ok.flavorId).toBeNull();
+      expect(ok.flavorDisplayName).toBeNull();
+    }
+  });
+
   it("options와 레거시 필드를 함께 보내면 거절한다", () => {
     expectBadRequest(
       () => validateAndNormalizeOrderItem(item({ letteringMessage: "축하해" }), context()),

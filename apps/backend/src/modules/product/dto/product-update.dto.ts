@@ -120,7 +120,7 @@ export class UpdateProductRequestDto {
   cakeSizeOptions?: UpdateCakeSizeOptionDto[];
 
   @ApiPropertyOptional({
-    description: "케이크 옵션 - 맛 목록",
+    description: "케이크 옵션 - 맛 목록 (선택. 빈 배열이면 맛을 고르지 않는 상품)",
     type: [UpdateCakeFlavorOptionDto],
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.cakeFlavorOptions,
   })

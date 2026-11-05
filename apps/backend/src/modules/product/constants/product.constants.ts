@@ -18,7 +18,6 @@ export const PRODUCT_ERROR_MESSAGES = {
   DISTANCE_SORT_REQUIRES_COORDINATES:
     "거리순 정렬에는 latitude와 longitude 쿼리 파라미터가 필요합니다.",
   SIZE_OPTION_REQUIRED: "노출 중인 사이즈 옵션이 1개 이상 필요합니다.",
-  FLAVOR_OPTION_REQUIRED: "노출 중인 맛 옵션이 1개 이상 필요합니다.",
   CUSTOM_OPTION_INVALID: "추가 옵션 설정이 올바르지 않습니다.",
 } as const;
 
