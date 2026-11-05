@@ -13,6 +13,7 @@ import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { ProductOwnershipUtil } from "@apps/backend/modules/product/utils/product-ownership.util";
 import { validateProductPrices } from "@apps/backend/modules/product/utils/product-price.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
+import { ProductNaverLinkUtil } from "@apps/backend/modules/product/utils/product-naver-link.util";
 
 @Injectable()
 export class ProductCreateService {
@@ -42,6 +43,15 @@ export class ProductCreateService {
     );
 
     validateProductPrices(createProductDto.originalPrice, createProductDto.salePrice);
+
+    // 네이버에서 가져온 상품이면 연결을 함께 저장한다 (스토어 안에서 한 상품에만)
+    if (createProductDto.naverBizItemId) {
+      await ProductNaverLinkUtil.assertLinkable(
+        this.prisma,
+        createProductDto.storeId,
+        createProductDto.naverBizItemId,
+      );
+    }
 
     if (!hasVisibleOption(createProductDto.cakeSizeOptions)) {
       throw new BadRequestException(PRODUCT_ERROR_MESSAGES.SIZE_OPTION_REQUIRED);
@@ -100,6 +110,9 @@ export class ProductCreateService {
             ),
             searchTags: createProductDto.searchTags ?? [],
             detailDescription: createProductDto.detailDescription,
+            ...(createProductDto.naverBizItemId
+              ? { naverBizItemId: createProductDto.naverBizItemId, naverLinkedAt: now }
+              : {}),
             productNumber,
             productNoticeFoodType: createProductDto.productNoticeFoodType,
             productNoticeProducer: createProductDto.productNoticeProducer,
@@ -131,6 +144,10 @@ export class ProductCreateService {
         },
       );
     } catch (error: unknown) {
+      // 동시에 같은 네이버 상품을 연결하면 유니크 제약에 걸린다
+      if (ProductNaverLinkUtil.isDuplicateLinkError(error)) {
+        throw ProductNaverLinkUtil.duplicateLinkException();
+      }
       LoggerUtil.log(
         `상품 생성 실패: 트랜잭션 에러 - userId: ${user.sub}, storeId: ${createProductDto.storeId}, error: ${error instanceof Error ? error.message : String(error)}`,
       );

@@ -1,3 +1,4 @@
+import { NAVER_BOOKING_ID_REGEX } from "@apps/backend/modules/naver-place/constants/naver-booking.constants";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsNotEmpty,
@@ -14,6 +15,7 @@ import {
   MaxLength,
   ArrayMinSize,
   ArrayMaxSize,
+  Matches,
 } from "class-validator";
 import { Type } from "class-transformer";
 import {
@@ -348,6 +350,16 @@ export class CreateProductRequestDto {
   @IsOptional()
   @IsString()
   detailDescription?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "네이버에서 가져온 상품이면 네이버 예약 상품 ID. 스토어에 네이버 매장이 연결돼 있어야 하고, 같은 스토어의 다른 상품과 겹치면 안 됩니다.",
+    example: "7954953",
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(NAVER_BOOKING_ID_REGEX)
+  naverBizItemId?: string;
 
   @ApiPropertyOptional({
     description:

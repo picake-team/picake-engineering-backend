@@ -317,6 +317,10 @@ model Product {
   searchTags            String[] @default([]) @map("search_tags") // 검색 태그 (없거나 여러 개)
   detailDescription     String? @map("detail_description") // 상세 설명
 
+  // 네이버 예약 상품 연결 (가져오기·다시 불러오기용). 연결은 판매자가 정하고, 같은 스토어 안에서 한 상품에만 연결한다
+  naverBizItemId    String?   @map("naver_biz_item_id") // 네이버 예약 상품 ID
+  naverLinkedAt     DateTime? @map("naver_linked_at") // 네이버 상품을 연결한 시각
+
   // 비즈니스 필드 - 케이크 옵션
   cakeSizeOptions   Json? @map("cake_size_options") // 케이크 사이즈 옵션
   cakeFlavorOptions  Json? @map("cake_flavor_options") // 케이크 맛 옵션
@@ -364,6 +368,7 @@ model Product {
   @@index([visibilityStatus, salesStatus, salePrice]) // 노출된 상품 목록 조회 최적화 (정렬: 가격순)
   @@index([visibilityStatus, salesStatus, likeCount(sort: Desc)]) // 노출된 상품 목록 조회 최적화 (정렬: 인기순)
   @@index([name]) // 상품명 검색 최적화
+  @@unique([storeId, naverBizItemId]) // 네이버 상품 하나는 스토어 안에서 한 상품에만 연결
   @@map("products")
 }
 
