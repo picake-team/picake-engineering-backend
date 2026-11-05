@@ -12,8 +12,10 @@ import {
   MaxLength,
   Min,
 } from "class-validator";
-import { NAVER_BOOKING_ID_REGEX } from "@apps/backend/modules/naver-place/constants/naver-booking.constants";
-import { NAVER_IMAGE_IMPORT_MAX } from "@apps/backend/modules/naver-place/constants/naver-booking.constants";
+import {
+  NAVER_IMAGE_IMPORT_MAX,
+  NAVER_PRODUCT_LINK_KEY_REGEX,
+} from "@apps/backend/modules/naver-place/constants/naver-booking.constants";
 import { CakeSizeDisplayName } from "@apps/backend/modules/product/constants/product.constants";
 import { PRODUCT_AI_DRAFT_LIMITS } from "@apps/backend/modules/product-naver/constants/product-naver.constants";
 
@@ -92,8 +94,20 @@ export class NaverProductOptionDto {
   @ApiProperty()
   isSoldOut: boolean;
 
-  @ApiProperty({ enum: ["SIZE", "EXTRA"], description: "제안 용도 (사이즈 / 추가 옵션 선택지)" })
-  role: "SIZE" | "EXTRA";
+  @ApiProperty({
+    enum: ["SIZE", "FLAVOR", "EXTRA", "BASE"],
+    description: "제안 용도 (사이즈 / 맛 / 추가 옵션 선택지 / 이 상품의 기본 가격)",
+  })
+  role: "SIZE" | "FLAVOR" | "EXTRA" | "BASE";
+
+  @ApiProperty({ description: "추가 옵션으로 넣을 때의 그룹 이름", example: "추가 선택" })
+  groupName: string;
+
+  @ApiProperty({ description: "네이버에서 필수로 고르게 한 분류인지" })
+  groupRequired: boolean;
+
+  @ApiPropertyOptional({ nullable: true, description: "옵션 사진 (미리보기용)" })
+  imageUrl: string | null;
 
   @ApiPropertyOptional({ enum: CakeSizeDisplayName, nullable: true })
   sizeDisplayName: CakeSizeDisplayName | null;
@@ -106,6 +120,12 @@ export class NaverProductOptionDto {
 
   @ApiPropertyOptional({ nullable: true })
   invalidReason: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: "이 옵션을 상품 하나로 이미 가져온 Picake 상품",
+  })
+  linkedProduct: { id: string; name: string } | null;
 }
 
 export class NaverProductDetailResponseDto {
@@ -145,6 +165,12 @@ export class NaverProductDetailResponseDto {
   @ApiProperty({ type: [String] })
   soldOutOptionNames: string[];
 
+  @ApiProperty({
+    description:
+      "여러 상품을 옵션으로 묶은 네이버 상품(포장주문 등)으로 보이면 true. 옵션을 `상품ID-o옵션ID`로 하나씩 가져오도록 안내",
+  })
+  menuLike: boolean;
+
   @ApiPropertyOptional({ nullable: true })
   linkedProduct: { id: string; name: string } | null;
 
@@ -178,9 +204,12 @@ export class ImportNaverImagesResponseDto {
 
 /** 상품에 네이버 예약 상품 연결 요청 */
 export class LinkNaverItemRequestDto {
-  @ApiProperty({ description: "네이버 예약 상품 ID", example: "7954953" })
+  @ApiProperty({
+    description: "네이버 예약 상품 ID (상품 안 옵션 하나는 `상품ID-o옵션ID`)",
+    example: "7954953",
+  })
   @IsString()
-  @Matches(NAVER_BOOKING_ID_REGEX)
+  @Matches(NAVER_PRODUCT_LINK_KEY_REGEX)
   bizItemId: string;
 }
 

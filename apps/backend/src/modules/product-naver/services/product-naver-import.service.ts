@@ -11,11 +11,17 @@ import {
 } from "@apps/backend/modules/naver-place/constants/naver-booking.constants";
 import {
   NaverBookingItem,
+  NaverBookingOption,
   toNaverImageUrl,
 } from "@apps/backend/modules/naver-place/utils/naver-booking-parser.util";
-import { toNaverProductSuggestion } from "@apps/backend/modules/naver-place/utils/naver-product-suggestion.util";
+import {
+  NaverProductSuggestion,
+  toNaverOptionProductSuggestion,
+  toNaverProductSuggestion,
+} from "@apps/backend/modules/naver-place/utils/naver-product-suggestion.util";
 import type { NaverPlaceInfo } from "@apps/backend/modules/naver-place/utils/naver-place-parser.util";
 import {
+  NAVER_OPTION_ITEM_KEY_REGEX,
   NAVER_PRODUCT_ITEM_KEY_REGEX,
   NAVER_PRODUCT_SUMMARY_LENGTH,
   PRODUCT_NAVER_ERROR_MESSAGES,
@@ -38,6 +44,10 @@ const IMAGE_EXTENSIONS: Record<string, string> = {
 type ResolvedItem = {
   source: NaverProductSource;
   item: NaverBookingItem;
+  /** 옵션 하나를 상품으로 가져올 때의 옵션 (itemKey가 "상품ID-o옵션ID") */
+  option: NaverBookingOption | null;
+  /** 이 상품(또는 옵션)으로 가져올 수 있는 사진 */
+  imageUrls: string[];
   fetchedAt: Date;
   businessId: string | null;
   businessTypeId: number | null;
@@ -117,14 +127,16 @@ export class ProductNaverImportService {
     const resolved = await this.resolveItem(storeId, itemKey, user);
     const { item, source } = resolved;
 
-    let suggestion;
-    if (source === NaverProductSource.BOOKING) {
-      const options = await this.naverBookingService.getItemOptions(
+    let suggestion: NaverProductSuggestion;
+    if (resolved.option) {
+      suggestion = toNaverOptionProductSuggestion(item, resolved.option);
+    } else if (source === NaverProductSource.BOOKING) {
+      const result = await this.naverBookingService.getItemOptions(
         resolved.businessId as string,
         item.bizItemId,
         resolved.businessTypeId,
       );
-      suggestion = toNaverProductSuggestion(item, options);
+      suggestion = toNaverProductSuggestion(item, result.options, result.status);
     } else {
       const base = toNaverProductSuggestion(item, []);
       suggestion = {
@@ -136,10 +148,12 @@ export class ProductNaverImportService {
       };
     }
 
-    const linked =
+    // 이미 연결한 Picake 상품 (이 상품, 그리고 옵션을 하나씩 가져온 상품)
+    const optionKeys = suggestion.options.map((o) => `${item.bizItemId}-o${o.optionId}`);
+    const linkedMap =
       source === NaverProductSource.BOOKING
-        ? ((await this.findLinkedProducts(storeId, [item.bizItemId])).get(item.bizItemId) ?? null)
-        : null;
+        ? await this.findLinkedProducts(storeId, [itemKey, ...optionKeys])
+        : new Map<string, { id: string; name: string }>();
 
     return {
       itemKey,
@@ -149,11 +163,15 @@ export class ProductNaverImportService {
       description: suggestion.description,
       precautions: suggestion.precautions,
       imageUrls: suggestion.imageUrls,
-      options: suggestion.options,
+      options: suggestion.options.map((o, i) => ({
+        ...o,
+        linkedProduct: linkedMap.get(optionKeys[i]) ?? null,
+      })),
+      menuLike: suggestion.menuLike,
       suggestedSalePrice: suggestion.suggestedSalePrice,
       isClosed: suggestion.isClosed,
       soldOutOptionNames: suggestion.soldOutOptionNames,
-      linkedProduct: linked,
+      linkedProduct: linkedMap.get(itemKey) ?? null,
       warnings: suggestion.warnings,
     };
   }
@@ -168,13 +186,13 @@ export class ProductNaverImportService {
     indexes: number[],
     user: JwtVerifiedPayload,
   ): Promise<ImportNaverImagesResponseDto> {
-    const { item } = await this.resolveItem(storeId, itemKey, user);
+    const { imageUrls } = await this.resolveItem(storeId, itemKey, user);
     const uniqueIndexes = [...new Set(indexes)];
 
     const urls: string[] = [];
     const failedIndexes: number[] = [];
     for (const index of uniqueIndexes) {
-      const imageUrl = item.imageUrls[index];
+      const imageUrl = imageUrls[index];
       if (!imageUrl) {
         failedIndexes.push(index);
         continue;
@@ -220,6 +238,8 @@ export class ProductNaverImportService {
       const imageUrl = toNaverImageUrl(menu.imageUrl);
       return {
         source: NaverProductSource.MENU,
+        option: null,
+        imageUrls: imageUrl ? [imageUrl] : [],
         fetchedAt: place.fetchedAt,
         businessId: null,
         businessTypeId: null,
@@ -239,12 +259,27 @@ export class ProductNaverImportService {
 
     const businessId = place.info.bookingBusinessId;
     if (!businessId) throw new NotFoundException(NAVER_BOOKING_ERROR_MESSAGES.ITEM_NOT_FOUND);
+    const optionKey = itemKey.match(NAVER_OPTION_ITEM_KEY_REGEX);
+    const bizItemId = optionKey ? optionKey[1] : itemKey;
     const { items, fetchedAt } = await this.naverBookingService.listItems(businessId);
-    const item = items.find((i) => i.bizItemId === itemKey);
+    const item = items.find((i) => i.bizItemId === bizItemId);
     if (!item) throw new NotFoundException(NAVER_BOOKING_ERROR_MESSAGES.ITEM_NOT_FOUND);
+
+    let option: NaverBookingOption | null = null;
+    if (optionKey) {
+      const result = await this.naverBookingService.getItemOptions(
+        businessId,
+        bizItemId,
+        place.info.bookingBusinessTypeId,
+      );
+      option = result.options?.find((o) => o.optionId === optionKey[2]) ?? null;
+      if (!option) throw new NotFoundException(NAVER_BOOKING_ERROR_MESSAGES.ITEM_NOT_FOUND);
+    }
     return {
       source: NaverProductSource.BOOKING,
       item,
+      option,
+      imageUrls: option?.imageUrl ? [option.imageUrl] : item.imageUrls,
       fetchedAt,
       businessId,
       businessTypeId: place.info.bookingBusinessTypeId,

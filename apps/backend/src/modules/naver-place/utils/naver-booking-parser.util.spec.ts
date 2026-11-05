@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseNaverBookingItems,
   parseNaverBookingOptions,
+  pickNaverBookingDate,
   pickNaverBookingSlot,
   toNaverImageUrl,
 } from "@apps/backend/modules/naver-place/utils/naver-booking-parser.util";
@@ -136,5 +137,51 @@ describe("parseNaverBookingOptions", () => {
       ["12", null, "샘플 케이크 1호", 54000, false],
       ["21", "초", "숫자초", 500, true],
     ]);
+  });
+});
+
+describe("pickNaverBookingDate (날짜 단위 예약 방식)", () => {
+  it("예약 가능한 가장 이른 날짜를 고른다", () => {
+    expect(
+      pickNaverBookingDate({
+        data: {
+          timeSlotAvailabilityDailySummaries: [
+            { date: "2026-11-05", hasSlots: false },
+            { date: "2026-11-06", hasSlots: true, isHoliday: true },
+            { date: "2026-11-08", hasSlots: true, isHoliday: false },
+          ],
+        },
+      }),
+    ).toBe("2026-11-08");
+  });
+
+  it("없으면 null", () => {
+    expect(pickNaverBookingDate({ data: { timeSlotAvailabilityDailySummaries: [] } })).toBeNull();
+    expect(pickNaverBookingDate({})).toBeNull();
+  });
+});
+
+describe("parseNaverBookingOptions 옵션 사진", () => {
+  it("옵션 사진은 네이버 이미지 서버 주소만 남긴다", () => {
+    const [a, b] = parseNaverBookingOptions({
+      data: {
+        option: [
+          {
+            name: "케이크",
+            options: [
+              { optionId: "1", name: "a", price: 1, titleImageUrl: "https://x.pstatic.net/a.jpg" },
+              {
+                optionId: "2",
+                name: "b",
+                price: 1,
+                titleImageUrl: "https://evil.example.com/b.jpg",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(a.imageUrl).toBe("https://x.pstatic.net/a.jpg");
+    expect(b.imageUrl).toBeNull();
   });
 });

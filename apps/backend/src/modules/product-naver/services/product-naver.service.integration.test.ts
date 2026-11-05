@@ -62,18 +62,33 @@ describe("네이버 상품 가져오기·연결 (integration)", () => {
         items: [bookingItem("1001"), bookingItem("1002", "다른 케이크")],
         fetchedAt: new Date(),
       })),
-      getItemOptions: vi.fn(async () => [
-        {
-          optionId: "1",
-          categoryName: null,
-          name: "샘플 케이크 1호",
-          desc: "지름15cm",
-          price: 54000,
-          normalPrice: null,
-          isSoldOut: false,
-          remainStock: null,
-        },
-      ]),
+      getItemOptions: vi.fn(async () => ({
+        status: "OK",
+        options: [
+          {
+            optionId: "1",
+            categoryName: null,
+            name: "샘플 케이크 1호",
+            desc: "지름15cm",
+            price: 54000,
+            normalPrice: null,
+            isSoldOut: false,
+            remainStock: null,
+            imageUrl: null,
+          },
+          {
+            optionId: "2",
+            categoryName: null,
+            name: "샘플 바스크치즈",
+            desc: "옵션 설명",
+            price: 32000,
+            normalPrice: null,
+            isSoldOut: false,
+            remainStock: null,
+            imageUrl: "https://naverbooking-phinf.pstatic.net/option.jpg",
+          },
+        ],
+      })),
       downloadImage: vi.fn(async () => ({
         buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
         mimetype: "image/jpeg",
@@ -211,6 +226,40 @@ describe("네이버 상품 가져오기·연결 (integration)", () => {
     const { linkService } = build();
     await expect(linkService.linkForSeller(product.id, "menu-0", user)).rejects.toThrow(
       BadRequestException,
+    );
+  });
+
+  it("옵션 하나를 상품으로 가져오면 옵션 이름·가격·사진을 쓰고, 그 키로 연결된다", async () => {
+    const { prisma, store, user } = await setup();
+    const { importService, linkService, naverBookingService } = build();
+
+    const detail = await importService.detailForSeller(store.id, "1001-o2", user);
+    expect(detail).toMatchObject({
+      name: "샘플 바스크치즈",
+      suggestedSalePrice: 32000,
+      imageUrls: ["https://naverbooking-phinf.pstatic.net/option.jpg"],
+      options: [],
+    });
+
+    await importService.importImagesForSeller(store.id, "1001-o2", [0], user);
+    expect(naverBookingService.downloadImage).toHaveBeenLastCalledWith(
+      "https://naverbooking-phinf.pstatic.net/option.jpg",
+    );
+
+    const product = await createTestProduct(prisma, store.id);
+    const linked = await linkService.linkForSeller(product.id, "1001-o2", user);
+    expect(linked.naverBizItemId).toBe("1001-o2");
+
+    // 상품 상세에서 그 옵션은 이미 가져온 상품으로 표시된다
+    const parent = await importService.detailForSeller(store.id, "1001", user);
+    expect(parent.options.find((o) => o.optionId === "2")?.linkedProduct?.id).toBe(product.id);
+  });
+
+  it("없는 옵션은 404", async () => {
+    const { store, user } = await setup();
+    const { importService } = build();
+    await expect(importService.detailForSeller(store.id, "1001-o999", user)).rejects.toThrow(
+      NotFoundException,
     );
   });
 });
