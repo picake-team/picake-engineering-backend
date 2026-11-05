@@ -83,6 +83,14 @@ export class NaverPlaceService {
   }
 
   /**
+   * 플레이스 ID로 네이버에서 읽은 매장 정보를 돌려줍니다(캐시 사용).
+   * 상품 가져오기처럼 다른 기능이 메뉴·예약 정보를 쓸 때 부릅니다.
+   */
+  async getPlace(placeId: string): Promise<{ info: NaverPlaceInfo; fetchedAt: Date }> {
+    return await this.getPlaceInfo(placeId);
+  }
+
+  /**
    * 링크에서 플레이스 ID를 찾습니다. 단축 링크(naver.me)는 리다이렉트를 따라갑니다.
    */
   private async resolvePlaceId(url: string): Promise<string> {

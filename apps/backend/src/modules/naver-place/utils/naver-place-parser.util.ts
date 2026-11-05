@@ -73,6 +73,10 @@ export type NaverPlaceInfo = {
     keywords: { label: string; count: number }[];
   };
   naverBookingUrl: string | null;
+  /** 네이버 예약 업체 ID (예약을 켠 매장만). 상품·옵션을 읽을 때 쓴다 */
+  bookingBusinessId: string | null;
+  /** 네이버 예약 업종 ID (픽업·식당은 6) */
+  bookingBusinessTypeId: number | null;
   /** 네이버가 붙이는 "미입력" 표시. 실제 값과 다를 때가 있어 참고용 */
   missingInfo: Record<string, boolean>;
 };
@@ -145,6 +149,18 @@ const strList = (value: unknown): string[] =>
 /**
  * Apollo 상태에서 네이버 플레이스 정보를 꺼낸다. 상세 데이터가 없으면 null.
  */
+/** 네이버 예약 업체 ID (숫자 문자열만) */
+function bookingId(v: unknown): string | null {
+  const s = typeof v === "number" ? String(v) : typeof v === "string" ? v.trim() : "";
+  return /^\d{1,15}$/.test(s) ? s : null;
+}
+
+/** 네이버 예약 업종 ID */
+function bookingTypeId(v: unknown): number | null {
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  return Number.isInteger(n) && n > 0 && n < 1000 ? n : null;
+}
+
 export function parseNaverPlace(state: ApolloState, placeId: string): NaverPlaceInfo | null {
   const rootQuery = state.ROOT_QUERY ?? {};
   const detailKey = Object.keys(rootQuery).find(
@@ -257,6 +273,8 @@ export function parseNaverPlace(state: ApolloState, placeId: string): NaverPlace
         .map((k: any) => ({ label: str(k.displayName) as string, count: num(k.count) ?? 0 })),
     },
     naverBookingUrl: str(detail.naverBooking?.naverBookingUrl),
+    bookingBusinessId: bookingId(detail.naverBooking?.bookingBusinessId),
+    bookingBusinessTypeId: bookingTypeId(detail.naverBooking?.businessTypeId),
     missingInfo: Object.fromEntries(
       Object.entries(base.missingInfo ?? {}).filter(([, v]) => typeof v === "boolean"),
     ) as Record<string, boolean>,
