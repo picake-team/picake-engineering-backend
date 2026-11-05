@@ -45,6 +45,18 @@ const FIXTURE = {
     LETTERING_MAX_LENGTH: 20,
     // web-user e2e가 옵션 라벨·안내 문구로 입력칸을 찾는다.
     CUSTOM_OPTIONS: [
+      // 맛은 따로 두지 않고 '맛'(하나 고르기, 필수) 추가 옵션으로 받는다
+      {
+        id: "opt_e2e_flavor",
+        type: "SINGLE_SELECT",
+        name: "맛",
+        required: true,
+        visible: "ENABLE",
+        choices: [
+          { id: "choice_e2e_choco", label: "초콜릿", price: 0, visible: "ENABLE" },
+          { id: "choice_e2e_vanilla", label: "바닐라", price: 2000, visible: "ENABLE" },
+        ],
+      },
       {
         id: "opt_e2e_lettering",
         type: "TEXT",
