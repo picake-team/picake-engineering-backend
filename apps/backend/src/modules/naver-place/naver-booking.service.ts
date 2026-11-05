@@ -7,6 +7,7 @@ import {
   NAVER_PLACE_USER_AGENT,
 } from "@apps/backend/modules/naver-place/constants/naver-place.constants";
 import {
+  NAVER_BOOKING_DAILY_SCHEDULE_QUERY,
   NAVER_BOOKING_DEFAULT_BUSINESS_TYPE_ID,
   NAVER_BOOKING_ERROR_MESSAGES,
   NAVER_BOOKING_ID_REGEX,
@@ -20,9 +21,10 @@ import {
 } from "@apps/backend/modules/naver-place/constants/naver-booking.constants";
 import {
   NaverBookingItem,
-  NaverBookingOption,
+  NaverBookingOptionsResult,
   parseNaverBookingItems,
   parseNaverBookingOptions,
+  pickNaverBookingDate,
   pickNaverBookingSlot,
   toNaverImageUrl,
 } from "@apps/backend/modules/naver-place/utils/naver-booking-parser.util";
@@ -40,7 +42,7 @@ type CacheEntry<T> = { expiresAt: number; fetchedAt: Date; value: T };
 export class NaverBookingService {
   private readonly axiosInstance: AxiosInstance;
   private readonly itemsCache = new Map<string, CacheEntry<NaverBookingItem[]>>();
-  private readonly optionsCache = new Map<string, CacheEntry<NaverBookingOption[] | null>>();
+  private readonly optionsCache = new Map<string, CacheEntry<NaverBookingOptionsResult>>();
 
   constructor() {
     this.axiosInstance = axios.create({
@@ -79,71 +81,143 @@ export class NaverBookingService {
   }
 
   /**
-   * 상품 1개의 옵션. 옵션은 예약 시간을 하나 정해야 나오므로 가장 이른 예약 가능 시간으로 읽는다.
-   * 예약 가능한 시간이 없으면 null(옵션을 알 수 없음)을 돌려준다.
+   * 상품 1개의 옵션. 옵션은 예약 날짜(시간)를 하나 정해야 나오므로 가장 이른 예약 가능 날짜로 읽는다.
+   * 네이버 예약은 업종마다 방식이 달라 시간 단위(식당·픽업)와 날짜 단위(새 예약 방식) 둘 다 시도한다.
+   * - OK: 옵션을 읽음 / NO_SCHEDULE: 예약 가능한 날이 없음 / FAILED: 네이버가 옵션 요청을 받지 않음(프랜차이즈 주문 등)
+   * 옵션을 못 읽어도 상품 정보는 쓸 수 있으므로 예외를 던지지 않는다.
    */
   async getItemOptions(
     businessId: string,
     bizItemId: string,
     businessTypeId: number | null,
-  ): Promise<NaverBookingOption[] | null> {
+  ): Promise<NaverBookingOptionsResult> {
     this.assertId(businessId);
     this.assertId(bizItemId);
     const key = `${businessId}:${bizItemId}`;
     const cached = this.getCached(this.optionsCache, key);
     if (cached) return cached.value;
 
-    const today = this.kstToday();
-    const end = new Date(today.getTime() + NAVER_BOOKING_SCHEDULE_LOOKAHEAD_DAYS * 86_400_000);
-    const scheduleData = await this.post(
-      NAVER_BOOKING_PORTA_ENDPOINT,
-      {
-        operationName: "HourlySchedule",
-        variables: {
-          input: {
-            businessTypeId: businessTypeId ?? NAVER_BOOKING_DEFAULT_BUSINESS_TYPE_ID,
-            businessId,
-            bizItemId,
-            startDateTime: `${this.ymd(today)}T00:00:00`,
-            endDateTime: `${this.ymd(end)}T23:59:59`,
-            fixedTime: true,
-            includesHolidaySchedules: true,
-          },
-        },
-        query: NAVER_BOOKING_SCHEDULE_QUERY,
-      },
-      "fetch-booking-schedule",
-      { businessId, bizItemId },
-    );
+    const typeId = businessTypeId ?? NAVER_BOOKING_DEFAULT_BUSINESS_TYPE_ID;
+    const order: ("hourly" | "daily")[] =
+      typeId === NAVER_BOOKING_DEFAULT_BUSINESS_TYPE_ID ? ["hourly", "daily"] : ["daily", "hourly"];
 
-    const slot = pickNaverBookingSlot(scheduleData);
-    if (!slot) {
-      this.setCached(this.optionsCache, key, null);
-      return null;
+    let sawSchedule = false;
+    let optionFailed = false;
+    for (const mode of order) {
+      const input = await this.findOptionInput(mode, businessId, bizItemId, typeId).catch(
+        () => undefined,
+      );
+      if (input === undefined) continue; // 이 방식은 안 됨
+      sawSchedule = true;
+      if (input === null) continue; // 예약 가능한 날이 없음
+      try {
+        const data = await this.post(
+          NAVER_BOOKING_PORTA_ENDPOINT,
+          { operationName: "Option", variables: { input }, query: NAVER_BOOKING_OPTION_QUERY },
+          "fetch-booking-options",
+          { businessId, bizItemId, mode },
+          false,
+        );
+        const result: NaverBookingOptionsResult = {
+          options: parseNaverBookingOptions(data),
+          status: "OK",
+        };
+        this.setCached(this.optionsCache, key, result);
+        return result;
+      } catch {
+        // 다른 방식으로 한 번 더 시도한다
+        optionFailed = true;
+      }
     }
 
-    const optionData = await this.post(
+    const result: NaverBookingOptionsResult = {
+      options: null,
+      // 일정은 있는데 옵션 요청이 막혔으면 FAILED, 일정 자체가 없으면 NO_SCHEDULE
+      status: optionFailed || !sawSchedule ? "FAILED" : "NO_SCHEDULE",
+    };
+    // 실패는 캐시하지 않는다 (잠시 뒤 다시 시도할 수 있게). 형식이 바뀐 것일 수 있어 한 번 알린다
+    if (result.status === "NO_SCHEDULE") this.setCached(this.optionsCache, key, result);
+    else
+      this.reportFailure("options-unavailable", new Error("all option paths failed"), {
+        businessId,
+        bizItemId,
+        typeId: String(typeId),
+      });
+    return result;
+  }
+
+  /**
+   * 옵션 요청에 넣을 예약 날짜를 찾는다.
+   * undefined: 이 방식으로는 일정을 읽지 못함 / null: 예약 가능한 날이 없음
+   */
+  private async findOptionInput(
+    mode: "hourly" | "daily",
+    businessId: string,
+    bizItemId: string,
+    typeId: number,
+  ): Promise<Record<string, unknown> | null | undefined> {
+    const today = this.kstToday();
+    const end = new Date(today.getTime() + NAVER_BOOKING_SCHEDULE_LOOKAHEAD_DAYS * 86_400_000);
+
+    if (mode === "hourly") {
+      const data = await this.post(
+        NAVER_BOOKING_PORTA_ENDPOINT,
+        {
+          operationName: "HourlySchedule",
+          variables: {
+            input: {
+              businessTypeId: typeId,
+              businessId,
+              bizItemId,
+              startDateTime: `${this.ymd(today)}T00:00:00`,
+              endDateTime: `${this.ymd(end)}T23:59:59`,
+              fixedTime: true,
+              includesHolidaySchedules: true,
+            },
+          },
+          query: NAVER_BOOKING_SCHEDULE_QUERY,
+        },
+        "fetch-booking-schedule",
+        { businessId, bizItemId },
+        false,
+      );
+      if (!Array.isArray((data as any)?.data?.hourlySchedule)) return undefined;
+      const slot = pickNaverBookingSlot(data);
+      if (!slot) return null;
+      return {
+        businessId,
+        bizItemId,
+        slotId: slot.slotId,
+        scheduleId: slot.scheduleId,
+        startDate: slot.startDate,
+        lang: "ko",
+      };
+    }
+
+    const data = await this.post(
       NAVER_BOOKING_PORTA_ENDPOINT,
       {
-        operationName: "Option",
+        operationName: "TimeSlotAvailabilityDailySummaries",
         variables: {
-          input: {
-            businessId,
-            bizItemId,
-            slotId: slot.slotId,
-            scheduleId: slot.scheduleId,
-            startDate: slot.startDate,
-            lang: "ko",
-          },
+          input: { businessId, bizItemId, startDate: this.ymd(today), endDate: this.ymd(end) },
         },
-        query: NAVER_BOOKING_OPTION_QUERY,
+        query: NAVER_BOOKING_DAILY_SCHEDULE_QUERY,
       },
-      "fetch-booking-options",
+      "fetch-booking-daily-schedule",
       { businessId, bizItemId },
+      false,
     );
-    const options = parseNaverBookingOptions(optionData);
-    this.setCached(this.optionsCache, key, options);
-    return options;
+    if (!Array.isArray((data as any)?.data?.timeSlotAvailabilityDailySummaries)) return undefined;
+    const date = pickNaverBookingDate(data);
+    if (!date) return null;
+    return {
+      businessId,
+      bizItemId,
+      startDate: date,
+      endDate: date,
+      lang: "ko",
+      businessTypeId: typeId,
+    };
   }
 
   /**
@@ -177,6 +251,7 @@ export class NaverBookingService {
     body: Record<string, unknown>,
     operation: string,
     details: Record<string, string>,
+    report = true,
   ): Promise<unknown> {
     try {
       const response = await this.axiosInstance.post(url, body, {
@@ -190,7 +265,8 @@ export class NaverBookingService {
       }
       return data;
     } catch (error: any) {
-      this.reportFailure(operation, error, details);
+      // 다른 방식으로 다시 시도하는 요청은 실패해도 알리지 않는다
+      if (report) this.reportFailure(operation, error, details);
       throw new BadGatewayException(NAVER_BOOKING_ERROR_MESSAGES.FETCH_FAILED);
     }
   }

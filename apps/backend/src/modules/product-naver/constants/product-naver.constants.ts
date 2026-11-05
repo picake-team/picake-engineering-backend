@@ -5,8 +5,11 @@ export const PRODUCT_NAVER_ERROR_MESSAGES = {
   MENU_CANNOT_LINK: "네이버 메뉴는 연결할 수 없어요. 네이버 예약 상품만 연결할 수 있어요.",
 };
 
-/** 목록 항목 키: 예약 상품은 숫자 ID, 메뉴는 menu-순번 */
-export const NAVER_PRODUCT_ITEM_KEY_REGEX = /^(\d{1,15}|menu-\d{1,3})$/;
+/** 목록 항목 키: 예약 상품은 숫자 ID, 상품 안의 옵션 하나는 "상품ID-o옵션ID", 메뉴는 menu-순번 */
+export const NAVER_PRODUCT_ITEM_KEY_REGEX = /^(\d{1,15}(-o\d{1,15})?|menu-\d{1,3})$/;
+
+/** 옵션 하나를 상품으로 가져오는 키 ("상품ID-o옵션ID") */
+export const NAVER_OPTION_ITEM_KEY_REGEX = /^(\d{1,15})-o(\d{1,15})$/;
 
 /** 목록에 보여 줄 설명 길이 */
 export const NAVER_PRODUCT_SUMMARY_LENGTH = 60;

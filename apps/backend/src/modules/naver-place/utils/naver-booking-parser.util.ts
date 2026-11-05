@@ -28,6 +28,15 @@ export type NaverBookingOption = {
   normalPrice: number | null;
   isSoldOut: boolean;
   remainStock: number | null;
+  /** 옵션 사진 (네이버 이미지 서버 주소만) */
+  imageUrl: string | null;
+};
+
+/** 옵션 읽기 결과 */
+export type NaverBookingOptionsResult = {
+  options: NaverBookingOption[] | null;
+  /** OK: 읽음 / NO_SCHEDULE: 예약 가능한 날이 없음 / FAILED: 네이버가 옵션 요청을 받지 않음 */
+  status: "OK" | "NO_SCHEDULE" | "FAILED";
 };
 
 /** 옵션을 읽을 때 쓰는 예약 시간 */
@@ -132,6 +141,21 @@ export function pickNaverBookingSlot(data: unknown): NaverBookingSlot | null {
 }
 
 /**
+ * `timeSlotAvailabilityDailySummaries` 응답(날짜 단위 예약)에서 예약 가능한 가장 이른 날짜를 고른다.
+ */
+export function pickNaverBookingDate(data: unknown): string | null {
+  const list = (data as any)?.data?.timeSlotAvailabilityDailySummaries;
+  if (!Array.isArray(list)) return null;
+  for (const d of list) {
+    const date = str(d?.date);
+    if (d?.hasSlots === true && d?.isHoliday !== true && date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return date;
+    }
+  }
+  return null;
+}
+
+/**
  * `option` 응답을 한 줄 목록으로 편다. 하위 분류(children)의 옵션도 분류 이름과 함께 넣는다.
  */
 export function parseNaverBookingOptions(data: unknown): NaverBookingOption[] {
@@ -154,6 +178,7 @@ export function parseNaverBookingOptions(data: unknown): NaverBookingOption[] {
       normalPrice: num(raw?.normalPrice),
       isSoldOut: raw?.isSoldOut === true || raw?.isTodaySoldOut === true,
       remainStock: num(raw?.remainStock),
+      imageUrl: toNaverImageUrl(raw?.titleImageUrl),
     });
   };
 
