@@ -11,6 +11,8 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 - **상품 관리**: 상품 CRUD, 좋아요, 필터링, 검색 기능
 - **스토어 관리**: 스토어 등록, 수정, 목록 조회, 캘린더, 입점 요청(비입점 카카오 장소 등록 요청)
 - **네이버 플레이스 가져오기**: 판매자가 넣은 네이버 플레이스 링크(지도 앱 공유 링크 `naver.me` 포함)로 매장 이름·설명·연락처·인스타그램 ID·영업시간을 미리 보기, 스토어에 네이버 매장 연결·해제, 영업 캘린더 제안값. 캘린더 저장 때 진행 중인 예약과 겹치면 막음(`BUSINESS_CALENDAR_ORDER_CONFLICT`). 같은 매장 10분 캐시, 판매자당 1분 10회
+- **네이버 상품 가져오기**: 스토어에 연결한 네이버 매장의 네이버 예약 상품(이름·설명·주의사항·사진·옵션)을 읽어 Picake 사이즈·추가 옵션 후보로 바꿔 줌. 예약을 안 쓰는 매장은 플레이스 메뉴(이름·가격·설명·사진). 고른 사진은 서버가 네이버에서 다시 받아 S3에 올림(순번으로만 고름). 상품 ↔ 네이버 예약 상품 연결(스토어 안에서 하나만), 다시 불러오기로 비교. 저장은 상품 등록·수정으로만
+- **상품 상세설명 AI 초안**: Claude API(`claude-sonnet-5-5`, `ANTHROPIC_API_KEY`)로 판매자가 준 자료(네이버 설명·확인한 사실·옵션)만 근거로 초안. 근거 없는 중요 정보는 `[판매자 확인 필요]`. 저장하지 않음. 판매자당 1분 5회·하루 30회. 키가 없으면 503
 - **주문 관리**: 주문 생성, 조회, 상태 관리, 입금 마감·픽업 임박 자동 안내(배치)
 - **피드 관리**: 피드 작성, 조회, 상세
 - **리뷰 시스템**: 리뷰 작성 및 조회
@@ -68,6 +70,12 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
   - `/v1/seller/store/:storeId` - 스토어 상세 조회/수정
   - `/v1/seller/store/:storeId/naver-place` - 네이버 매장 연결 (PUT) / 연결 해제 (DELETE)
 - **네이버 플레이스**: `/v1/seller/naver-place/preview` - 네이버 플레이스 링크로 매장 정보 미리 보기 (GET)
+- **네이버 상품**:
+  - `/v1/seller/store/:storeId/naver-products` - 연결한 네이버 매장의 상품 목록 (GET)
+  - `/v1/seller/store/:storeId/naver-products/:itemKey` - 상품 1개의 등록 제안값 (GET)
+  - `/v1/seller/store/:storeId/naver-products/:itemKey/images` - 고른 사진을 Picake에 올리기 (POST)
+  - `/v1/seller/products/:productId/naver-item` - 상품을 네이버 예약 상품과 연결 (PUT) / 끊기 (DELETE)
+  - `/v1/seller/store/:storeId/products/description-draft` - 상품 상세설명 AI 초안 (POST)
 - **상품**: `/v1/seller/products/*` - 상품 CRUD
 - **주문**: `/v1/seller/orders/*` - 주문 관리
 - **피드**: `/v1/seller/feed/*` - 피드 CRUD
