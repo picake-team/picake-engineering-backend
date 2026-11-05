@@ -178,6 +178,8 @@ export class UpdateProductRequestDto {
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.productNoticeOrigin,
   })
   @IsOptional()
+  // 원산지는 고시 항목 중 유일한 필수 항목이라, 보낼 때는 비울 수 없다(원산지표시법)
+  @IsNotEmpty()
   @IsString()
   productNoticeOrigin?: string;
 

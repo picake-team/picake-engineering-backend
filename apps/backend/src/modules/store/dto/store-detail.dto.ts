@@ -134,10 +134,11 @@ export class StoreResponseDto extends StoreAddressDto {
   businessType: string;
 
   @ApiProperty({
-    description: "통신판매사업자 인허가관리번호",
+    description: "통신판매사업자 인허가관리번호 (선택, 받지 않았으면 null)",
     example: BUSINESS_SWAGGER_EXAMPLES.PRMMI_MNNO,
+    nullable: true,
   })
-  permissionManagementNumber: string;
+  permissionManagementNumber: string | null;
 
   @ApiPropertyOptional({
     description: "정산 계좌번호",
