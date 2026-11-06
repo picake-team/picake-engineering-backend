@@ -229,6 +229,7 @@ model Seller {
   notificationPreferences UserNotificationPreference[]
   termsAgreements         SellerTermsAgreement[]
   segmentMemberships      SellerSegmentMembership[]
+  fcmTokens               SellerFcmToken[]
 
   @@index([phone])
   @@index([googleId])
@@ -777,6 +778,10 @@ model UserNotificationPreference {
   appSurface                     NotificationAppSurface @map("app_surface")
   orderNotificationsEnabled     Boolean @default(true) @map("order_notifications_enabled")
   orderNotificationSoundEnabled Boolean @default(true) @map("order_notification_sound_enabled")
+  /// 판매자 앱 아침 요약 휴대폰 알림(매일 8시, 그날 픽업이 있을 때만, 기획 I-48). 스토어마다 켜고 끔
+  morningSummaryEnabled          Boolean @default(true) @map("morning_summary_enabled")
+  /// 아침 요약을 마지막으로 보낸 날(Asia/Seoul YYYY-MM-DD). 하루에 한 번만 보내려고 둠
+  morningSummarySentOn           String? @map("morning_summary_sent_on")
   updatedAt                      DateTime               @updatedAt @map("updated_at")
 
   seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
@@ -799,6 +804,22 @@ model ConsumerNotificationPreference {
 
   @@unique([consumerId, appSurface])
   @@map("consumer_notification_preferences")
+}
+
+/// 판매자 앱(Flutter, 기획 I-48) FCM 토큰 (판매자 단위, 디바이스/설치 단위 1토큰). 구매자 토큰과 같은 규칙
+model SellerFcmToken {
+  id        String   @id @default(cuid())
+  sellerId  String   @map("seller_id")
+  deviceId  String   @map("device_id")
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId])
+  @@unique([sellerId, deviceId])
+  @@map("seller_fcm_tokens")
 }
 
 /// 구매자 앱(Flutter) FCM 토큰 (구매자 단위, 디바이스/설치 단위 1토큰)
