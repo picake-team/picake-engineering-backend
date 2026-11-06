@@ -4,6 +4,8 @@ export const FCM_PUSH_TYPE = {
   SELLER_ORDER: "SELLER_ORDER",
   /** 판매자 앱 테스트 알림 (알림 설정의 "테스트 알림 보내기") */
   SELLER_TEST: "SELLER_TEST",
+  /** 판매자 앱 아침 요약(매일 8시, 그날 픽업이 있을 때만). data에 storeId·path(홈)가 들어간다 */
+  SELLER_MORNING_SUMMARY: "SELLER_MORNING_SUMMARY",
 } as const;
 
 export const FCM_ANDROID_CHANNEL_ID = {
@@ -57,6 +59,11 @@ export interface SendSellerOrderPushParams {
   orderId: string;
   title: string;
   body: string;
+}
+
+/** 판매자 웹 스토어 홈 경로(아침 요약을 누르면 열림). web-seller `ROUTES.STORE_DETAIL_HOME`과 같아야 합니다. */
+export function buildSellerHomePath(storeId: string): string {
+  return `/stores/${encodeURIComponent(storeId)}`;
 }
 
 /**

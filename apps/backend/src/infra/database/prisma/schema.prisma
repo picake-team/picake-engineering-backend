@@ -778,6 +778,10 @@ model UserNotificationPreference {
   appSurface                     NotificationAppSurface @map("app_surface")
   orderNotificationsEnabled     Boolean @default(true) @map("order_notifications_enabled")
   orderNotificationSoundEnabled Boolean @default(true) @map("order_notification_sound_enabled")
+  /// 판매자 앱 아침 요약 휴대폰 알림(매일 8시, 그날 픽업이 있을 때만, 기획 I-48). 스토어마다 켜고 끔
+  morningSummaryEnabled          Boolean @default(true) @map("morning_summary_enabled")
+  /// 아침 요약을 마지막으로 보낸 날(Asia/Seoul YYYY-MM-DD). 하루에 한 번만 보내려고 둠
+  morningSummarySentOn           String? @map("morning_summary_sent_on")
   updatedAt                      DateTime               @updatedAt @map("updated_at")
 
   seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)

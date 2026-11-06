@@ -4,7 +4,9 @@ import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import type { OrderStatusTransitionPayload } from "@apps/backend/modules/order/types/order-lifecycle.types";
 import {
   buildSellerOrderNotificationCopy,
+  buildSellerOrderSummaryBody,
   shouldSendSellerOrderPush,
+  withSellerStorePrefix,
 } from "@apps/backend/modules/notification/utils/seller-order-notification-copy.util";
 import {
   buildPaymentFinalReminderNotificationCopy,
@@ -226,10 +228,15 @@ export class NotificationOrderDispatchService {
         where: { id: payload.orderId },
         select: {
           storeId: true,
-          store: { select: { sellerId: true } },
+          productName: true,
+          totalQuantity: true,
+          pickupDate: true,
+          store: { select: { sellerId: true, name: true } },
         },
       });
       if (!order?.store?.sellerId) return;
+      // 내용은 상품·픽업 일시(휴대폰 알림과 같은 문구). 상품 이름이 없으면 예전 안내 문구
+      const body = buildSellerOrderSummaryBody(order) ?? copy.body;
 
       const sellerUserId = order.store.sellerId;
       const prefs = await this.notificationService.getOrCreatePreferenceSellerWeb(
@@ -241,7 +248,7 @@ export class NotificationOrderDispatchService {
       const item = await this.notificationService.createSellerWebOrderNotification({
         recipientUserId: sellerUserId,
         title: copy.title,
-        body: copy.body,
+        body,
         storeId: order.storeId,
         orderId: payload.orderId,
       });
@@ -249,12 +256,15 @@ export class NotificationOrderDispatchService {
       this.notificationGateway.emitSellerNotification(sellerUserId, item);
 
       if (shouldSendSellerOrderPush(payload)) {
+        const sellerStoreCount = await this.prisma.store.count({
+          where: { sellerId: sellerUserId },
+        });
         await this.sellerFcmPushService.sendOrderPush({
           sellerId: sellerUserId,
           storeId: order.storeId,
           orderId: payload.orderId,
-          title: copy.title,
-          body: copy.body,
+          title: withSellerStorePrefix(copy.title, order.store.name, sellerStoreCount),
+          body,
         });
       }
     } catch (e) {

@@ -81,8 +81,8 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 - **피드**: `/v1/seller/feed/*` - 피드 CRUD
 - **채팅**: `/v1/seller/chat-room/*` - 채팅방 목록/메시지 조회
 - **통계**: `/v1/seller/statistics/*` - 매출/주문 통계
-- **FCM 토큰(판매자 앱)**: `/v1/seller/fcm-tokens` - 판매자 앱 푸시 토큰 등록·해제(빈 토큰) (POST), `/v1/seller/fcm-tokens/test` - 테스트 알림, 받은 기기 수를 돌려줌 (POST). 손님·자동 처리·관리자가 바꾼 주문 상태(새 예약신청, 입금완료, 손님 취소·환불 요청 등)는 판매자 앱으로도 푸시하고 `data.path`에 판매자 웹 주문 상세 경로를 담음(기획 I-48)
-- **알림**: `/v1/seller/notifications/*` - 알림 목록/설정
+- **FCM 토큰(판매자 앱)**: `/v1/seller/fcm-tokens` - 판매자 앱 푸시 토큰 등록·해제(빈 토큰) (POST), `/v1/seller/fcm-tokens/test` - 테스트 알림, 받은 기기 수를 돌려줌 (POST). 손님·자동 처리·관리자가 바꾼 주문 상태(새 예약신청, 입금완료, 손님 취소·환불 요청 등)는 판매자 앱으로도 푸시하고 `data.path`에 판매자 웹 주문 상세 경로를 담음(기획 I-48). 내용은 "상품 이름(여러 개면 개수) · 픽업 일시"(판매자 페이지 안 알림도 같음), 스토어가 둘 이상이면 제목 앞에 [스토어 이름]. 픽업 시각이 되어 픽업대기로 바뀐 것은 푸시하지 않음. 아침 요약: 매일 8시~11시 사이 한 번, 그날 픽업이 있는 스토어마다 "오늘 픽업 n건 / 첫 픽업 hh:mm"(`data.path` = 스토어 홈)
+- **알림**: `/v1/seller/notifications/*` - 알림 목록/설정(스토어별: 주문 알림 받기, 주문 알림 소리, 아침 요약 `morningSummaryEnabled`)
 - **홈**: `/v1/seller/home/*` - 판매자 홈 대시보드
 - **마이페이지**: `/v1/seller/mypage/*` - 판매자 정보 조회/수정
 - **업로드**: `/v1/seller/uploads/file` - 파일 업로드 (POST, multipart/form-data)
