@@ -285,6 +285,9 @@ jobs:
             APPLE_PRIVATE_KEY=${{ secrets.APPLE_PRIVATE_KEY }}
             APPLE_REFRESH_TOKEN_ENCRYPTION_KEY=${{ secrets.APPLE_REFRESH_TOKEN_ENCRYPTION_KEY }}
 
+            # 판매자 앱 심사용 로그인 코드의 SHA-256 (I-48). 비밀값이 없으면 빈 값 → 심사용 로그인 꺼짐
+            SELLER_REVIEW_LOGIN_CODE_SHA256=${{ secrets.SELLER_REVIEW_LOGIN_CODE_SHA256 }}
+
             # FIREBASE Admin SDK - development & staging & production (공용)
             FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
             FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}

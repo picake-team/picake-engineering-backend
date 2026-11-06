@@ -146,6 +146,22 @@ export const REVIEW_LOGIN_CODE = "482915";
  */
 export const REVIEW_LOGIN_ACCOUNT_PHONE_MARKER = "REVIEW_ACCOUNT";
 
+/**
+ * 판매자 앱(픽케이크 사장님) 심사용 로그인 코드를 비교할 서버 환경값 이름 (I-48, SC-62).
+ * 값은 6자리 코드의 SHA-256(16진수 64자)이고 GitHub Actions 비밀값으로만 넣는다. 코드도, 이 값도 공개 레포에 적지 않는다
+ * (6자리라 해시만 보여도 바로 풀린다). 값이 없으면 판매자 심사용 로그인은 꺼진다(항상 코드 오류).
+ */
+export const SELLER_REVIEW_LOGIN_CODE_HASH_ENV = "SELLER_REVIEW_LOGIN_CODE_SHA256";
+
+/**
+ * 판매자 심사용 계정 표시 (`Seller.phone`). 실제 휴대폰 번호 형식이 아니라 실사용자와 겹치지 않는다.
+ * 심사용 로그인 때 이 값으로 계정을 찾거나 만든다. 탈퇴하면 phone이 바뀌므로 다음 로그인 때 새로 만든다.
+ */
+export const SELLER_REVIEW_ACCOUNT_PHONE_MARKER = "REVIEW_SELLER_ACCOUNT";
+
+/** 판매자 심사용 가게의 예시 주문을 넣은 손님 계정 표시 (`Consumer.phone`). 이 계정으로는 로그인하지 않는다 */
+export const SELLER_REVIEW_SAMPLE_CONSUMER_PHONE_MARKER = "REVIEW_SELLER_SAMPLE_CONSUMER";
+
 /** Google Authenticator 등 OTP 앱에 표시되는 발급자 이름 */
 export const ADMIN_TOTP_ISSUER = "Picake Admin";
 

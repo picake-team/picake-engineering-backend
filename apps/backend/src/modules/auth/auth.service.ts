@@ -6,6 +6,7 @@ import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-
 import { AuthAdminService } from "@apps/backend/modules/auth/services/auth-admin.service";
 import { AuthAccountFindService } from "@apps/backend/modules/auth/services/auth-account-find.service";
 import { AuthReviewLoginService } from "@apps/backend/modules/auth/services/auth-review-login.service";
+import { AuthSellerReviewLoginService } from "@apps/backend/modules/auth/services/auth-seller-review-login.service";
 import { FindAccountRequestDto } from "@apps/backend/modules/auth/dto/auth-find-account.dto";
 import { ReviewLoginRequestDto } from "@apps/backend/modules/auth/dto/auth-review-login.dto";
 import {
@@ -46,6 +47,7 @@ export class AuthService {
     private readonly authAppleOauthService: AuthAppleOauthService,
     private readonly authAdminService: AuthAdminService,
     private readonly authReviewLoginService: AuthReviewLoginService,
+    private readonly authSellerReviewLoginService: AuthSellerReviewLoginService,
   ) {}
 
   private getSessionAvailabilityResponse(): SessionAvailabilityResponse {
@@ -127,6 +129,13 @@ export class AuthService {
    */
   async consumerReviewLogin(dto: ReviewLoginRequestDto) {
     return this.authReviewLoginService.consumerReviewLogin(dto);
+  }
+
+  /**
+   * 판매자 앱 심사 전용 로그인 — 코드가 맞으면 심사용 사장님 계정으로 로그인하고 심사용 가게의 예시 주문을 처음 상태로 되돌린다
+   */
+  async sellerReviewLogin(dto: ReviewLoginRequestDto) {
+    return this.authSellerReviewLoginService.sellerReviewLogin(dto);
   }
 
   /**

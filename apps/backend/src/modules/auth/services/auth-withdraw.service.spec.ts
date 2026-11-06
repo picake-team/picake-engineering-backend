@@ -4,7 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockDeep } from "vitest-mock-extended";
 
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
-import { AUDIENCE, AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.constants";
+import {
+  AUDIENCE,
+  AUTH_ERROR_MESSAGES,
+  SELLER_REVIEW_ACCOUNT_PHONE_MARKER,
+} from "@apps/backend/modules/auth/constants/auth.constants";
+import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
 
 import { AuthWithdrawService } from "./auth-withdraw.service";
@@ -142,6 +147,27 @@ describe("AuthWithdrawService.withdraw", () => {
       expect(prismaMock.seller.update).toHaveBeenCalledWith({
         where: { id: "seller-1" },
         data: expect.objectContaining({ isActive: false, phone: "withdrawn_seller-1" }),
+      });
+      expect(prismaMock.store.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("판매자 앱 심사용 계정은 예시 주문이 진행 중이어도 탈퇴하고 심사용 가게를 지운다", async () => {
+      prismaMock.seller.findUnique.mockResolvedValue({
+        id: "review-seller",
+        withdrawnAt: null,
+        phone: SELLER_REVIEW_ACCOUNT_PHONE_MARKER,
+      } as any);
+      prismaMock.order.count.mockResolvedValue(6);
+
+      await service.withdraw(AUDIENCE.SELLER, "review-seller", "심사 확인");
+
+      expect(prismaMock.order.count).not.toHaveBeenCalled();
+      expect(prismaMock.store.deleteMany).toHaveBeenCalledWith({
+        where: { sellerId: "review-seller", businessNo: REVIEW_STORE_BUSINESS_NO },
+      });
+      expect(prismaMock.seller.update).toHaveBeenCalledWith({
+        where: { id: "review-seller" },
+        data: expect.objectContaining({ isActive: false, phone: "withdrawn_review-seller" }),
       });
     });
   });

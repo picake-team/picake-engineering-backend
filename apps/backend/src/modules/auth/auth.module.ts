@@ -18,6 +18,7 @@ import { AuthMypageProfileService } from "@apps/backend/modules/auth/services/au
 import { AuthWithdrawService } from "@apps/backend/modules/auth/services/auth-withdraw.service";
 import { AuthAdminService } from "@apps/backend/modules/auth/services/auth-admin.service";
 import { AuthReviewLoginService } from "@apps/backend/modules/auth/services/auth-review-login.service";
+import { AuthSellerReviewLoginService } from "@apps/backend/modules/auth/services/auth-seller-review-login.service";
 import { JwtUtil } from "@apps/backend/modules/auth/utils/jwt.util";
 import { JwtStrategy } from "@apps/backend/modules/auth/strategies/jwt.strategy";
 import { AdminApiKeyStrategy } from "@apps/backend/modules/auth/strategies/admin-api-key.strategy";
@@ -55,6 +56,7 @@ import { TokenEncryptionUtil } from "@apps/backend/common/utils/token-encryption
     AuthAppleOauthService,
     AuthAdminService,
     AuthReviewLoginService,
+    AuthSellerReviewLoginService,
     JwtUtil,
     JwtStrategy,
     AdminApiKeyStrategy,
