@@ -59,6 +59,13 @@ export class SellerNotificationPreferenceUpdateDto {
   @IsOptional()
   @IsBoolean()
   orderNotificationSoundEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: "판매자 앱 아침 요약 휴대폰 알림(매일 8시, 그날 픽업이 있을 때만). 기본 켬",
+  })
+  @IsOptional()
+  @IsBoolean()
+  morningSummaryEnabled?: boolean;
 }
 
 export class SellerNotificationItemResponseDto {
@@ -111,6 +118,9 @@ export class SellerNotificationPreferenceResponseDto {
 
   @ApiProperty()
   orderNotificationSoundEnabled: boolean;
+
+  @ApiProperty({ description: "판매자 앱 아침 요약 휴대폰 알림. 기본 켬" })
+  morningSummaryEnabled: boolean;
 }
 
 export class SellerNotificationUnreadCountQueryDto {

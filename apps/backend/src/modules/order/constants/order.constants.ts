@@ -90,14 +90,17 @@ export enum OrderSortBy {
   OLDEST = "OLDEST", // 오래된순
   PRICE_DESC = "PRICE_DESC", // 금액 높은순
   PRICE_ASC = "PRICE_ASC", // 금액 낮은순
+  PICKUP_ASC = "PICKUP_ASC", // 픽업 가까운 순(픽업 일시 오름차순, 판매자 앱 처리할 것·진행 중)
+  PICKUP_DESC = "PICKUP_DESC", // 픽업 최근 순(픽업 일시 내림차순, 판매자 앱 지난 주문)
 }
 
 /**
- * 주문 타입 enum (픽업 예정/지난 예약)
+ * 주문 타입 enum (픽업 예정/지난 예약/끝난 주문)
  */
 export enum OrderType {
   UPCOMING = "UPCOMING", // 픽업 예정
-  PAST = "PAST", // 지난 예약
+  PAST = "PAST", // 지난 예약(픽업 일시가 지났거나 끝난 주문)
+  FINISHED = "FINISHED", // 끝난 주문(픽업완료·노쇼·취소완료·취소환불완료만, 픽업 일시와 무관) — 판매자 앱 지난 주문 탭
 }
 
 /**

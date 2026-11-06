@@ -38,6 +38,8 @@ export interface NotificationPreferenceDto {
   appSurface: "SELLER_WEB";
   orderNotificationsEnabled: boolean;
   orderNotificationSoundEnabled: boolean;
+  /** 판매자 앱 아침 요약 휴대폰 알림 */
+  morningSummaryEnabled: boolean;
 }
 
 /** 구매자 웹 알림 설정 API 응답 (계정 단위) */
@@ -238,6 +240,7 @@ export class NotificationService {
         appSurface: NotificationAppSurface.SELLER_WEB,
         orderNotificationsEnabled: true,
         orderNotificationSoundEnabled: true,
+        morningSummaryEnabled: true,
       },
       update: {},
     });
@@ -253,6 +256,7 @@ export class NotificationService {
     patch: {
       orderNotificationsEnabled?: boolean;
       orderNotificationSoundEnabled?: boolean;
+      morningSummaryEnabled?: boolean;
     },
   ): Promise<NotificationPreferenceDto> {
     const existing = await this.getOrCreatePreferenceSellerWeb(userId, storeId);
@@ -261,6 +265,7 @@ export class NotificationService {
         patch.orderNotificationsEnabled ?? existing.orderNotificationsEnabled,
       orderNotificationSoundEnabled:
         patch.orderNotificationSoundEnabled ?? existing.orderNotificationSoundEnabled,
+      morningSummaryEnabled: patch.morningSummaryEnabled ?? existing.morningSummaryEnabled,
     };
     const row = await this.prisma.userNotificationPreference.update({
       where: {
@@ -273,6 +278,7 @@ export class NotificationService {
       data: {
         orderNotificationsEnabled: next.orderNotificationsEnabled,
         orderNotificationSoundEnabled: next.orderNotificationSoundEnabled,
+        morningSummaryEnabled: next.morningSummaryEnabled,
       },
     });
     return this.toPreferenceDto(row);
@@ -495,11 +501,13 @@ export class NotificationService {
   private toPreferenceDto(row: {
     orderNotificationsEnabled: boolean;
     orderNotificationSoundEnabled: boolean;
+    morningSummaryEnabled: boolean;
   }): NotificationPreferenceDto {
     return {
       appSurface: "SELLER_WEB",
       orderNotificationsEnabled: row.orderNotificationsEnabled,
       orderNotificationSoundEnabled: row.orderNotificationSoundEnabled,
+      morningSummaryEnabled: row.morningSummaryEnabled,
     };
   }
 

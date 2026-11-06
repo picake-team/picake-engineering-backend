@@ -2,7 +2,12 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import type { OrderStatusTransitionPayload } from "@apps/backend/modules/order/types/order-lifecycle.types";
-import { buildSellerOrderNotificationCopy } from "@apps/backend/modules/notification/utils/seller-order-notification-copy.util";
+import {
+  buildSellerOrderNotificationCopy,
+  buildSellerOrderSummaryBody,
+  shouldSendSellerOrderPush,
+  withSellerStorePrefix,
+} from "@apps/backend/modules/notification/utils/seller-order-notification-copy.util";
 import {
   buildPaymentFinalReminderNotificationCopy,
   buildPaymentReminderNotificationCopy,
@@ -18,6 +23,7 @@ import {
 import { NotificationService } from "@apps/backend/modules/notification/services/notification.service";
 import { NotificationGateway } from "@apps/backend/modules/notification/gateways/notification.gateway";
 import { ConsumerOrderFcmPushService } from "@apps/backend/modules/fcm/services/consumer-order-fcm-push.service";
+import { SellerFcmPushService } from "@apps/backend/modules/fcm/services/seller-fcm-push.service";
 import { ConsumerOrderAlimtalkService } from "@apps/backend/modules/solapi/services/consumer-order-alimtalk.service";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
@@ -64,6 +70,7 @@ export class NotificationOrderDispatchService {
     private readonly notificationGateway: NotificationGateway,
     private readonly consumerOrderFcmPushService: ConsumerOrderFcmPushService,
     private readonly consumerOrderAlimtalkService: ConsumerOrderAlimtalkService,
+    private readonly sellerFcmPushService: SellerFcmPushService,
   ) {}
 
   async handleOrderStatusTransition(payload: OrderStatusTransitionPayload): Promise<void> {
@@ -208,6 +215,7 @@ export class NotificationOrderDispatchService {
 
   /**
    * 스토어 소유 판매자에게 SELLER_WEB 주문 알림 (설정 반영).
+   * 판매자가 직접 바꾼 상태가 아니면 판매자 앱 휴대폰 푸시도 보냅니다(기획 I-48, 같은 알림 설정을 따름).
    */
   private async dispatchSellerOrderNotification(
     payload: OrderStatusTransitionPayload,
@@ -220,10 +228,15 @@ export class NotificationOrderDispatchService {
         where: { id: payload.orderId },
         select: {
           storeId: true,
-          store: { select: { sellerId: true } },
+          productName: true,
+          totalQuantity: true,
+          pickupDate: true,
+          store: { select: { sellerId: true, name: true } },
         },
       });
       if (!order?.store?.sellerId) return;
+      // 내용은 상품·픽업 일시(휴대폰 알림과 같은 문구). 상품 이름이 없으면 예전 안내 문구
+      const body = buildSellerOrderSummaryBody(order) ?? copy.body;
 
       const sellerUserId = order.store.sellerId;
       const prefs = await this.notificationService.getOrCreatePreferenceSellerWeb(
@@ -235,12 +248,25 @@ export class NotificationOrderDispatchService {
       const item = await this.notificationService.createSellerWebOrderNotification({
         recipientUserId: sellerUserId,
         title: copy.title,
-        body: copy.body,
+        body,
         storeId: order.storeId,
         orderId: payload.orderId,
       });
 
       this.notificationGateway.emitSellerNotification(sellerUserId, item);
+
+      if (shouldSendSellerOrderPush(payload)) {
+        const sellerStoreCount = await this.prisma.store.count({
+          where: { sellerId: sellerUserId },
+        });
+        await this.sellerFcmPushService.sendOrderPush({
+          sellerId: sellerUserId,
+          storeId: order.storeId,
+          orderId: payload.orderId,
+          title: withSellerStorePrefix(copy.title, order.store.name, sellerStoreCount),
+          body,
+        });
+      }
     } catch (e) {
       LoggerUtil.log(
         `[NotificationOrderDispatch/seller] 실패 order=${payload.orderId}: ${e instanceof Error ? e.message : String(e)}`,

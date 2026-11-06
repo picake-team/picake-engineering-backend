@@ -16,7 +16,8 @@ import { OrderResponseDto } from "@apps/backend/modules/order/dto/order-detail.d
  */
 export class OrderListRequestDto extends PaginationRequestDto {
   @ApiProperty({
-    description: "정렬",
+    description:
+      "정렬. LATEST 최신순 · OLDEST 오래된순(주문일) · PRICE_DESC/PRICE_ASC 금액 · PICKUP_ASC 픽업 가까운 순 · PICKUP_DESC 픽업 최근 순(픽업 일시가 없는 주문은 맨 뒤)",
     enum: OrderSortBy,
     example: OrderSortBy.LATEST,
   })
@@ -74,7 +75,8 @@ export class OrderListRequestDto extends PaginationRequestDto {
   productName?: string;
 
   @ApiPropertyOptional({
-    description: "(필터) 픽업 예정/지난 예약",
+    description:
+      "(필터) UPCOMING 픽업 예정 · PAST 지난 예약(픽업 일시가 지났거나 끝난 주문) · FINISHED 끝난 주문(픽업완료·노쇼·취소완료·취소환불완료만)",
     enum: OrderType,
     example: OrderType.UPCOMING,
   })
