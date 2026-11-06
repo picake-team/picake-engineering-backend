@@ -26,11 +26,13 @@ export function koreaCalendarDayEndUtc(dateStr: string): Date {
 }
 
 /**
- * `type`(UPCOMING/PAST) 및 픽업일 달력 구간 필터를 `where`에 반영.
+ * `type`(UPCOMING/PAST/FINISHED) 및 픽업일 달력 구간 필터를 `where`에 반영.
  * 둘 다 있으면 AND로 결합해 `pickupDate` 조건이 덮어쓰이지 않게 함.
  *
  * 픽업완료·취소완료·취소환불완료·노쇼는 픽업 일시와 무관하게 항상 PAST(지난 예약)로만 분류되며,
  * UPCOMING(픽업 예정) 목록에서는 제외된다.
+ * FINISHED(끝난 주문)는 이 네 상태만 고른다. PAST와 달리 픽업 일시가 지났어도 아직 처리하지 않은
+ * 주문(예: 픽업대기)은 넣지 않는다(판매자 앱에서는 그런 주문이 "처리할 것" 탭에 있어야 함).
  */
 export function mergeOrderPickupDateConditions(
   where: Prisma.OrderWhereInput,
@@ -55,6 +57,8 @@ export function mergeOrderPickupDateConditions(
     parts.push({
       OR: [{ pickupDate: { lt: now } }, { orderStatus: { in: ORDER_STATUSES_ALWAYS_PAST_TAB } }],
     });
+  } else if (type === OrderType.FINISHED) {
+    parts.push({ orderStatus: { in: ORDER_STATUSES_ALWAYS_PAST_TAB } });
   }
 
   if (pickupStartDate || pickupEndDate) {
@@ -103,6 +107,11 @@ export function buildOrderOrderBy(sortBy: OrderSortBy): Prisma.OrderOrderByWithR
       return [{ totalPrice: "desc" }, { createdAt: "desc" }];
     case OrderSortBy.PRICE_ASC:
       return [{ totalPrice: "asc" }, { createdAt: "desc" }];
+    // 픽업 일시가 없는 주문은 어느 쪽이든 맨 뒤로
+    case OrderSortBy.PICKUP_ASC:
+      return [{ pickupDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }];
+    case OrderSortBy.PICKUP_DESC:
+      return [{ pickupDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }];
     default:
       return [{ createdAt: "desc" }];
   }
