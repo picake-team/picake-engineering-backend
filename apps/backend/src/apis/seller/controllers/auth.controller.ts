@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { AuthService } from "@apps/backend/modules/auth/auth.service";
 import { FindAccountRequestDto } from "@apps/backend/modules/auth/dto/auth-find-account.dto";
+import { ReviewLoginRequestDto } from "@apps/backend/modules/auth/dto/auth-review-login.dto";
 import {
   GoogleLoginRequestDto,
   GoogleRegisterRequestDto,
@@ -133,6 +134,25 @@ export class SellerAuthController {
   })
   async kakaoRegisterWithPhone(@Body() registerDto: KakaoRegisterRequestDto) {
     return await this.authService.sellerKakaoRegisterWithPhone(registerDto);
+  }
+
+  @Post("review-login")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 3600000 } })
+  @ApiOperation({
+    summary: "심사용 로그인 (판매자 앱 App Store/Play 스토어 심사 대응)",
+    description:
+      "로그인 화면 로고를 2초 안에 10번 누르면 여는 창(SC-62)에서 부릅니다. 6자리 코드를 서버 환경값 `SELLER_REVIEW_LOGIN_CODE_SHA256`(코드의 SHA-256)과 비교하고, 값이 없으면 항상 401입니다. 맞으면 심사용 사장님 계정으로 로그인하고, 손님 목록에 보이지 않는 심사용 가게와 예시 상품을 없을 때 만들며, 상태별 예시 주문을 처음 상태로 되돌립니다. IP당 1시간에 5번까지.",
+  })
+  @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
+  @SwaggerResponse(401, {
+    dataExample: createMessageObject(AUTH_ERROR_MESSAGES.REVIEW_LOGIN_INVALID_CODE),
+  })
+  @SwaggerResponse(403, {
+    dataExample: createMessageObject(AUTH_ERROR_MESSAGES.ACCOUNT_INACTIVE),
+  })
+  async reviewLogin(@Body() dto: ReviewLoginRequestDto) {
+    return await this.authService.sellerReviewLogin(dto);
   }
 
   @Post("find-account")
