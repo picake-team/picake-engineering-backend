@@ -4,6 +4,14 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 
 /**
+ * 알림톡을 보낼 수 있는 휴대폰 번호인지(010·011·016·017·018·019로 시작하는 10~11자리, 하이픈·공백 허용).
+ * 심사용 계정처럼 휴대폰 번호 대신 계정 표시가 들어 있는 값이면 보내지 않는다(보내면 실패해 Sentry 오류만 남음).
+ */
+export function isAlimtalkRecipientPhone(phone: string): boolean {
+  return /^01[016789]\d{7,8}$/.test(phone.replace(/[\s-]/g, ""));
+}
+
+/**
  * 주문 상태 알림용 구매자 카카오 알림톡 발송 서비스.
  * 공용 `SolapiService`를 이용하며, 주문 알림 전용 기본값(SMS 대체 발송 비활성화)을 캡슐화합니다.
  *
@@ -23,6 +31,13 @@ export class ConsumerOrderAlimtalkService {
     variables: Record<string, string>;
     orderId: string;
   }): Promise<void> {
+    if (!isAlimtalkRecipientPhone(params.to)) {
+      LoggerUtil.log(
+        `[ConsumerOrderAlimtalkService] 휴대폰 번호가 아님(심사용 계정 등) — 알림톡 발송 생략 order=${params.orderId}`,
+      );
+      return;
+    }
+
     if (!this.solapiService.isAlimtalkEnabled) {
       LoggerUtil.log(
         `[ConsumerOrderAlimtalkService] SOLAPI_PFID 미설정 — 알림톡 발송 생략 order=${params.orderId}`,

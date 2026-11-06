@@ -2,8 +2,20 @@
  * prisma 중복 방지
  */
 // 정산 계좌 은행
-import { StoreBankName } from "@apps/backend/infra/database/prisma/generated/client";
+import { Prisma, StoreBankName } from "@apps/backend/infra/database/prisma/generated/client";
 export { StoreBankName };
+
+/**
+ * 판매자 앱 심사용 가게 표시 (`Store.businessNo`, I-48). 실제 스토어는 국세청 확인을 거친 숫자 10자리라 겹치지 않는다.
+ * 판매자 심사용 로그인이 이 값으로 가게를 만들고, 손님 화면의 스토어·상품 목록(검색·지도·지역별 수·사이트맵)에서는 뺀다.
+ * 링크로 여는 스토어·상품 상세는 그대로 열린다(판매자 앱의 링크 보내기 확인용).
+ */
+export const REVIEW_STORE_BUSINESS_NO = "REVIEW-STORE";
+
+/** 손님 목록에서 심사용 가게를 빼는 스토어 조건 */
+export const EXCLUDE_REVIEW_STORE_WHERE: Prisma.StoreWhereInput = {
+  businessNo: { not: REVIEW_STORE_BUSINESS_NO },
+};
 
 /** 스토어 설명 최대 글자 수 (P-46). 네이버 플레이스 소개글 한도와 같다 */
 export const STORE_DESCRIPTION_MAX_LENGTH = 2000;

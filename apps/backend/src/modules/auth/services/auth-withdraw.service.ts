@@ -5,7 +5,9 @@ import {
   AUTH_ERROR_MESSAGES,
   AudienceConst,
   AUDIENCE,
+  SELLER_REVIEW_ACCOUNT_PHONE_MARKER,
 } from "@apps/backend/modules/auth/constants/auth.constants";
+import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
 import { ORDER_STATUSES_BLOCKING_ACCOUNT_WITHDRAWAL } from "@apps/backend/modules/order/constants/order.constants";
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
 
@@ -74,7 +76,7 @@ export class AuthWithdrawService {
     if (audience === AUDIENCE.SELLER) {
       const row = await this.prisma.seller.findUnique({
         where: { id: accountId },
-        select: { id: true, withdrawnAt: true },
+        select: { id: true, withdrawnAt: true, phone: true },
       });
       if (!row) {
         throw new NotFoundException(AUTH_ERROR_MESSAGES.USER_NOT_FOUND);
@@ -83,7 +85,15 @@ export class AuthWithdrawService {
         throw new NotFoundException(AUTH_ERROR_MESSAGES.USER_NOT_FOUND);
       }
 
-      await this.assertNoActiveOrdersForSeller(accountId);
+      if (row.phone === SELLER_REVIEW_ACCOUNT_PHONE_MARKER) {
+        // 판매자 앱 심사용 계정(I-48): 심사관이 탈퇴까지 확인할 수 있게 예시 주문이 진행 중이어도 탈퇴한다.
+        // 예시 가게·상품·주문은 보존할 실제 거래가 아니므로 지우고, 다음 심사용 로그인 때 다시 만든다.
+        await this.prisma.store.deleteMany({
+          where: { sellerId: accountId, businessNo: REVIEW_STORE_BUSINESS_NO },
+        });
+      } else {
+        await this.assertNoActiveOrdersForSeller(accountId);
+      }
       await this.prisma.seller.update({
         where: { id: accountId },
         data: this.buildAnonymizedWithdrawalData(accountId, reason),
