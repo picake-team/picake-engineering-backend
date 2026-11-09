@@ -342,7 +342,7 @@ jobs:
             # Claude API (상품 상세설명 AI 초안) - staging & production (공용). 없으면 AI 초안만 꺼진다
             ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
 
-            # 디스코드 【PICAKE】운영 웹후크(견적 요청 새 요청 알림, I-46) - staging & production (공용). 없으면 알림만 꺼진다
+            # 디스코드 【PICAKE】운영 웹후크(견적 요청 새 요청 알림, I-46). 없으면 알림만 꺼진다. staging은 개발 채널로 보낸다
             DISCORD_WEBHOOK_URL_OPS=${{ secrets.DISCORD_WEBHOOK_URL_OPS }}
 
             # SERVICE MAINTENANCE MODE (GitHub Secret: PRODUCTION_SERVICE_MAINTENANCE_MODE)

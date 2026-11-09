@@ -342,8 +342,8 @@ jobs:
             # Claude API (상품 상세설명 AI 초안) - staging & production (공용). 없으면 AI 초안만 꺼진다
             ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
 
-            # 디스코드 【PICAKE】운영 웹후크(견적 요청 새 요청 알림, I-46) - staging & production (공용). 없으면 알림만 꺼진다
-            DISCORD_WEBHOOK_URL_OPS=${{ secrets.DISCORD_WEBHOOK_URL_OPS }}
+            # 견적 요청 새 요청 알림(I-46). staging은 테스트 요청이 운영자 휴대폰을 울리지 않게 【PICAKE】개발 채널로 보낸다([staging] 표시)
+            DISCORD_WEBHOOK_URL_OPS=${{ secrets.DISCORD_WEBHOOK_URL_WEB_BE }}
             EOF
 
             # 환경 변수 파일 권한 설정

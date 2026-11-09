@@ -65,10 +65,12 @@ describe("새 견적 요청 디스코드 알림", () => {
       예산: "3만~5만원",
       "견적 마감": "12월 24일(목) 오후 1시",
       "들어온 곳": "홈",
-      디자인: "참고 사진 1장 · 하늘색 곰돌이 레터링 '생일 축하해'",
+      디자인: "참고 사진 1장 · 설명 있음 · 요청 사항 있음",
       "꼭 물어볼 가게": "구름베이커리(입점 전)",
     });
     expect(JSON.stringify(msg)).not.toContain("cdn.example.com");
+    expect(JSON.stringify(msg)).not.toContain("생일 축하해");
+    expect(JSON.stringify(msg)).not.toContain("견과류");
   });
 
   it("staging이면 제목에 환경을 붙이고, 관리자 주소가 없으면 링크를 뺀다", () => {
