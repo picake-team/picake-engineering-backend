@@ -1,0 +1,44 @@
+name: Alimtalk Templates
+
+# 카카오 알림톡 템플릿을 SOLAPI에 등록하고 카카오 검수를 요청한다(apps/backend/scripts/alimtalk-templates).
+# - Actions 화면에서 수동 실행(main에 있을 때): apply를 끄면 확인만, 켜면 등록·검수 요청
+# - 또는 태그 푸시(기능 브랜치에서 할 때): alimtalk-check-* 는 확인만, alimtalk-apply-* 는 등록·검수 요청
+# 키는 SOLAPI 시크릿에서만 읽고 출력하지 않는다. 이름이 같은 템플릿이 있으면 새로 만들지 않는다.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "등록·검수 요청까지 할지(끄면 확인만)"
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "alimtalk-check-*"
+      - "alimtalk-apply-*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alimtalk-templates
+  cancel-in-progress: false
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Register templates
+        env:
+          SOLAPI_API_KEY: ${{ secrets.SOLAPI_API_KEY }}
+          SOLAPI_API_SECRET: ${{ secrets.SOLAPI_API_SECRET }}
+          SOLAPI_PFID: ${{ secrets.SOLAPI_PFID }}
+          APPLY: ${{ github.event_name == 'workflow_dispatch' && inputs.apply || startsWith(github.ref_name, 'alimtalk-apply-') }}
+        run: node apps/backend/scripts/alimtalk-templates/register.mjs

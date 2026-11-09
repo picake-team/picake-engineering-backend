@@ -31,6 +31,8 @@ import { QnaModule } from "@apps/backend/modules/qna/qna.module";
 import { ConsumerQnaController } from "@apps/backend/apis/consumer/controllers/qna.controller";
 import { StoreEntryRequestModule } from "@apps/backend/modules/store-entry-request/store-entry-request.module";
 import { ConsumerStoreEntryRequestController } from "@apps/backend/apis/consumer/controllers/store-entry-request.controller";
+import { QuoteRequestModule } from "@apps/backend/modules/quote-request/quote-request.module";
+import { ConsumerQuoteRequestController } from "@apps/backend/apis/consumer/controllers/quote-request.controller";
 
 /**
  * Consumer(구매자) API 모듈 — 경로 prefix `consumer`, JWT aud `consumer`
@@ -54,6 +56,7 @@ import { ConsumerStoreEntryRequestController } from "@apps/backend/apis/consumer
     NoticeModule,
     QnaModule,
     StoreEntryRequestModule,
+    QuoteRequestModule,
     // ChatModule,
   ],
   controllers: [
@@ -73,6 +76,7 @@ import { ConsumerStoreEntryRequestController } from "@apps/backend/apis/consumer
     ConsumerNoticeController,
     ConsumerQnaController,
     ConsumerStoreEntryRequestController,
+    ConsumerQuoteRequestController,
     // ConsumerChatController,
   ],
 })

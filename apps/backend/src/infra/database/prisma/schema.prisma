@@ -158,6 +158,7 @@ model Consumer {
   notificationPreferences ConsumerNotificationPreference[]
   termsAgreements    ConsumerTermsAgreement[]
   storeEntryRequests StoreEntryRequest[]
+  quoteRequests      QuoteRequest[]
 
   @@index([phone])
   @@index([googleId])
@@ -198,6 +199,144 @@ model StoreEntryRequest {
   @@index([kakaoPlaceId])
   @@index([status])
   @@map("store_entry_requests")
+}
+
+/// 견적 요청 상태(기획 I-46): 견적 받는 중 → 가게 연결(손님이 견적 하나를 고름) / 마감
+enum QuoteRequestStatus {
+  OPEN
+  CONNECTED
+  CLOSED
+}
+
+/// 견적 요청이 마감된 까닭
+enum QuoteRequestCloseReason {
+  /// 견적 마감(픽업 1시간 전)이 지남
+  EXPIRED
+  /// 손님이 "요청 닫기"
+  CONSUMER
+}
+
+/// 케이크 크기(도시락·미니·1호·2호·3호·더 크게)
+enum QuoteCakeSize {
+  LUNCHBOX
+  MINI
+  NO1
+  NO2
+  NO3
+  LARGER
+}
+
+/// 크림(여러 개 고를 수 있고, 고르지 않으면 상관없음)
+enum QuoteCream {
+  FRESH_CREAM
+  BUTTER_CREAM
+  CREAM_CHEESE
+}
+
+/// 손님이 요청서를 연 곳(성과 집계용)
+enum QuoteRequestEntry {
+  HOME
+  SEARCH
+  MAP
+  STORE
+  MYPAGE
+}
+
+/// 견적을 물어볼 가게를 넣은 사람
+enum QuoteRequestStoreAddedBy {
+  CONSUMER
+  ADMIN
+}
+
+/// 손님 견적 요청서(기획 I-46) — 손님이 원하는 케이크를 쓰면 운영자가 근처 가게에 물어 견적을 받는다.
+/// 이름·연락처는 가게에 보내지 않는다. 받을 동네는 동네 이름과 그 동네 중심 좌표만 저장한다(기기 좌표는 저장하지 않음).
+model QuoteRequest {
+  id         String @id @default(cuid())
+  consumerId String @map("consumer_id")
+
+  status      QuoteRequestStatus       @default(OPEN)
+  closeReason QuoteRequestCloseReason? @map("close_reason")
+  closedAt    DateTime?                @map("closed_at")
+
+  /// 픽업 날짜(한국 날짜 YYYY-MM-DD)
+  pickupDate     String   @map("pickup_date")
+  /// 픽업 시간 범위(시, 0~24). 둘 다 없으면 "아무 때나 괜찮아요"
+  pickupHourFrom Int?     @map("pickup_hour_from")
+  pickupHourTo   Int?     @map("pickup_hour_to")
+  /// 가게에 보여 줄 픽업 시작 시각. "아무 때나"인데 그날 0시가 지금부터 3시간 안이면 3시간 뒤(정시로 올림)
+  pickupStartAt  DateTime @map("pickup_start_at")
+  /// 견적 마감 = 픽업 시작 1시간 전
+  deadlineAt     DateTime @map("deadline_at")
+
+  /// 받을 동네(가게 화면에서 "이 가게에만"이면 없음)
+  areaName             String? @map("area_name")
+  /// 그 동네의 시·도(예: 서울, 전북) — "시·도 전체"로 물을 때 씀
+  areaSido             String? @map("area_sido")
+  areaLatitude         Float?  @map("area_latitude")
+  areaLongitude        Float?  @map("area_longitude")
+  /// 거리(km: 1·2·3·4·5·10·20). 동네가 있는데 비어 있으면 시·도 전체
+  distanceKm           Int?    @map("distance_km")
+  /// 가게 화면에서 "이 가게에만 물어보기"
+  onlyDesignatedStores Boolean @default(false) @map("only_designated_stores")
+
+  /// 디자인 설명(레터링 포함, 500자까지). 참고 사진과 둘 중 하나는 꼭 있다
+  description String?       @db.VarChar(500)
+  photoUrls   String[]      @default([]) @map("photo_urls")
+  size        QuoteCakeSize
+  quantity    Int
+  creams      QuoteCream[]  @default([])
+  /// "직접 쓰기"로 적은 그 밖의 맛(예: 초코 시트)
+  flavorNote  String?       @map("flavor_note") @db.VarChar(30)
+  /// 예산(1개 기준, 원). 최대가 없으면 "10만원 이상"
+  budgetMin   Int           @map("budget_min")
+  budgetMax   Int?          @map("budget_max")
+  /// 요청 사항(알레르기·초·토퍼 등, 200자까지)
+  requestNote String?       @map("request_note") @db.VarChar(200)
+
+  entry       QuoteRequestEntry?
+  /// "요청 내용과 사진이 가게에 전달돼요" 동의 시각
+  consentedAt DateTime           @map("consented_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  consumer Consumer            @relation(fields: [consumerId], references: [id], onDelete: Cascade)
+  stores   QuoteRequestStore[]
+
+  @@index([consumerId, createdAt])
+  @@index([status, deadlineAt])
+  @@index([createdAt])
+  @@map("quote_requests")
+}
+
+/// 견적을 물어볼 가게 — Picake 가게(storeId) 또는 지도에서 찾은 입점 전 가게(카카오 장소). 넣을 때의 이름·주소를 함께 남긴다
+model QuoteRequestStore {
+  id             String @id @default(cuid())
+  quoteRequestId String @map("quote_request_id")
+
+  addedBy      QuoteRequestStoreAddedBy @default(CONSUMER) @map("added_by")
+  /// 손님이 넣은 순서(0부터)
+  sortOrder    Int                      @default(0) @map("sort_order")
+  storeId      String?                  @map("store_id")
+  kakaoPlaceId String?                  @map("kakao_place_id")
+
+  name      String
+  address   String?
+  latitude  Float?
+  longitude Float?
+  phone     String?
+  placeUrl  String? @map("place_url")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  quoteRequest QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+  store        Store?       @relation(fields: [storeId], references: [id], onDelete: SetNull)
+
+  @@unique([quoteRequestId, storeId])
+  @@unique([quoteRequestId, kakaoPlaceId])
+  @@index([storeId])
+  @@index([kakaoPlaceId])
+  @@map("quote_request_stores")
 }
 
 /// 판매자 앱(web-seller) 전용 계정
@@ -469,6 +608,7 @@ model Store {
   feeds     StoreFeed[]
   orders    Order[]
   notificationPreferences UserNotificationPreference[]
+  quoteRequestStores QuoteRequestStore[]
 
   @@unique([sellerId, businessNo, permissionManagementNumber])
   @@index([sellerId])

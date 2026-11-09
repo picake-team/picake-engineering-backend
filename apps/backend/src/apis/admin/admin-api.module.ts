@@ -28,6 +28,8 @@ import { AdminOrderManagementController } from "@apps/backend/apis/admin/control
 import { AdminStoreManagementController } from "@apps/backend/apis/admin/controllers/store-management.controller";
 import { AdminStoreEntryRequestManagementController } from "@apps/backend/apis/admin/controllers/store-entry-request-management.controller";
 import { AdminSellerSegmentManagementController } from "@apps/backend/apis/admin/controllers/seller-segment-management.controller";
+import { QuoteRequestModule } from "@apps/backend/modules/quote-request/quote-request.module";
+import { AdminQuoteRequestManagementController } from "@apps/backend/apis/admin/controllers/quote-request-management.controller";
 
 /**
  * Admin API 모듈
@@ -49,6 +51,7 @@ import { AdminSellerSegmentManagementController } from "@apps/backend/apis/admin
     OrderModule,
     StoreManagementModule,
     StoreEntryRequestModule,
+    QuoteRequestModule,
     SellerSegmentModule,
   ],
   controllers: [
@@ -66,6 +69,7 @@ import { AdminSellerSegmentManagementController } from "@apps/backend/apis/admin
     AdminOrderManagementController,
     AdminStoreManagementController,
     AdminStoreEntryRequestManagementController,
+    AdminQuoteRequestManagementController,
     AdminSellerSegmentManagementController,
   ],
 })
