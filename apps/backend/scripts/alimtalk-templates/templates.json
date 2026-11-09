@@ -1,0 +1,44 @@
+{
+  "_설명": "SOLAPI에 등록할 카카오 알림톡 템플릿. 형식은 기존 주문 템플릿과 같다(.claude/skills/picake-notify-kakao-template). 이름이 같은 템플릿이 이미 있으면 새로 만들지 않는다.",
+  "templates": [
+    {
+      "key": "QUOTE_ARRIVED",
+      "name": "견적도착(견적 요청에 첫 견적이 오면, 마감 3시간 전까지 안 고르면 한 번 더)",
+      "categoryCode": "002003",
+      "messageType": "BA",
+      "emphasizeType": "TEXT",
+      "emphasizeTitle": "견적 도착 안내",
+      "emphasizeSubtitle": "picake",
+      "content": "안녕하세요 #{고객명}님,\n요청하신 케이크 견적이 도착했습니다.\n\n픽업 날짜 : #{픽업일}\n케이크 : #{케이크}\n받은 견적 : #{견적수}개\n견적 마감 : #{마감일시}\n\n아래 버튼에서 견적을 비교하고 골라 주세요.",
+      "buttons": [
+        {
+          "buttonType": "WL",
+          "buttonName": "견적 보기",
+          "linkMo": "https://#{도메인}/quote/#{요청ID}",
+          "linkPc": "https://#{도메인}/quote/#{요청ID}",
+          "targetOut": true
+        }
+      ]
+    },
+    {
+      "key": "QUOTE_CLOSED_NO_QUOTE",
+      "name": "견적마감(견적 마감까지 견적을 보낸 가게가 없을 때)",
+      "categoryCode": "002003",
+      "messageType": "BA",
+      "emphasizeType": "TEXT",
+      "emphasizeTitle": "견적 마감 안내",
+      "emphasizeSubtitle": "picake",
+      "content": "안녕하세요 #{고객명}님,\n요청하신 케이크 견적 요청이 마감되었습니다.\n아쉽게도 이번에는 견적을 보낸 가게가 없었습니다.\n\n픽업 날짜 : #{픽업일}\n케이크 : #{케이크}\n\n요청 내용은 아래 버튼에서 확인하실 수 있습니다.",
+      "buttons": [
+        {
+          "buttonType": "WL",
+          "buttonName": "요청 보기",
+          "linkMo": "https://#{도메인}/quote/#{요청ID}",
+          "linkPc": "https://#{도메인}/quote/#{요청ID}",
+          "targetOut": true
+        }
+      ]
+    }
+  ],
+  "inspectionComment": "손님이 Picake에서 직접 보낸 케이크 견적 요청에 대해, 가게 견적이 도착했거나 견적 없이 마감되었을 때 요청한 손님 본인에게만 보내는 안내입니다. 광고 내용은 없습니다."
+}
