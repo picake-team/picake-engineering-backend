@@ -1,6 +1,6 @@
 # AWS RDS(데이터베이스) - 가이드
 
-> ⚠️ **구버전 참고 문서**입니다. 현재는 EC2에 PostgreSQL을 직접 설치합니다. [EC2 배포 가이드](../EC2_Route53_S3_CloudFront.md)를 참고하세요.
+> ⚠️ **구버전 참고 문서**입니다. 현재는 EC2에 PostgreSQL을 직접 설치합니다. [EC2 배포 가이드](<../(검증)EC2_Route53_S3_CloudFront.md>)를 참고하세요.
 
 1. AWS RDS 설정
 
