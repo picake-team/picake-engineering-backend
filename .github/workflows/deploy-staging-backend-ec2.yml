@@ -330,6 +330,8 @@ jobs:
 
             # Sentry - staging
             SENTRY_DSN=${{ secrets.STAGING_SENTRY_DSN }}
+            # 이 배포의 태그(Sentry release로 씀, 코드에서 /를 -로 바꿈)
+            SENTRY_RELEASE=${{ github.ref_name }}
 
             # SOLAPI (SMS 인증 · 카카오 알림톡) - staging & production (공용)
             SOLAPI_API_KEY=${{ secrets.SOLAPI_API_KEY }}
