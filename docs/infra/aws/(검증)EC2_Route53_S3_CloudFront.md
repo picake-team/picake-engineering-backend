@@ -257,7 +257,13 @@ DROP TABLE test_permission;
 
 ## 📝 4단계: GitHub Actions 자동 CI/CD 설정
 
-GitHub Actions를 사용하여 자동 배포를 구성합니다. 코드를 EC2로 전송하고 직접 빌드 및 실행합니다.
+GitHub Actions를 사용하여 자동 배포를 구성합니다. 태그를 푸시하면 두 단계로 진행합니다(production도 같음).
+
+1. **build** (`ubuntu-24.04-arm`, 공개 레포라 무료): EC2와 같은 Amazon Linux 2023 ARM 컨테이너에서 `yarn workspaces focus @picake/backend`와 `yarn run backend:build`를 하고, `node_modules`·`dist`까지 담은 `deploy.tar.gz`를 만듭니다(`.github/scripts/build-backend-release.sh`). 서버(t4g.small, 메모리 2GB)에서 빌드하면 돌고 있는 앱·DB와 메모리를 나눠 써서 멈출 수 있어(2026-11-04) 서버에서는 설치·빌드하지 않습니다.
+2. **deploy**: 묶음을 EC2로 보내고, 지금 돌던 `~/picake`를 통째로 `~/picake.backup.<시각>`으로 옮긴 뒤(돌던 앱은 계속 돎) 새 묶음을 풀고 DB 백업 → `.env` 생성 → 마이그레이션 → PM2 재시작 → `localhost:8080/health` 확인(최대 90초) 순서로 진행합니다.
+   - 새 버전을 켜기 전에 실패하면 폴더만 되돌리고 돌던 앱은 그대로 둡니다. 켠 뒤 `/health`가 응답하지 않으면 가장 최근 백업(의존성 포함)으로 되돌려 다시 켭니다.
+   - 가장 최근 백업만 `node_modules`를 남기고, 그보다 오래된 백업은 `node_modules`를 지웁니다. 백업은 이름의 시각 순으로 고릅니다.
+   - 빌드가 실패하면 서버는 건드리지 않고 디스코드에 실패를 알립니다.
 
 ### 4.1 GitHub Actions 워크플로우 파일 생성
 
@@ -621,7 +627,7 @@ graph TB
 
     %% GitHub Actions → EC2
     GitHub -->|코드 푸시| GitHubActions
-    GitHubActions -->|SSH 배포<br/>빌드 및 실행| Backend
+    GitHubActions -->|빌드한 묶음을 SSH로 배포<br/>마이그레이션·실행| Backend
 
     %% Route53 → CloudFront
     Route53 -.->|CNAME 레코드| CloudFront
