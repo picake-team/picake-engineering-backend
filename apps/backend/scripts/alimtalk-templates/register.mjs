@@ -4,6 +4,7 @@
 // - APPLY=true일 때만 SOLAPI를 바꾼다: 이름이 같은 템플릿이 없으면 만들고, 검수 전(PENDING)이면 검수를 요청한다.
 //   이미 검수 중·승인·반려인 템플릿은 건드리지 않는다(반려면 문구를 고쳐 SOLAPI 콘솔이나 수정 API로 다시 낸다).
 // - 키는 SOLAPI_API_KEY·SOLAPI_API_SECRET 환경변수에서만 읽고 출력하지 않는다. 템플릿 문구는 손님에게 가는 공개 문구라 로그에 남겨도 된다.
+/* global process, console, fetch, URLSearchParams */
 import { readFileSync, appendFileSync } from "node:fs";
 import { createHmac, randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
@@ -118,7 +119,7 @@ for (const t of config.templates) {
 
   let current = found;
   if (!current && apply) {
-    const { key, ...body } = t;
+    const body = Object.fromEntries(Object.entries(t).filter(([k]) => k !== "key"));
     current = await call("POST", "/kakao/v2/templates", { channelId: SOLAPI_PFID, ...body });
     log(`- 새로 만듦: ${current.templateId} (${current.status})`);
   } else if (current) {

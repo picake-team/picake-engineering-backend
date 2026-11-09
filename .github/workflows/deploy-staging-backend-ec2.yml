@@ -341,6 +341,9 @@ jobs:
 
             # Claude API (상품 상세설명 AI 초안) - staging & production (공용). 없으면 AI 초안만 꺼진다
             ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+
+            # 디스코드 【PICAKE】운영 웹후크(견적 요청 새 요청 알림, I-46) - staging & production (공용). 없으면 알림만 꺼진다
+            DISCORD_WEBHOOK_URL_OPS=${{ secrets.DISCORD_WEBHOOK_URL_OPS }}
             EOF
 
             # 환경 변수 파일 권한 설정
