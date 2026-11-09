@@ -18,4 +18,9 @@ export class UploadService {
   async uploadFile(file: { originalname: string; mimetype: string; buffer: Buffer }) {
     return await this.uploadCreateService.uploadFile(file);
   }
+
+  /** 이 서비스가 올린 파일 지우기(실패는 기록만) */
+  async deleteFilesByUrl(urls: string[]): Promise<number> {
+    return await this.uploadCreateService.deleteFilesByUrl(urls);
+  }
 }

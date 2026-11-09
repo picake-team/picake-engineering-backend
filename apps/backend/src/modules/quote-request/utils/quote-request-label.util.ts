@@ -102,14 +102,17 @@ export function formatBudget(input: {
   return quantity > 1 ? `1개 ${text}` : text;
 }
 
-/** "연남동 3km 안" / "연남동 · 서울 전체" / "이 가게에만" */
+/** "연남동 3km 안" / "연남동 · 서울 전체" / "구름베이커리에만"(가게 이름을 모르면 "이 가게에만") */
 export function formatArea(input: {
   onlyDesignatedStores: boolean;
   areaName: string | null;
   areaSido: string | null;
   distanceKm: number | null;
+  onlyStoreName?: string | null;
 }): string {
-  if (input.onlyDesignatedStores || !input.areaName) return "이 가게에만";
+  if (input.onlyDesignatedStores || !input.areaName) {
+    return input.onlyStoreName ? `${input.onlyStoreName}에만` : "이 가게에만";
+  }
   if (input.distanceKm !== null) return `${input.areaName} ${input.distanceKm}km 안`;
   return `${input.areaName} · ${input.areaSido ?? "시·도"} 전체`;
 }

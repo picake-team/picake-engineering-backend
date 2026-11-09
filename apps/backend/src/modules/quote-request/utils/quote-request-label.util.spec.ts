@@ -83,5 +83,13 @@ describe("견적 요청 문구", () => {
     expect(formatArea(base)).toBe("연남동 3km 안");
     expect(formatArea({ ...base, distanceKm: null })).toBe("연남동 · 서울 전체");
     expect(formatArea({ ...base, onlyDesignatedStores: true, areaName: null })).toBe("이 가게에만");
+    expect(
+      formatArea({
+        ...base,
+        onlyDesignatedStores: true,
+        areaName: null,
+        onlyStoreName: "구름베이커리",
+      }),
+    ).toBe("구름베이커리에만");
   });
 });

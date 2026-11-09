@@ -25,14 +25,17 @@ import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-
  * - `phone`/`googleId`/`kakaoId` 등 재가입 식별에 쓰이는 값은 파기 후 고유값으로 치환해, 관리자
  *   비활성(정지)과 달리 동일 OAuth·휴대폰으로 즉시 재가입이 가능하도록 유지합니다.
  * - `name`/`nickname`/`profileImageUrl` 등 더 이상 필요 없는 개인정보는 null 처리합니다.
+ * - 견적 요청(사진 포함)은 계약이 아니라 보관 의무가 없어 지웁니다(QuoteRequestCleanupService).
  * - 주문(Order)·주문상품(OrderItem)·약관동의이력은 그대로 보존됩니다(법정 보존기간 경과 후 별도
  *   배치로 파기 필요 — 현재 미구현, 후속 작업).
  */
+import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
 @Injectable()
 export class AuthWithdrawService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authAppleOauthService: AuthAppleOauthService,
+    private readonly quoteRequestCleanup: QuoteRequestCleanupService,
   ) {}
 
   async withdraw(audience: AudienceConst, accountId: string, reason: string): Promise<void> {
@@ -54,6 +57,9 @@ export class AuthWithdrawService {
       }
 
       await this.assertNoActiveOrdersForConsumer(accountId);
+
+      // 견적 요청은 주문(계약)이 아니라 보관 의무가 없어 탈퇴하면 사진과 함께 지운다(기획 I-46)
+      await this.quoteRequestCleanup.deleteAllForConsumer(accountId);
 
       // Apple 가이드라인 5.1.1(v) — 계정 삭제 시 Sign in with Apple 인가를 revoke. 실패해도 탈퇴는 계속 진행.
       if (row.appleRefreshToken) {

@@ -246,7 +246,13 @@ describe("AuthSellerReviewLoginService (integration)", () => {
     await service.sellerReviewLogin({ code: TEST_CODE });
     const before = await reviewData();
 
-    const withdrawService = new AuthWithdrawService(prisma, { revokeToken: vi.fn() } as any);
+    const withdrawService = new AuthWithdrawService(
+      prisma,
+      { revokeToken: vi.fn() } as any,
+      {
+        deleteAllForConsumer: vi.fn(),
+      } as any,
+    );
     await withdrawService.withdraw(AUDIENCE.SELLER, before.seller!.id, "심사 확인");
 
     const withdrawn = await prisma.seller.findUnique({ where: { id: before.seller!.id } });

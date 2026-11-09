@@ -113,7 +113,7 @@ export function adminStatusWhere(
 export function buildSummary(row: QuoteRequestRow): QuoteRequestSummaryDto {
   return {
     pickup: formatPickup(row),
-    area: formatArea(row),
+    area: formatArea({ ...row, onlyStoreName: row.stores[0]?.name ?? null }),
     cake: formatCake(row),
     budget: formatBudget(row),
     deadline: formatKstDateTime(row.deadlineAt),

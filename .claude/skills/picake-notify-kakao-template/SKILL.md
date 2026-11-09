@@ -5,11 +5,20 @@ description: Picake의 카카오 알림톡 템플릿을 SOLAPI에 새로 등록�
 
 # 카카오 알림톡 템플릿 등록 (SOLAPI)
 
-Picake는 SOLAPI를 통해 카카오 알림톡을 발송하며, 현재 9개의 승인된 주문 흐름 템플릿이 있습니다. 이 skill은 **새 템플릿을 기존 템플릿과 형식·톤을 맞춰 등록하고, 검수(승인요청)까지 제출**하는 절차입니다.
+Picake는 SOLAPI를 통해 카카오 알림톡을 발송합니다. 주문 흐름 템플릿 9개(승인)와 견적 요청 템플릿 2개(기획 I-46 "견적 도착"·"견적 없이 마감", 2026-11-09 검수 요청, 아직 발송 코드에 연결 안 됨)가 있습니다. 이 skill은 **새 템플릿을 기존 템플릿과 형식·톤을 맞춰 등록하고, 검수(승인요청)까지 제출**하는 절차입니다.
 
 ## 0. 연결 확인
 
 `.mcp.json`에 `solapi` MCP 서버가 등록되어 있지만 세션 시작 시 자동 연결되지 않을 수 있습니다. `mcp__solapi__list_kakao_templates` 같은 도구가 안 보이면 사용자에게 `/mcp`로 재연결을 요청하세요. API Key/Secret이 없다는 에러(`solactl configure`)가 나면 `mcp__solapi__configure_setup`으로 등록을 안내하세요 (`~/.solactl/credentials.json`에 저장되어 세션 간 유지됨).
+
+### 로컬 MCP를 못 쓸 때: GitHub Actions `Alimtalk Templates`
+
+로컬 SOLAPI 키가 없거나 만료됐으면(2026-11-09 실제로 그랬음) GitHub 비밀값(`SOLAPI_API_KEY`·`SOLAPI_API_SECRET`·`SOLAPI_PFID`)을 쓰는 워크플로로 등록한다. 키를 로컬에 받아 오지 않는다.
+
+1. 등록할 템플릿을 `apps/backend/scripts/alimtalk-templates/templates.json`에 쓴다(아래 고정 관례 그대로).
+2. **확인만**: 기능 브랜치에서 `alimtalk-check-<이름>` 태그를 푸시한다. 기존 템플릿 목록과 새 템플릿의 형식 차이, 이미 같은 이름이 있는지가 실행 요약에 나온다. SOLAPI는 바꾸지 않는다.
+3. 사용자에게 최종 문구·버튼·변수를 보여 주고 "등록·검수 요청해도 된다"는 답을 받은 뒤 **등록·검수 요청**: `alimtalk-apply-<이름>` 태그를 푸시한다. 이름이 같은 템플릿은 새로 만들지 않고, 검수 전(PENDING)인 것만 검수를 요청한다. 이미 검수 중·승인·반려인 템플릿은 건드리지 않는다.
+4. main에 있는 뒤에는 Actions 화면에서 수동 실행(`apply` 끄면 확인만)도 된다. 검수 결과 확인도 check 태그로 한다.
 
 ## 1. 기준선 확보 — 반드시 기존 템플릿부터 확인
 
