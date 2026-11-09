@@ -6,6 +6,11 @@ import { buildSummary } from "@apps/backend/modules/quote-request/utils/quote-re
 /** 디스코드 embed 한 칸 최대 1,024자 */
 const FIELD_MAX = 1024;
 
+/** 손님 화면에서 온 이름(가게·동네)은 디스코드 서식(링크·굵게·멘션)이 되지 않게 기호를 뺀다 */
+function plain(text: string): string {
+  return text.replace(/[`*_~|[\]()<>#@\\]/g, "").trim();
+}
+
 function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
@@ -18,11 +23,15 @@ export function buildNewQuoteRequestDiscordMessage(
   row: QuoteRequestRow,
   options: { adminDomain?: string | null; environmentLabel?: string | null },
 ) {
-  const summary = buildSummary(row);
+  const summary = buildSummary({
+    ...row,
+    areaName: row.areaName ? plain(row.areaName) : null,
+    areaSido: row.areaSido ? plain(row.areaSido) : null,
+  });
   const stores =
     row.stores.length === 0
       ? "없음(근처 가게를 찾아 물어보기)"
-      : row.stores.map((s) => `${s.name}${s.storeId ? "" : "(입점 전)"}`).join(", ");
+      : row.stores.map((s) => `${plain(s.name)}${s.storeId ? "" : "(입점 전)"}`).join(", ");
   // 손님이 쓴 설명·요청 사항은 디스코드에 보내지 않는다(다른 사람 이름이 들어갈 수 있다). 관리자 상세에서 본다
   const design = [
     row.photoUrls.length > 0 ? `참고 사진 ${row.photoUrls.length}장` : null,

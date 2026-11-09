@@ -84,4 +84,18 @@ describe("새 견적 요청 디스코드 알림", () => {
       "없음(근처 가게를 찾아 물어보기)",
     );
   });
+  it("손님 화면에서 온 가게·동네 이름의 서식 기호는 뺀다", () => {
+    const msg = buildNewQuoteRequestDiscordMessage(
+      {
+        ...row,
+        areaName: "[연남동](https://evil.example)",
+        stores: [{ ...row.stores[0], name: "**구름**@everyone" }],
+      },
+      { adminDomain: null, environmentLabel: null },
+    );
+    const text = JSON.stringify(msg.embeds[0].fields);
+    expect(text).not.toContain("evil.example)");
+    expect(text).not.toContain("@everyone");
+    expect(text).toContain("구름everyone(입점 전)");
+  });
 });
