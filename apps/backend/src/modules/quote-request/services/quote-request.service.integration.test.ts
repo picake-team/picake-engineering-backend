@@ -138,6 +138,7 @@ describe("견적 요청 (integration)", () => {
       { pickupDate: "2026-12-20", pickupHourFrom: 12, pickupHourTo: 13 },
       { description: "   ", photoUrls: [] },
       { areaName: undefined },
+      { areaLatitude: null as unknown as number },
       { distanceKm: undefined },
       { distanceKm: undefined, wholeSido: true, areaSido: undefined },
       { budgetMin: 35000 },

@@ -164,7 +164,7 @@ export class QuoteRequestWriteService {
     }
 
     const areaName = dto.areaName?.trim();
-    if (!areaName || dto.areaLatitude === undefined || dto.areaLongitude === undefined) {
+    if (!areaName || dto.areaLatitude == null || dto.areaLongitude == null) {
       throw new BadRequestException(QUOTE_REQUEST_ERROR_MESSAGES.AREA_REQUIRED);
     }
     const hasKm = dto.distanceKm !== undefined && dto.distanceKm !== null;
@@ -180,8 +180,8 @@ export class QuoteRequestWriteService {
       onlyDesignatedStores: false,
       areaName,
       areaSido,
-      areaLatitude: dto.areaLatitude,
-      areaLongitude: dto.areaLongitude,
+      areaLatitude: dto.areaLatitude!,
+      areaLongitude: dto.areaLongitude!,
       distanceKm: hasKm ? dto.distanceKm! : null,
     };
   }
