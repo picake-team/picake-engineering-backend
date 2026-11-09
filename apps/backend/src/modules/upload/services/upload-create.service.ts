@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { uploadUrlToKey } from "@apps/backend/modules/upload/utils/upload-url.util";
 import { FileValidator } from "../utils/file-validator.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
@@ -115,5 +116,34 @@ export class UploadCreateService {
       });
       throw new BadRequestException("파일 업로드에 실패했습니다. 파일 형식과 크기를 확인해주세요.");
     }
+  }
+
+  /**
+   * 이 서비스가 올린 파일을 지운다(탈퇴 때 견적 요청 사진 등). 하나가 실패해도 나머지는 계속 지우고,
+   * 실패는 기록만 한다(호출한 일을 막지 않음). 지운 개수를 돌려준다.
+   */
+  async deleteFilesByUrl(urls: string[]): Promise<number> {
+    let deleted = 0;
+    for (const url of urls) {
+      const key = uploadUrlToKey(url, {
+        cloudfrontDomain: this.cloudfrontDomain,
+        bucket: this.bucket,
+        region: this.region,
+      });
+      if (!key) continue;
+      try {
+        await this.s3Client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+        deleted += 1;
+      } catch (error) {
+        LoggerUtil.log(
+          `파일 삭제 실패: ${key} - ${error instanceof Error ? error.message : String(error)}`,
+        );
+        SentryUtil.captureException(error, "warning", {
+          module: "upload",
+          operation: "s3-delete-object",
+        });
+      }
+    }
+    return deleted;
   }
 }

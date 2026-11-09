@@ -32,3 +32,31 @@ export function isAllowedUploadUrl(url: string): boolean {
   }
   return prefixes.some((prefix) => url.startsWith(prefix));
 }
+
+/**
+ * 업로드 API가 발급한 파일 URL을 S3 키로 되돌린다(지우기용). 이 서비스가 올린 파일이 아니면 null.
+ * URL은 경로 조각마다 인코딩되어 있으므로 조각마다 되돌린다.
+ */
+export function uploadUrlToKey(
+  url: string,
+  opts: { cloudfrontDomain?: string | null; bucket?: string | null; region?: string | null },
+): string | null {
+  const prefixes: string[] = [];
+  if (opts.cloudfrontDomain) prefixes.push(`https://${opts.cloudfrontDomain}/`);
+  if (opts.bucket && opts.region) {
+    prefixes.push(`https://${opts.bucket}.s3.${opts.region}.amazonaws.com/`);
+    prefixes.push(`https://s3.${opts.region}.amazonaws.com/${opts.bucket}/`);
+  }
+  const prefix = prefixes.find((p) => url.startsWith(p));
+  if (!prefix) return null;
+  const rest = url.slice(prefix.length).split(/[?#]/)[0];
+  if (!rest || rest.includes("..")) return null;
+  try {
+    return rest
+      .split("/")
+      .map((segment) => decodeURIComponent(segment))
+      .join("/");
+  } catch {
+    return null;
+  }
+}

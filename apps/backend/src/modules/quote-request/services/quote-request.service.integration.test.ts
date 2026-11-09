@@ -3,6 +3,8 @@ import { BadRequestException, ConflictException, NotFoundException } from "@nest
 
 import { QuoteRequestReadService } from "@apps/backend/modules/quote-request/services/quote-request-read.service";
 import { QuoteRequestWriteService } from "@apps/backend/modules/quote-request/services/quote-request-write.service";
+import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
+import type { UploadService } from "@apps/backend/modules/upload/upload.service";
 import type { QuoteRequestOpsAlertService } from "@apps/backend/modules/quote-request/services/quote-request-ops-alert.service";
 import type { CreateQuoteRequestDto } from "@apps/backend/modules/quote-request/dto/quote-request.dto";
 import { getTestPrisma } from "@apps/backend/test/integration/db";
@@ -254,5 +256,34 @@ describe("견적 요청 (integration)", () => {
     expect(detail.consumer.nickname).toBe("케이크러버");
     expect(detail.entry).toBe("HOME");
     expect(detail.areaLatitude).toBeCloseTo(37.5662);
+  });
+  it("탈퇴하면 그 손님의 견적 요청(물어볼 가게 포함)과 참고 사진을 지운다", async () => {
+    // 업로드 API가 발급한 주소만 받으므로 지금 환경의 업로드 주소 모양으로 만든다
+    const photo = `https://${process.env.CLOUDFRONT_DOMAIN || "cdn.example.com"}/uploads/a.jpg`;
+    const { prisma, write } = build();
+    const leaving = await createTestConsumer(prisma);
+    const staying = await createTestConsumer(prisma);
+    await write.createForConsumer(
+      leaving.id,
+      baseDto({
+        photoUrls: [photo],
+        stores: [{ kakaoPlaceId: "9", name: "가게" }],
+      }),
+      NOW,
+    );
+    await write.createForConsumer(leaving.id, baseDto({ pickupDate: "2026-12-25" }), NOW);
+    await write.createForConsumer(staying.id, baseDto(), NOW);
+
+    const deleteFilesByUrl = vi.fn().mockResolvedValue(1);
+    const cleanup = new QuoteRequestCleanupService(prisma, {
+      deleteFilesByUrl,
+    } as unknown as UploadService);
+    const result = await cleanup.deleteAllForConsumer(leaving.id);
+
+    expect(result).toEqual({ requests: 2, photos: 1 });
+    expect(deleteFilesByUrl).toHaveBeenCalledWith([photo]);
+    expect(await prisma.quoteRequest.count({ where: { consumerId: leaving.id } })).toBe(0);
+    expect(await prisma.quoteRequestStore.count()).toBe(0);
+    expect(await prisma.quoteRequest.count({ where: { consumerId: staying.id } })).toBe(1);
   });
 });

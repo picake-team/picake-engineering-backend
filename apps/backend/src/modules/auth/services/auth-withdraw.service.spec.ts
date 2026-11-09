@@ -13,10 +13,14 @@ import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
 
 import { AuthWithdrawService } from "./auth-withdraw.service";
+import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
 
 describe("AuthWithdrawService.withdraw", () => {
   const prismaMock = mockDeep<PrismaService>();
   const authAppleOauthServiceMock = { revokeToken: vi.fn() };
+  const quoteCleanupMock = {
+    deleteAllForConsumer: vi.fn().mockResolvedValue({ requests: 0, photos: 0 }),
+  };
 
   let service: AuthWithdrawService;
 
@@ -29,6 +33,7 @@ describe("AuthWithdrawService.withdraw", () => {
         AuthWithdrawService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuthAppleOauthService, useValue: authAppleOauthServiceMock },
+        { provide: QuoteRequestCleanupService, useValue: quoteCleanupMock },
       ],
     }).compile();
 
@@ -36,6 +41,33 @@ describe("AuthWithdrawService.withdraw", () => {
   });
 
   describe("consumer", () => {
+    it("탈퇴하면 견적 요청을 지운다(주문과 달리 보관 의무 없음)", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+      } as any);
+
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
+
+      expect(quoteCleanupMock.deleteAllForConsumer).toHaveBeenCalledWith("consumer-1");
+      expect(prismaMock.consumer.update).toHaveBeenCalled();
+    });
+
+    it("진행 중인 주문 때문에 탈퇴를 막으면 견적 요청도 지우지 않는다", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+      } as any);
+      prismaMock.order.count.mockResolvedValue(1);
+
+      await expect(
+        service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유"),
+      ).rejects.toThrow();
+      expect(quoteCleanupMock.deleteAllForConsumer).not.toHaveBeenCalled();
+    });
+
     it("계정이 없으면 NotFoundException을 던진다", async () => {
       prismaMock.consumer.findUnique.mockResolvedValue(null);
 
