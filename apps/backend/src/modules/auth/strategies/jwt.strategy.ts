@@ -12,6 +12,7 @@ import {
   AUDIENCE,
 } from "@apps/backend/modules/auth/constants/auth.constants";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
+import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 
 /**
  * JWT 전략 (passport-jwt)
@@ -117,6 +118,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       LoggerUtil.log(
         `JWT 검증 실패: 알 수 없는 에러 - error: ${error instanceof Error ? error.message : String(error)}`,
       );
+      // DB 오류처럼 토큰과 무관한 실패도 401로 돌려주므로(4xx는 Sentry에 안 감) 원인이 묻히지 않게 여기서 남긴다.
+      // 장애 중에는 모든 요청이 여기로 오므로 1분에 한 번만 보낸다
+      SentryUtil.captureExceptionThrottled("auth-jwt-validate-unexpected", 60_000, error, "error", {
+        module: "auth-jwt",
+        operation: "validate",
+      });
       throw new UnauthorizedException(AUTH_ERROR_MESSAGES.ACCESS_TOKEN_INVALID);
     }
   }
