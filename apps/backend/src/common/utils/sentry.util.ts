@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/nestjs";
 import { ConfigService } from "@nestjs/config";
 import { LoggerUtil } from "./logger.util";
+import { SensitiveDataUtil } from "./sensitive-data.util";
 import { isStagingOrProduction } from "@apps/backend/common/utils/environment.util";
 
 /**
@@ -9,6 +10,9 @@ import { isStagingOrProduction } from "@apps/backend/common/utils/environment.ut
  */
 export class SentryUtil {
   private static nodeEnv: string | null = null;
+
+  /** captureExceptionThrottled: key별 마지막 전송 시각(ms) */
+  private static readonly lastSentAt = new Map<string, number>();
 
   /**
    * SentryUtil 초기화
@@ -99,6 +103,102 @@ export class SentryUtil {
         `Sentry 예외 전송 실패: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * 같은 원인이 짧은 시간에 반복될 때(예: DB 장애 중 모든 로그인 확인 실패) Sentry 무료 한도를 다 쓰지 않도록
+   * key마다 intervalMs에 한 번만 보낸다.
+   * @returns 이번에 보냈으면 true
+   */
+  static captureExceptionThrottled(
+    key: string,
+    intervalMs: number,
+    exception: unknown,
+    level: Sentry.SeverityLevel,
+    tags?: Record<string, string>,
+    extra?: Record<string, unknown>,
+  ): boolean {
+    const now = Date.now();
+    const last = this.lastSentAt.get(key);
+    if (last !== undefined && now - last < intervalMs) {
+      return false;
+    }
+    this.lastSentAt.set(key, now);
+    this.captureException(exception, level, tags, extra);
+    return true;
+  }
+
+  /**
+   * 아직 보내지 못한 이벤트를 마저 보낸다. `process.exit` 직전에 부른다(바로 끝내면 전송 전에 꺼진다).
+   * @param timeoutMs 최대 대기 시간
+   */
+  static async flush(timeoutMs = 2000): Promise<void> {
+    if (!this.enabled()) {
+      return;
+    }
+    try {
+      await Sentry.flush(timeoutMs);
+    } catch (error) {
+      LoggerUtil.log(
+        `Sentry flush 실패: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Sentry로 보내는 문장에서 이메일·휴대폰 번호·Bearer 토큰을 가린다.
+   * (예: Prisma 입력 오류 메시지에는 넣으려던 값이 그대로 들어간다)
+   */
+  static scrubText(text: string): string {
+    return text
+      .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/g, "Bearer ****")
+      .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, (email) =>
+        SensitiveDataUtil.maskEmail(email),
+      )
+      .replace(/\b(01[016789])-?\d{3,4}-?(\d{4})\b/g, "$1-****-$2");
+  }
+
+  /** 객체·배열 안의 모든 문자열에 scrubText를 적용한다 */
+  private static scrubValue(value: unknown, depth = 0): unknown {
+    if (typeof value === "string") {
+      return this.scrubText(value);
+    }
+    if (depth > 8 || value === null || typeof value !== "object") {
+      return value;
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => this.scrubValue(item, depth + 1));
+    }
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, this.scrubValue(item, depth + 1)]),
+    );
+  }
+
+  /**
+   * Sentry.init의 beforeSend: 보내기 전에 예외 메시지·메시지·extra·breadcrumb의 개인정보를 가린다.
+   * extra는 키 이름(password, phone, email 등)으로도 가린다.
+   */
+  static scrubEvent<T extends Sentry.ErrorEvent>(event: T): T {
+    for (const exception of event.exception?.values ?? []) {
+      if (exception.value) {
+        exception.value = this.scrubText(exception.value);
+      }
+    }
+    if (event.message) {
+      event.message = this.scrubText(event.message);
+    }
+    if (event.extra) {
+      event.extra = this.scrubValue(SensitiveDataUtil.maskSensitiveFields(event.extra)) as Record<
+        string,
+        unknown
+      >;
+    }
+    for (const breadcrumb of event.breadcrumbs ?? []) {
+      if (breadcrumb.message) {
+        breadcrumb.message = this.scrubText(breadcrumb.message);
+      }
+    }
+    return event;
   }
 
   /**

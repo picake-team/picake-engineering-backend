@@ -194,11 +194,13 @@ async function bootstrap(): Promise<void> {
   LoggerUtil.log(`API prefix: ${API_PREFIX}`);
 }
 
-bootstrap().catch((error) => {
+bootstrap().catch(async (error) => {
   LoggerUtil.log(`bootstrap failure: ${error instanceof Error ? error.message : String(error)}`);
   SentryUtil.captureException(error, "error", {
     module: "main",
     operation: "bootstrap",
   });
+  // 바로 종료하면 Sentry 전송 전에 프로세스가 꺼진다 → 최대 2초 기다린 뒤 종료
+  await SentryUtil.flush(2000);
   process.exit(1);
 });
