@@ -3,6 +3,7 @@ import { UnauthorizedException } from "@nestjs/common";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockDeep } from "vitest-mock-extended";
 
+import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { AUDIENCE, TOKEN_TYPES } from "@apps/backend/modules/auth/constants/auth.constants";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -78,6 +79,36 @@ describe("JwtStrategy.validate", () => {
     await expect(
       strategy.validate({ sub: "consumer-1", aud: AUDIENCE.CONSUMER, type: TOKEN_TYPES.ACCESS }),
     ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("DB 오류처럼 토큰과 무관한 실패는 401로 돌려주되 Sentry에 남긴다(1분에 한 번)", async () => {
+    const capture = vi
+      .spyOn(SentryUtil, "captureExceptionThrottled")
+      .mockImplementation(() => true);
+    const dbError = new Error("Can't reach database server");
+    prismaMock.consumer.findUnique.mockRejectedValue(dbError);
+
+    await expect(
+      strategy.validate({ sub: "consumer-1", aud: AUDIENCE.CONSUMER, type: TOKEN_TYPES.ACCESS }),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(capture).toHaveBeenCalledWith("auth-jwt-validate-unexpected", 60_000, dbError, "error", {
+      module: "auth-jwt",
+      operation: "validate",
+    });
+    capture.mockRestore();
+  });
+
+  it("계정 없음 같은 정상적인 거부는 Sentry에 남기지 않는다", async () => {
+    const capture = vi
+      .spyOn(SentryUtil, "captureExceptionThrottled")
+      .mockImplementation(() => true);
+    prismaMock.consumer.findUnique.mockResolvedValue(null);
+
+    await expect(
+      strategy.validate({ sub: "consumer-1", aud: AUDIENCE.CONSUMER, type: TOKEN_TYPES.ACCESS }),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(capture).not.toHaveBeenCalled();
+    capture.mockRestore();
   });
 
   it("consumer: 비활성 계정이면 거부한다", async () => {

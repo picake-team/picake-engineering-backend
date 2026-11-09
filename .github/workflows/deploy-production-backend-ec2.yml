@@ -9,25 +9,51 @@ on:
       - "backend/production-*"
 
 jobs:
+  # 의존성 설치·빌드는 서버가 아니라 여기서 한다. 서버(t4g.small, 메모리 2GB)에서 빌드하면 돌고 있는 앱·DB와
+  # 메모리를 나눠 써서 멈출 수 있다(2026-11-04 production 26분 중단). 서버와 같은 Amazon Linux 2023 ARM
+  # 컨테이너에서 빌드해 Prisma 엔진·bcrypt도 서버에 맞는 것이 들어간다. 공개 레포라 ARM 러너는 무료다.
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build release in Amazon Linux 2023 (same as EC2)
+        run: |
+          docker run --rm -v "$PWD":/w -w /w public.ecr.aws/amazonlinux/amazonlinux:2023 \
+            bash .github/scripts/build-backend-release.sh
+
+      - name: Upload release
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-release
+          path: deploy.tar.gz
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+
   deploy-production:
+    needs: build
+    # 빌드가 실패해도 이 작업은 떠서 디스코드에 실패를 알린다(서버는 건드리지 않음)
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Prepare source code package
+      - name: Stop if build failed
+        if: needs.build.result != 'success'
         run: |
-          # ⚠️ 불필요한 파일 제외하고 압축
-          mkdir -p /tmp/deploy
-          tar -czf /tmp/deploy/deploy.tar.gz \
-            --exclude=.git \
-            --exclude=node_modules \
-            --exclude=.yarn/cache \
-            --exclude=.next \
-            --exclude=dist \
-            .
-          mv /tmp/deploy/deploy.tar.gz .
+          echo "::error title=Build failed::빌드가 실패해 서버에는 아무것도 바꾸지 않았습니다."
+          exit 1
+
+      - name: Download release
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-release
 
       - name: Copy deployment package to EC2
         uses: appleboy/scp-action@v1.0.0
@@ -48,35 +74,49 @@ jobs:
             set -e
 
             # 롤백 함수 정의
+            # 새 버전을 켜기 전(SWITCHED=false)에 실패하면 기존 앱이 그대로 돌고 있으므로 폴더만 되돌린다.
+            # 켠 뒤(SWITCHED=true)에 실패하면 이전 버전 폴더(node_modules·dist 포함)로 되돌려 다시 켠다.
+            SWITCHED=false
             rollback_deployment() {
               echo ""
               echo "🔄 배포 실패로 인한 롤백 시작..."
 
-              # PM2 프로세스 중지 (이미 실패한 새 버전이 실행 중일 수 있음)
-              pm2 delete picake-backend-production 2>/dev/null || true
-
-              # 가장 최근 백업 찾기
-              LATEST_BACKUP=$(ls -td ~/picake.backup.* 2>/dev/null | head -1)
-
-              if [ -n "$LATEST_BACKUP" ] && [ -d "$LATEST_BACKUP" ]; then
-                echo "📦 백업 복원 중: $LATEST_BACKUP"
-                rm -rf ~/picake
-                mv "$LATEST_BACKUP" ~/picake
-
-                # 이전 버전으로 PM2 재시작
-                if [ -f ~/picake/apps/backend/dist/main.js ]; then
-                  cd ~/picake/apps/backend
-                  NODE_ENV=production pm2 start dist/main.js \
-                    --name picake-backend-production \
-                    --update-env \
-                    --cwd $(pwd)
-                  pm2 save
-                  echo "✅ 롤백 완료 - 이전 버전으로 복구되었습니다"
-                else
-                  echo "⚠️ 롤백 실패 - 백업에 빌드 파일이 없습니다"
-                fi
-              else
+              # 가장 최근 백업 = 이번 배포 직전까지 돌던 버전 (이름의 타임스탬프로 고른다)
+              LATEST_BACKUP=$(ls -d ~/picake.backup.* 2>/dev/null | sort -r | head -1)
+              if [ -z "$LATEST_BACKUP" ] || [ ! -d "$LATEST_BACKUP" ]; then
                 echo "❌ 롤백 실패 - 백업을 찾을 수 없습니다"
+                exit 1
+              fi
+
+              echo "📦 백업 복원 중: $LATEST_BACKUP"
+              cd ~
+              rm -rf ~/picake
+              mv "$LATEST_BACKUP" ~/picake
+
+              if [ "$SWITCHED" != true ]; then
+                echo "✅ 롤백 완료 - 새 버전을 켜기 전에 멈춰서 기존 앱은 그대로 돌고 있습니다"
+                exit 1
+              fi
+
+              # 새 버전을 켠 뒤 실패한 경우: 이전 버전으로 다시 켠다
+              pm2 delete picake-backend-production 2>/dev/null || true
+              if [ -f ~/picake/apps/backend/dist/main.js ] && [ -d ~/picake/node_modules ]; then
+                cd ~/picake/apps/backend
+                NODE_ENV=production pm2 start dist/main.js \
+                  --name picake-backend-production \
+                  --update-env \
+                  --cwd $(pwd) || true
+                pm2 save || true
+                for i in $(seq 1 30); do
+                  if curl -sf http://localhost:8080/health >/dev/null 2>&1; then
+                    echo "✅ 롤백 완료 - 이전 버전으로 복구되었습니다 (${i}회째 확인)"
+                    exit 1
+                  fi
+                  sleep 2
+                done
+                echo "❌ 이전 버전도 /health에 응답하지 않습니다 — pm2 logs picake-backend-production --lines 50 확인"
+              else
+                echo "⚠️ 롤백 실패 - 백업에 빌드 결과나 의존성(node_modules)이 없습니다"
               fi
 
               exit 1
@@ -100,15 +140,25 @@ jobs:
 
               echo "🧹 오래된 ${BACKUP_TYPE} 백업 정리 중 (최근 ${KEEP_COUNT}개만 유지)..."
 
-              # 타임스탬프 기준으로 정렬하여 오래된 것부터 삭제
+              # 이름의 타임스탬프(YYYYMMDD_HHMMSS) 기준으로 정렬하여 오래된 것부터 삭제
+              # (수정 시각 -t로 정렬하면 오래된 백업의 node_modules를 지운 순간 그 백업이 "최근"이 되어 엉뚱한 것을 지운다)
               # -d: 백업 폴더 자체를 나열한다 (없으면 폴더 안 파일 이름이 나와 엉뚱한 것을 지운다)
-              ls -dt ${BACKUP_PATTERN} 2>/dev/null | tail -n +$((KEEP_COUNT + 1)) | while read -r old_backup; do
+              ls -d ${BACKUP_PATTERN} 2>/dev/null | sort -r | tail -n +$((KEEP_COUNT + 1)) | while read -r old_backup; do
                 case "$old_backup" in
                   "$HOME"/picake.backup.*|"$HOME"/db-backup.*) ;;
                   *) echo "  건너뜀(백업 경로 아님): $old_backup"; continue ;;
                 esac
                 echo "  삭제: $old_backup"
                 rm -rf "$old_backup"
+              done || true
+            }
+
+            # 롤백에 쓰는 가장 최근 백업만 node_modules를 남기고, 그보다 오래된 백업의 node_modules는 지운다(디스크 절약)
+            strip_old_backup_deps() {
+              ls -d "$HOME"/picake.backup.* 2>/dev/null | sort -r | tail -n +2 | while read -r old_backup; do
+                case "$old_backup" in
+                  "$HOME"/picake.backup.*) find "$old_backup" -type d -name node_modules -prune -exec rm -rf {} + 2>/dev/null || true ;;
+                esac
               done || true
             }
 
@@ -129,13 +179,9 @@ jobs:
                 echo "📢 주의: 디스크 사용량이 지속적으로 높다면 EC2 루트 볼륨 확장 또는 배포 로직 개선을 고려하세요"
               fi
 
-              # 기존 프로젝트의 node_modules 삭제 (dist는 롤백 시 PM2 기동에 필요하므로 유지)
-              if [ -d ~/picake ]; then
-                echo "🗑️ 기존 프로젝트의 node_modules 디렉토리 삭제 중..."
-                find ~/picake -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null || true
-                find ~/picake -type d -name ".next" -exec rm -rf {} + 2>/dev/null || true
-                find ~/picake -type d -name ".yarn" -exec rm -rf {} + 2>/dev/null || true
-              fi
+              # 지금 돌고 있는 앱(~/picake)과 가장 최근 백업의 node_modules는 지우지 않는다(롤백 때 그대로 다시 켜야 함)
+              echo "🗑️ 오래된 백업의 node_modules 삭제 중..."
+              strip_old_backup_deps
 
               # Yarn 캐시 정리
               echo "🗑️ Yarn 캐시 정리 중..."
@@ -184,13 +230,10 @@ jobs:
             fi
 
             # 기존 프로젝트 백업 (타임스탬프 포함)
-            # 백업 전에 node_modules만 삭제 (dist는 롤백 시 이전 빌드로 서비스 복구에 필요)
+            # 롤백 때 그대로 다시 켤 수 있게 node_modules·dist를 지우지 않고 통째로 옮긴다(돌고 있는 앱은 그대로 계속 돈다).
+            # 오래된 백업의 node_modules는 strip_old_backup_deps가 지운다.
             CURRENT_BACKUP_NAME=""
             if [ -d ~/picake ]; then
-              echo "🗑️ 백업 전 불필요한 파일 정리 중 (node_modules 등)..."
-              find ~/picake -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null || true
-              find ~/picake -type d -name ".next" -exec rm -rf {} + 2>/dev/null || true
-              find ~/picake -type d -name ".yarn" -exec rm -rf {} + 2>/dev/null || true
               find ~/picake -type f -name "*.log" -delete 2>/dev/null || true
 
               CURRENT_BACKUP_NAME=~/picake.backup.$(date +%Y%m%d_%H%M%S)
@@ -200,6 +243,7 @@ jobs:
                 rm -rf ~/picake
               }
             fi
+            strip_old_backup_deps
 
             # 배포 실패 시 롤백을 위한 trap 설정
             trap rollback_deployment ERR
@@ -211,31 +255,11 @@ jobs:
             tar -xzf ~/deploy.tar.gz
             rm ~/deploy.tar.gz
 
-            # 기존 node_modules 정리 (혹시 남아있을 수 있음)
-            echo "🗑️ 기존 node_modules 정리 중..."
-            find ~/picake -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null || true
-
-            # yarn 버전 확인 (서버 초기 설정 시 이미 corepack으로 설치됨)
-            yarn --version
-
-            # 디스크 공간 확인 후 의존성 설치
-            USE_PERCENT=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
-            echo "의존성 설치 전 디스크 사용량: ${USE_PERCENT}%"
-
-            if [ "$USE_PERCENT" -gt 90 ]; then
-              echo "⚠️ 디스크 사용량이 ${USE_PERCENT}%로 높습니다. 추가 정리 중..."
-              cleanup_old_backups "서버" "$HOME/picake.backup.*" "$USE_PERCENT"
-              cleanup_old_backups "DB" "$HOME/db-backup.*.sql.gz" "$USE_PERCENT"
-              cleanup_old_backups "DB" "$HOME/db-backup.*.dump" "$USE_PERCENT"
-              USE_PERCENT=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
-              echo "추가 정리 후 디스크 사용량: ${USE_PERCENT}%"
-            fi
-
-            echo "📦 의존성 설치"
-            YARN_HTTP_TIMEOUT=60000 yarn workspaces focus @picake/backend || {
-              echo "❌ 의존성 설치 실패"
+            # 의존성(node_modules)과 빌드 결과(dist)는 build 작업에서 서버와 같은 환경으로 만들어 왔다 → 서버에서 설치·빌드하지 않는다
+            if [ ! -f apps/backend/dist/main.js ] || [ ! -d node_modules ]; then
+              echo "❌ 배포 묶음에 빌드 결과나 의존성이 없습니다"
               rollback_deployment
-            }
+            fi
 
             echo "⚙️ 환경 변수 파일 생성 중..."
             cat > apps/backend/.env.production << EOF
@@ -306,6 +330,8 @@ jobs:
 
             # Sentry - production
             SENTRY_DSN=${{ secrets.PRODUCTION_SENTRY_DSN }}
+            # 이 배포의 태그(Sentry release로 씀, 코드에서 /를 -로 바꿈)
+            SENTRY_RELEASE=${{ github.ref_name }}
 
             # SOLAPI (SMS 인증 · 카카오 알림톡) - staging & production (공용)
             SOLAPI_API_KEY=${{ secrets.SOLAPI_API_KEY }}
@@ -348,7 +374,8 @@ jobs:
 
             # Prisma migrate 실행
             MIGRATE_SUCCESS=false
-            if ! npx prisma migrate deploy --schema ./src/infra/database/prisma/schema.prisma 2>&1 | tee /tmp/migrate_output.log; then
+            # pipefail: `| tee`만 있으면 tee의 성공이 결과가 되어 마이그레이션 실패를 성공으로 보고 넘어간다
+            if ! (set -o pipefail; npx prisma migrate deploy --schema ./src/infra/database/prisma/schema.prisma 2>&1 | tee /tmp/migrate_output.log); then
               MIGRATE_OUTPUT=$(cat /tmp/migrate_output.log)
 
               # P3009 오류: 실패한 마이그레이션이 있는 경우
@@ -386,17 +413,14 @@ jobs:
               MIGRATE_SUCCESS=true
             fi
 
-            # Prisma Client 재생성 (마이그레이션 성공 시에만)
+            # 마이그레이션 성공 뒤 (Prisma Client는 build 작업에서 만들어 dist에 들어 있어 서버에서 다시 만들지 않는다)
             if [ "$MIGRATE_SUCCESS" = true ]; then
-              echo "🔄 Prisma Client 재생성 중..."
-              npx prisma generate --schema ./src/infra/database/prisma/schema.prisma || {
-                echo "⚠️ Prisma Client 재생성 실패 (계속 진행합니다)"
-              }
+              echo "✅ 마이그레이션 완료"
             fi
 
             cd ~/picake
 
-            echo "💾 스왑 메모리 확인 (서버에서 빌드할 때 메모리가 모자라 멈추지 않게)"
+            echo "💾 스왑 메모리 확인 (앱이 잠깐 메모리를 많이 쓸 때 멈추지 않게)"
             ensure_swap() {
               if swapon --show 2>/dev/null | grep -q '/swapfile'; then echo "스왑 있음"; return 0; fi
               # fallocate로 만든 파일은 일부 파일 시스템에서 스왑으로 못 써서 dd로 만든다. 켜지 못하면 다시 만든다
@@ -412,13 +436,8 @@ jobs:
             ensure_swap || echo "⚠️ 스왑을 켜지 못했어요 (배포는 계속)"
             free -m | sed -n '1,3p' || true
 
-            echo "🔨 Backend build"
-            yarn run backend:build || {
-              echo "❌ 빌드 실패"
-              rollback_deployment
-            }
-
             echo "🚀 PM2 restart"
+            SWITCHED=true
             pm2 delete picake-backend-production || true
             cd apps/backend
             NODE_ENV=production pm2 start dist/main.js \
@@ -429,6 +448,25 @@ jobs:
               rollback_deployment
             }
             pm2 save
+
+            echo "🏥 백엔드 헬스체크 (localhost, PM2 기동 대기 포함, 최대 90초)"
+            HEALTH_OK=false
+            for i in $(seq 1 45); do
+              if curl -sf http://localhost:8080/health >/tmp/local-health.json 2>/dev/null; then
+                echo "✅ localhost:8080 /health 정상 (${i}회째 시도)"
+                cat /tmp/local-health.json
+                echo ""
+                HEALTH_OK=true
+                break
+              fi
+              echo "  시도 ${i}/45: 아직 기동 중... 2초 후 재시도"
+              sleep 2
+            done
+            if [ "$HEALTH_OK" != true ]; then
+              echo "❌ 새 버전이 90초 안에 /health에 응답하지 않아 이전 버전으로 되돌립니다"
+              pm2 logs picake-backend-production --lines 40 --nostream 2>/dev/null || true
+              rollback_deployment
+            fi
 
             # 배포 성공 시 trap 해제
             trap - ERR
@@ -473,29 +511,14 @@ jobs:
               sudo certbot certificates 2>/dev/null | grep -E "Certificate Name|Domains|Expiry Date" || true
             fi
 
-            echo ""
-            echo "🏥 백엔드 헬스체크 (localhost, PM2 기동 대기 포함)"
-            HEALTH_OK=false
-            for i in $(seq 1 30); do
-              if curl -sf http://localhost:8080/health >/tmp/local-health.json 2>/dev/null; then
-                echo "✅ localhost:8080 /health 정상 (${i}회째 시도)"
-                cat /tmp/local-health.json
-                echo ""
-                HEALTH_OK=true
-                break
-              fi
-              echo "  시도 ${i}/30: 아직 기동 중... 2초 후 재시도"
-              sleep 2
-            done
-            if [ "$HEALTH_OK" != true ]; then
-              echo "⚠️ localhost:8080 /health 실패 (60초 대기 후) — PM2 로그 확인: pm2 logs picake-backend-production --lines 30"
-            fi
-
             # 배포 성공 후 오래된 백업 정리 (디스크 사용량에 따라 동적 조정)
             USE_PERCENT=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
             cleanup_old_backups "서버" "$HOME/picake.backup.*" "$USE_PERCENT"
             cleanup_old_backups "DB" "$HOME/db-backup.*.sql.gz" "$USE_PERCENT"
             cleanup_old_backups "DB" "$HOME/db-backup.*.dump" "$USE_PERCENT"
+            strip_old_backup_deps
+            # 서버에서 더 이상 yarn 설치를 하지 않으므로 예전 패키지 캐시를 비운다
+            rm -rf ~/.yarn/berry/cache 2>/dev/null || true
 
       - name: Verify SSL certificate and HTTPS health
         if: success()

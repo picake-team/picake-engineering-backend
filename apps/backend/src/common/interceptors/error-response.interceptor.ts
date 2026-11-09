@@ -61,7 +61,12 @@ export class ErrorResponseInterceptor implements ExceptionFilter {
     const level = SentryUtil.getErrorLevel(status);
     if (shouldSend) {
       // 예외 전송 (responseId를 태그로 추가하여 클라이언트에서 Sentry에서 찾을 수 있도록)
-      SentryUtil.captureException(exception, level, { responseId });
+      // method·route: 어느 API에서 났는지. route는 경로 패턴(/v1/.../:id)이라 ID·개인정보가 들어가지 않는다
+      SentryUtil.captureException(exception, level, {
+        responseId,
+        method: String(request.method ?? "unknown"),
+        route: String(request.route?.path ?? "unmatched"),
+      });
     }
 
     // 클라이언트에게 통일된 JSON 형태로 에러 응답 전송

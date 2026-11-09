@@ -91,6 +91,10 @@ apps/backend/src/
 - `tracesSampleRate: 0`: Transaction 비활성화 (에러 이벤트만 전송하여 비용 절감)
 - `sendDefaultPii: false`: 기본 PII 데이터 수집 비활성화 (개인정보 보호)
 - `environment`: 환경 태그 자동 설정
+- `release`: 배포 태그(`SENTRY_RELEASE`, 예: `backend/production-v0.0.24` → `backend-production-v0.0.24`). 배포 워크플로가 `.env`에 넣는다. 어느 배포부터 난 오류인지 본다
+- `beforeSend`: `SentryUtil.scrubEvent`로 보내기 전에 개인정보를 가린다(6.2)
+- 앱이 켜지다 실패하면(`main.ts` bootstrap catch) `SentryUtil.flush`로 최대 2초 전송을 기다린 뒤 종료한다. 바로 `process.exit`하면 전송 전에 꺼진다
+- production은 서버 로그를 남기지 않으므로(`LoggerUtil`) Sentry가 유일한 오류 기록이다
 
 ## 3. 환경별 동작 방식
 
@@ -241,6 +245,8 @@ async function bootstrap(): Promise<void> {
 
 Sentry에서 태그: `responseId: 1706004000000-error-uuid-hex`
 
+함께 붙는 태그: `method`(GET·POST 등), `route`(경로 패턴, 예: `/v1/consumer/orders/:id`. 매칭 전 오류는 `unmatched`). 실제 주소는 ID·쿼리에 개인정보가 들어갈 수 있어 넣지 않는다.
+
 ## 6. 민감 정보 보호
 
 ### 6.1 자동 마스킹
@@ -254,10 +260,12 @@ Sentry에서 태그: `responseId: 1706004000000-error-uuid-hex`
 
 ### 6.2 Sentry 전송 전 필터링
 
-`ErrorResponseInterceptor`에서:
+모든 이벤트는 `Sentry.init`의 `beforeSend`(`SentryUtil.scrubEvent`)를 거친다. 어디서 `captureException`을 불렀든 똑같이 적용된다.
 
-1. `SensitiveDataUtil.sanitizeError()`: 에러 객체의 민감 정보 제거
-2. `SensitiveDataUtil.maskSensitiveFields()`: 응답 데이터의 민감 정보 마스킹
+1. 예외 메시지·메시지·breadcrumb: 이메일, 휴대폰 번호(`01X` 10~11자리, 하이픈 유무 무관), `Bearer` 토큰을 가린다(`SentryUtil.scrubText`). Prisma 입력 오류 메시지에는 넣으려던 값이 그대로 들어가기 때문이다
+2. extra: 키 이름(password·token·phone·email 등)으로 가리고(`SensitiveDataUtil.maskSensitiveFields`), 안의 문자열도 1번처럼 가린다
+
+`ErrorResponseInterceptor`의 `sanitizeError`·`maskSensitiveFields`는 서버 로그용이다(검증 환경에서만 찍힘).
 
 ---
 
@@ -292,6 +300,10 @@ Sentry에서 태그: `responseId: 1706004000000-error-uuid-hex`
 3. **비즈니스 로직 에러**
    - 서비스에서 직접 `SentryUtil.captureException()` 호출
    - 예: DB 연결 실패, WebSocket 연결 에러, 알림 발송 실패(`notification-order-dispatch.service.ts`의 픽업/재입금 안내 발송 등)
+
+4. **401로 돌려주지만 남겨야 하는 에러**
+   - 로그인 확인(`jwt.strategy.ts`) 중 DB 오류처럼 토큰과 무관한 실패는 401로 응답해 위 2번 규칙으로는 안 남는다 → `SentryUtil.captureExceptionThrottled`로 남긴다
+   - 장애 중에는 모든 요청이 여기로 오므로 같은 key는 1분에 한 번만 보낸다(무료 플랜 한도 보호)
 
 ### 8.2 에러 레벨
 
