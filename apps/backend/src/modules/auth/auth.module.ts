@@ -29,12 +29,14 @@ import { TokenEncryptionUtil } from "@apps/backend/common/utils/token-encryption
  * 인증 모듈
  * 사용자·판매자·관리자 인증, JWT, 휴대폰·OAuth 등을 제공합니다.
  */
+import { QuoteRequestModule } from "@apps/backend/modules/quote-request/quote-request.module";
 @Module({
   imports: [
     AdminManagementModule,
     AdminApiKeyModule,
     TermsModule,
     SolapiModule,
+    QuoteRequestModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService) => ({

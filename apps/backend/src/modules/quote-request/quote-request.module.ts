@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
 import { DatabaseModule } from "@apps/backend/infra/database/database.module";
+import { UploadModule } from "@apps/backend/modules/upload/upload.module";
+import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
 import { QuoteRequestReadService } from "@apps/backend/modules/quote-request/services/quote-request-read.service";
 import { QuoteRequestWriteService } from "@apps/backend/modules/quote-request/services/quote-request-write.service";
 import { QuoteRequestOpsAlertService } from "@apps/backend/modules/quote-request/services/quote-request-ops-alert.service";
@@ -10,8 +12,13 @@ import { QuoteRequestOpsAlertService } from "@apps/backend/modules/quote-request
  * 1단계 ①: 요청서 저장·조회, 손님 요청 닫기, 관리자 목록·상세, 운영자 디스코드 알림.
  */
 @Module({
-  imports: [DatabaseModule],
-  providers: [QuoteRequestReadService, QuoteRequestWriteService, QuoteRequestOpsAlertService],
-  exports: [QuoteRequestReadService, QuoteRequestWriteService],
+  imports: [DatabaseModule, UploadModule],
+  providers: [
+    QuoteRequestReadService,
+    QuoteRequestWriteService,
+    QuoteRequestOpsAlertService,
+    QuoteRequestCleanupService,
+  ],
+  exports: [QuoteRequestReadService, QuoteRequestWriteService, QuoteRequestCleanupService],
 })
 export class QuoteRequestModule {}
