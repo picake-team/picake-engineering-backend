@@ -27,6 +27,7 @@ export function buildNewQuoteRequestDiscordMessage(
     ...row,
     areaName: row.areaName ? plain(row.areaName) : null,
     areaSido: row.areaSido ? plain(row.areaSido) : null,
+    stores: row.stores.map((s) => ({ ...s, name: plain(s.name) })),
   });
   const stores =
     row.stores.length === 0

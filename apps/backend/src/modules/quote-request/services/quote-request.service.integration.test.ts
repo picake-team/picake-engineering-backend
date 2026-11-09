@@ -123,7 +123,7 @@ describe("견적 요청 (integration)", () => {
     const detail = await read.getForConsumer(consumer.id, res.id, NOW);
     expect(detail.onlyDesignatedStores).toBe(true);
     expect(detail.areaName).toBeNull();
-    expect(detail.summary.area).toBe("이 가게에만");
+    expect(detail.summary.area).toBe("달빛케이크에만");
 
     await expect(
       write.createForConsumer(
