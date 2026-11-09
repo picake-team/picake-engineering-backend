@@ -48,7 +48,7 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 - **상품**: `/v1/consumer/products/*` - 상품 조회, 필터링, 검색
 - **스토어**: `/v1/consumer/store/*` - 스토어 조회
 - **입점 요청**: `/v1/consumer/store-entry-requests/*` - 비입점 카카오 장소 등록 요청
-- **견적 요청**: `/v1/consumer/quote-requests/*` - 손님 견적 요청서 보내기·내 견적 요청 목록·상세·닫기(기획 I-46, 새 요청은 디스코드 【PICAKE】운영으로 알림)
+- **견적 요청**: `/v1/consumer/quote-requests/*` - 손님 견적 요청서 보내기·내 견적 요청 목록·상세·닫기(기획 I-46, 새 요청은 디스코드 【PICAKE】운영으로 알림). 손님이 탈퇴하면 견적 요청과 참고 사진(S3)을 지운다(계정은 주문 보관 때문에 익명화만 해서 자동으로 지워지지 않음, `QuoteRequestCleanupService`). 장소 링크(`placeUrl`)는 http·https만 받는다(입점 요청도 같음)
 - **주문**: `/v1/consumer/orders/*` - 주문 생성 및 조회
 - **피드**: `/v1/consumer/feed/*` - 피드 조회
 - **리뷰**: `/v1/consumer/review/*` - 리뷰 작성 및 조회
