@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
 } from "class-validator";
 import { StoreEntryRequestStatus } from "@apps/backend/infra/database/prisma/generated/client";
@@ -61,6 +62,8 @@ export class CreateStoreEntryRequestDto {
   @IsOptional()
   @IsString()
   @MaxLength(2048)
+  // 관리자 화면이 링크로 보여 주므로 javascript: 같은 주소를 받지 않는다
+  @Matches(/^(https?:\/\/.*)?$/i, { message: "장소 링크는 http 또는 https 주소여야 합니다." })
   placeUrl?: string;
 
   @ApiPropertyOptional({ description: "위도", example: 37.5012 })

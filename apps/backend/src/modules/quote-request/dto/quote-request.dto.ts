@@ -12,6 +12,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  Matches,
   MaxLength,
   Min,
   ValidateNested,
@@ -77,10 +78,12 @@ export class QuoteRequestStoreInputDto {
   @MaxLength(30)
   phone?: string;
 
-  @ApiPropertyOptional({ description: "카카오 장소 URL" })
+  @ApiPropertyOptional({ description: "카카오 장소 URL(http·https만)" })
   @IsOptional()
   @IsString()
   @MaxLength(300)
+  // 관리자 화면이 링크로 보여 주므로 javascript: 같은 주소를 받지 않는다
+  @Matches(/^(https?:\/\/.*)?$/i, { message: "장소 링크는 http 또는 https 주소여야 해요." })
   placeUrl?: string;
 }
 
