@@ -84,6 +84,11 @@ function checkTemplate(t) {
 }
 
 const existing = await listTemplates();
+const categories = await call("GET", "/kakao/v2/templates/categories").catch(() => []);
+const categoryName = (code) => {
+  const c = (Array.isArray(categories) ? categories : []).find((x) => x.code === code);
+  return c ? `${code} ${c.name}` : code;
+};
 log(`## 알림톡 템플릿 (${apply ? "등록·검수 요청" : "확인만"})`);
 log("");
 log("### SOLAPI에 있는 템플릿");
@@ -102,6 +107,7 @@ for (const t of config.templates) {
   const found = existing.find((e) => e.name === t.name && e.channelId === SOLAPI_PFID);
   log(`### ${t.key} — ${t.emphasizeTitle}`);
   log(`- 이름: ${t.name}`);
+  log(`- 카테고리: ${categoryName(t.categoryCode)}`);
   log(`- 변수: ${[...new Set(vars)].join(" ")}`);
   log(`- 버튼: ${(t.buttons ?? []).map((b) => `[${b.buttonName}] ${b.linkMo}`).join(", ")}`);
   if (problems.length) {
