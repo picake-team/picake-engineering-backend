@@ -12,7 +12,7 @@ function clip(text: string, max: number): string {
 
 /**
  * 새 견적 요청 디스코드 알림(【PICAKE】운영). 운영자가 몇 시간 안에 가게에 물어봐야 해서 바로 보낸다.
- * 손님 이름·연락처·사진은 넣지 않는다(기획 I-46 SC-45). 자세한 내용은 관리자 화면 링크로 연다.
+ * 손님 이름·연락처·사진과 손님이 쓴 글(설명·요청 사항)은 넣지 않는다(기획 I-46 SC-45). 자세한 내용은 관리자 화면 링크로 연다.
  */
 export function buildNewQuoteRequestDiscordMessage(
   row: QuoteRequestRow,
@@ -23,9 +23,11 @@ export function buildNewQuoteRequestDiscordMessage(
     row.stores.length === 0
       ? "없음(근처 가게를 찾아 물어보기)"
       : row.stores.map((s) => `${s.name}${s.storeId ? "" : "(입점 전)"}`).join(", ");
+  // 손님이 쓴 설명·요청 사항은 디스코드에 보내지 않는다(다른 사람 이름이 들어갈 수 있다). 관리자 상세에서 본다
   const design = [
     row.photoUrls.length > 0 ? `참고 사진 ${row.photoUrls.length}장` : null,
-    row.description ? clip(row.description.replace(/\s+/g, " ").trim(), 200) : null,
+    row.description ? "설명 있음" : null,
+    row.requestNote ? "요청 사항 있음" : null,
   ]
     .filter(Boolean)
     .join(" · ");
