@@ -223,12 +223,14 @@ export class CreateQuoteRequestDto {
   @IsEnum(QuoteRequestEntry)
   entry?: QuoteRequestEntry;
 
-  @ApiProperty({
-    description: "요청 내용과 사진이 가게에 전달되는 것에 동의(true여야 보냄)",
-    example: true,
-  })
-  @IsIn([true], { message: QUOTE_REQUEST_ERROR_MESSAGES.CONSENT_REQUIRED })
-  agreed: boolean;
+  /**
+   * 예전 화면이 보내던 가게 전달 동의(2026-11-10 운영자 결정으로 동의 칸을 없앰).
+   * 이제 없어도 보낼 수 있고, 예전 앱이 true로 보내면 그 시각을 기록만 한다.
+   */
+  @ApiPropertyOptional({ description: "(예전 화면) 가게 전달 동의. 없어도 됨", example: true })
+  @IsOptional()
+  @IsBoolean()
+  agreed?: boolean;
 }
 
 export class CreateQuoteRequestResponseDto {

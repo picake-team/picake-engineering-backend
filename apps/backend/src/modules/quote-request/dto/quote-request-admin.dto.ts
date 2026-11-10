@@ -98,8 +98,11 @@ export class AdminQuoteRequestDetailDto extends QuoteRequestDetailDto {
   @ApiProperty({ enum: QuoteRequestEntry, nullable: true })
   entry: QuoteRequestEntry | null;
 
-  @ApiProperty()
-  consentedAt: Date;
+  @ApiProperty({
+    nullable: true,
+    description: "가게 전달 동의 시각(동의 칸을 없앤 2026-11-10 뒤 요청은 null)",
+  })
+  consentedAt: Date | null;
 }
 
 export class AdminQuoteRequestListResponseDto {
