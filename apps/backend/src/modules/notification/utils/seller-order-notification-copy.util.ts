@@ -12,7 +12,7 @@ export type OrderNotificationCopy = { title: string; body: string };
 
 /**
  * 주문 상태 전환 payload를 바로 받아 문구를 결정합니다.
- * - 판매자 앱 화면과 같은 해요체, 손님은 "손님"이라 부릅니다(운영자 의견 2026-11-10, 기획 I-48).
+ * - 판매자 앱 화면과 같은 해요체, 손님은 "손님"이라 부릅니다(기획 I-48).
  * - kind/event 같은 중간 식별자는 사용하지 않습니다.
  */
 export function buildSellerOrderNotificationCopy(
