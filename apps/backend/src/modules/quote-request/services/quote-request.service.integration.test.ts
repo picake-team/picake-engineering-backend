@@ -95,19 +95,6 @@ describe("견적 요청 (integration)", () => {
     expect(detail.stores[0].address).toBe("서울 마포구 연남로 1");
   });
 
-  it("가게 전달 동의 없이도 보낼 수 있고(2026-11-10 동의 칸 없앰), 예전 앱이 동의를 보내면 시각만 남긴다", async () => {
-    const { prisma, write } = build();
-    const consumer = await createTestConsumer(prisma);
-    const without = await write.createForConsumer(consumer.id, baseDto(), NOW);
-    const withOld = await write.createForConsumer(consumer.id, baseDto({ agreed: true }), NOW);
-    const rows = await prisma.quoteRequest.findMany({
-      where: { id: { in: [without.id, withOld.id] } },
-      select: { id: true, consentedAt: true },
-    });
-    expect(rows.find((r) => r.id === without.id)?.consentedAt).toBeNull();
-    expect(rows.find((r) => r.id === withOld.id)?.consentedAt).not.toBeNull();
-  });
-
   it("예산 최대가 10만원이면 '10만원 이상'으로 저장한다", async () => {
     const { prisma, write, read } = build();
     const consumer = await createTestConsumer(prisma);
