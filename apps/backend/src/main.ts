@@ -6,6 +6,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import * as express from "express";
 import { IoAdapter } from "@nestjs/platform-socket.io";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "@apps/backend/app.module";
 import { API_PREFIX } from "@apps/backend/common/constants/app.constants";
 import { SellerApiModule } from "@apps/backend/apis/seller/seller-api.module";
@@ -28,7 +29,12 @@ import { isNonProduction } from "@apps/backend/common/utils/environment.util";
  */
 async function bootstrap(): Promise<void> {
   // NestJS 애플리케이션 메인 인스턴스 생성 (AppModule을 사용하여 모든 모듈을 포함하고 있음)
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // 서버 앞의 nginx(같은 서버)가 넘겨 주는 X-Forwarded-For로 실제 접속 주소를 쓴다.
+  // 없으면 모든 요청이 nginx 주소(127.0.0.1)로 보여, 요청 한도(1분 100회·인증번호 등)를
+  // 손님·사장님 모두가 함께 쓰게 된다. 바로 앞이 이 서버 안(loopback)일 때만 믿어 밖에서 꾸민 값은 무시한다
+  app.set("trust proxy", "loopback");
 
   // Socket.IO 어댑터 설정 (WebSocket 연결을 위해 필수)
   // 전역 prefix가 Socket.IO 경로에 영향을 주지 않도록 설정
