@@ -155,3 +155,55 @@ describe("AuthGoogleOauthService.consumerGoogleLoginWithCode", () => {
     );
   });
 });
+
+describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone — 이미 가입한 번호", () => {
+  const prismaMock = mockDeep<PrismaService>();
+  const phoneServiceMock = { checkPhoneVerificationStatus: vi.fn().mockResolvedValue(true) };
+  let service: AuthGoogleOauthService;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.mocked(axios.create).mockReturnValue({ post: vi.fn(), get: vi.fn() } as any);
+    phoneServiceMock.checkPhoneVerificationStatus.mockResolvedValue(true);
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        AuthGoogleOauthService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: JwtUtil, useValue: { generateTokenPair: vi.fn() } },
+        { provide: ConfigService, useValue: { get: vi.fn(() => "x") } },
+        { provide: AuthPhoneService, useValue: phoneServiceMock },
+        { provide: TermsService, useValue: {} },
+      ],
+    }).compile();
+    service = moduleRef.get(AuthGoogleOauthService);
+  });
+
+  it("번호가 다른 구글 계정으로 가입돼 있으면 그 구글 이메일을 가려서 알려 준다(구글 계정이 여럿인 손님용)", async () => {
+    prismaMock.consumer.findUnique.mockResolvedValue(null);
+    prismaMock.consumer.findFirst.mockResolvedValue({
+      isActive: true,
+      googleId: "google-old",
+      googleEmail: "picakeowner@gmail.com",
+      kakaoId: null,
+      name: "홍길동",
+      phone: "01012345678",
+    } as any);
+
+    await expect(
+      service.consumerGoogleRegisterWithPhone({
+        googleId: "google-new",
+        googleEmail: "other@gmail.com",
+        phone: "010-1234-5678",
+        name: "홍길동",
+        agreedToTerms: true,
+        agreedToPrivacy: true,
+        agreedToThirdParty: true,
+      } as any),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        message: AUTH_ERROR_MESSAGES.PHONE_GOOGLE_ACCOUNT_EXISTS,
+        email: "pi***er@gmail.com",
+      }),
+    });
+  });
+});
