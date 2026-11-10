@@ -16,7 +16,7 @@ export const API_RESPONSE_MESSAGES = {
   UNAUTHORIZED: "권한 없음",
   NOT_FOUND: "리소스를 찾을 수 없음",
   CONFLICT: "중복된 사용자 정보",
-  THROTTLE_LIMIT_EXCEEDED: "요청 횟수가 제한을 초과했습니다.",
+  THROTTLE_LIMIT_EXCEEDED: "요청 횟수가 제한을 초과했어요.",
   SERVICE_UNAVAILABLE: "서비스 점검 중입니다. 잠시 후 다시 이용해 주세요.",
   INTERNAL_SERVER_ERROR: "서버 내부 오류",
 } as const;

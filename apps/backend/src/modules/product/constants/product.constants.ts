@@ -2,23 +2,23 @@
  * 상품 관련 에러 메시지
  */
 export const PRODUCT_ERROR_MESSAGES = {
-  NOT_FOUND: "상품을 찾을 수 없습니다.",
-  FORBIDDEN: "해당 상품을 삭제할 권한이 없습니다.",
-  STORE_NOT_FOUND: "스토어를 찾을 수 없습니다.",
-  STORE_NOT_OWNED: "해당 스토어에 대한 권한이 없습니다.",
-  LIKE_ALREADY_EXISTS: "이미 좋아요한 상품입니다.",
+  NOT_FOUND: "상품을 찾을 수 없어요.",
+  FORBIDDEN: "해당 상품을 삭제할 권한이 없어요.",
+  STORE_NOT_FOUND: "스토어를 찾을 수 없어요.",
+  STORE_NOT_OWNED: "해당 스토어에 대한 권한이 없어요.",
+  LIKE_ALREADY_EXISTS: "이미 좋아요한 상품이에요.",
   LIKE_NOT_FOUND: "좋아요한 상품이 아닙니다.",
-  PRODUCT_INACTIVE: "판매중지된 상품입니다.",
-  PRODUCT_OUT_OF_STOCK: "품절된 상품입니다.",
-  PRODUCT_NOT_AVAILABLE: "구매할 수 없는 상품입니다.",
+  PRODUCT_INACTIVE: "판매중지된 상품이에요.",
+  PRODUCT_OUT_OF_STOCK: "품절된 상품이에요.",
+  PRODUCT_NOT_AVAILABLE: "구매할 수 없는 상품이에요.",
   PRODUCT_PRICE_INVALID: "정가와 판매가는 0보다 큰 숫자여야 합니다.",
-  SALE_PRICE_EXCEEDS_ORIGINAL_PRICE: "판매가는 정가보다 클 수 없습니다.",
-  REVIEW_NOT_FOUND: "후기를 찾을 수 없습니다.",
+  SALE_PRICE_EXCEEDS_ORIGINAL_PRICE: "판매가는 정가보다 클 수 없어요.",
+  REVIEW_NOT_FOUND: "후기를 찾을 수 없어요.",
   /** 거리순 정렬 시 클라이언트 기준 위도·경도 미전달 */
   DISTANCE_SORT_REQUIRES_COORDINATES:
     "거리순 정렬에는 latitude와 longitude 쿼리 파라미터가 필요합니다.",
   SIZE_OPTION_REQUIRED: "노출 중인 사이즈 옵션이 1개 이상 필요합니다.",
-  CUSTOM_OPTION_INVALID: "추가 옵션 설정이 올바르지 않습니다.",
+  CUSTOM_OPTION_INVALID: "추가 옵션 설정이 올바르지 않아요.",
   /** 상품을 지우면 주문도 함께 지워지므로(orders.product_id ON DELETE CASCADE) 주문이 있으면 막는다 */
   HAS_ORDERS: "주문이 있는 상품은 지울 수 없어요. 판매중지로 바꾸거나 숨겨 주세요.",
 } as const;
@@ -57,11 +57,11 @@ export const RESERVED_CUSTOM_OPTION_NAMES = ["사이즈"] as const;
  * 상품 관련 성공 메시지 상수
  */
 export const PRODUCT_SUCCESS_MESSAGES = {
-  PRODUCT_CREATED: "상품이 성공적으로 등록되었습니다.",
-  PRODUCT_UPDATED: "상품이 성공적으로 수정되었습니다.",
-  PRODUCT_DELETED: "상품이 성공적으로 삭제되었습니다.",
-  LIKE_ADDED: "상품에 좋아요를 추가했습니다.",
-  LIKE_REMOVED: "상품 좋아요를 취소했습니다.",
+  PRODUCT_CREATED: "상품이 성공적으로 등록됐어요.",
+  PRODUCT_UPDATED: "상품이 성공적으로 수정됐어요.",
+  PRODUCT_DELETED: "상품이 성공적으로 삭제됐어요.",
+  LIKE_ADDED: "상품에 좋아요를 추가했어요.",
+  LIKE_REMOVED: "상품 좋아요를 취소했어요.",
 } as const;
 
 /**

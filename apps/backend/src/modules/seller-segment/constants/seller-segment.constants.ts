@@ -1,6 +1,6 @@
 export const SELLER_SEGMENT_ERROR_MESSAGES = {
-  SEGMENT_NOT_FOUND: "해당 세그먼트를 찾을 수 없습니다.",
-  KEY_DUPLICATE: "이미 존재하는 세그먼트 키입니다.",
+  SEGMENT_NOT_FOUND: "해당 세그먼트를 찾을 수 없어요.",
+  KEY_DUPLICATE: "이미 존재하는 세그먼트 키예요.",
 } as const;
 
 /** 세그먼트 목록/상세 응답에 사용하는 필드 */

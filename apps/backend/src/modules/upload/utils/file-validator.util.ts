@@ -129,7 +129,7 @@ export class FileValidator {
 
     if (buffer.length === 0) {
       LoggerUtil.log(`파일 크기 검증 실패: 빈 파일`);
-      throw new BadRequestException("빈 파일은 업로드할 수 없습니다.");
+      throw new BadRequestException("빈 파일은 업로드할 수 없어요.");
     }
   }
 
@@ -166,7 +166,7 @@ export class FileValidator {
   static validateMimeType(mimetype: string): void {
     if (!mimetype || typeof mimetype !== "string") {
       LoggerUtil.log(`파일 MIME 타입 검증 실패: 타입 정보 없음 - mimetype: ${mimetype}`);
-      throw new BadRequestException("파일 타입 정보가 올바르지 않습니다.");
+      throw new BadRequestException("파일 타입 정보가 올바르지 않아요.");
     }
 
     if (!UPLOAD_CONSTANTS.ALLOWED_MIME_TYPES.includes(mimetype)) {
@@ -183,7 +183,7 @@ export class FileValidator {
   static normalizeFilename(originalname: string): string {
     if (!originalname || typeof originalname !== "string") {
       LoggerUtil.log(`파일 이름 정규화 실패: 이름 정보 없음 - originalname: ${originalname}`);
-      throw new BadRequestException("파일 이름이 올바르지 않습니다.");
+      throw new BadRequestException("파일 이름이 올바르지 않아요.");
     }
 
     // 경로 탐색 공격 방지 (../ 제거)
@@ -211,7 +211,7 @@ export class FileValidator {
       LoggerUtil.log(
         `파일 이름 정규화 실패: 유효한 이름 생성 불가 - originalname: ${originalname}`,
       );
-      throw new BadRequestException("유효한 파일 이름을 생성할 수 없습니다.");
+      throw new BadRequestException("유효한 파일 이름을 생성할 수 없어요.");
     }
 
     return normalized;
@@ -318,7 +318,7 @@ export class FileValidator {
       LoggerUtil.log(
         `파일 매직 바이트 검증 실패: 지원하지 않는 형식 - filename: ${filename}, ext: ${ext}, mimetype: ${mimetype}`,
       );
-      throw new BadRequestException("지원하지 않는 파일 형식입니다.");
+      throw new BadRequestException("지원하지 않는 파일 형식이에요.");
     }
 
     const extOk = allowedByExt[ext].includes(detected);
@@ -328,7 +328,7 @@ export class FileValidator {
       LoggerUtil.log(
         `파일 매직 바이트 검증 실패: 내용 불일치 - filename: ${filename}, ext: ${ext}, mimetype: ${mimetype}, detected: ${detected}`,
       );
-      throw new BadRequestException("파일 내용과 확장자/타입이 일치하지 않습니다.");
+      throw new BadRequestException("파일 내용과 확장자/타입이 일치하지 않아요.");
     }
   }
 
@@ -343,7 +343,7 @@ export class FileValidator {
       LoggerUtil.log(
         `파일 검증 실패: 필수 필드 없음 - hasFile: ${!!file}, hasOriginalname: ${!!file?.originalname}, hasBuffer: ${!!file?.buffer}, hasMimetype: ${!!file?.mimetype}`,
       );
-      throw new BadRequestException("파일 정보가 올바르지 않습니다.");
+      throw new BadRequestException("파일 정보가 올바르지 않아요.");
     }
 
     // 파일 크기 검증

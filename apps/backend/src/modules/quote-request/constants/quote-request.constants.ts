@@ -56,8 +56,8 @@ export const QUOTE_REQUEST_ENTRY_LABELS: Record<QuoteRequestEntry, string> = {
 };
 
 export const QUOTE_REQUEST_ERROR_MESSAGES = {
-  NOT_FOUND: "견적 요청을 찾을 수 없습니다.",
-  INVALID_DATE: "픽업 날짜가 올바르지 않습니다.",
+  NOT_FOUND: "견적 요청을 찾을 수 없어요.",
+  INVALID_DATE: "픽업 날짜가 올바르지 않아요.",
   PAST_DATE: "지난 날짜는 고를 수 없어요.",
   TOO_FAR: "픽업 날짜는 1년 안으로 골라 주세요.",
   INVALID_HOURS: "픽업 시간은 '부터'가 '까지'보다 빨라야 해요.",

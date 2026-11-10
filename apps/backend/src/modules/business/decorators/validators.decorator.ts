@@ -109,7 +109,7 @@ export class IsValidRepresentativeNameConstraint implements ValidatorConstraintI
       return "한글을 포함해서 입력해주세요.";
     }
     if (this.errorType === "특수문자") {
-      return "특수문자, 이모지는 입력할 수 없습니다.";
+      return "특수문자, 이모지는 입력할 수 없어요.";
     }
     return "대표자명을 입력해주세요.";
   }
@@ -182,7 +182,7 @@ export class IsValidStartDateConstraint implements ValidatorConstraintInterface 
       return "유효하지 않은 날짜입니다. 다시 확인해주세요.";
     }
     if (this.errorType === "미래날짜") {
-      return "개업일은 오늘 이후 날짜로 입력할 수 없습니다.";
+      return "개업일은 오늘 이후 날짜로 입력할 수 없어요.";
     }
     return "개업일을 입력해주세요.";
   }
@@ -236,7 +236,7 @@ export class IsValidBusinessNameConstraint implements ValidatorConstraintInterfa
       return "상호는 50자 이하로 입력해주세요.";
     }
     if (this.errorType === "반복문자") {
-      return "의미 없는 반복 문자는 입력할 수 없습니다.";
+      return "의미 없는 반복 문자는 입력할 수 없어요.";
     }
     return "상호를 입력해주세요.";
   }

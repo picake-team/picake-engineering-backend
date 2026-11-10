@@ -2,15 +2,15 @@
  * 입점 요청 관련 에러 메시지
  */
 export const STORE_ENTRY_REQUEST_ERROR_MESSAGES = {
-  ALREADY_EXISTS: "이미 입점 요청한 가게입니다.",
-  NOT_FOUND: "해당 입점 요청을 찾을 수 없습니다.",
+  ALREADY_EXISTS: "이미 입점 요청한 가게예요.",
+  NOT_FOUND: "해당 입점 요청을 찾을 수 없어요.",
 } as const;
 
 /**
  * 입점 요청 관련 성공 메시지
  */
 export const STORE_ENTRY_REQUEST_SUCCESS_MESSAGES = {
-  CREATED: "입점 요청이 접수되었습니다.",
+  CREATED: "입점 요청이 접수됐어요.",
 } as const;
 
 /**

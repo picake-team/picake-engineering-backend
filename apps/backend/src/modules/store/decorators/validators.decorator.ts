@@ -59,7 +59,7 @@ export class IsValidLogoImageUrlConstraint implements ValidatorConstraintInterfa
       return "이미지 파일 확장자가 필요합니다.";
     }
     if (this.errorType === "확장자오류") {
-      return "jpg, jpeg, png, webp 형식의 이미지만 사용할 수 있습니다.";
+      return "jpg, jpeg, png, webp 형식의 이미지만 사용할 수 있어요.";
     }
     return "올바른 이미지 URL 형식이 아닙니다.";
   }
@@ -115,7 +115,7 @@ export class IsValidStoreNameConstraint implements ValidatorConstraintInterface 
       return "스토어 이름은 30자 이하여야 합니다.";
     }
     if (this.errorType === "특수문자") {
-      return "스토어 이름은 한글, 영문, 숫자만 사용할 수 있습니다.";
+      return "스토어 이름은 한글, 영문, 숫자만 사용할 수 있어요.";
     }
     return "스토어 이름을 입력해주세요.";
   }
@@ -157,7 +157,7 @@ export class IsValidStoreDescriptionConstraint implements ValidatorConstraintInt
       return `스토어 설명은 ${STORE_DESCRIPTION_MAX_LENGTH.toLocaleString()}자 이하로 입력해주세요.`;
     }
     if (this.errorType === "HTML태그") {
-      return "스토어 설명에는 HTML 태그를 사용할 수 없습니다.";
+      return "스토어 설명에는 HTML 태그를 사용할 수 없어요.";
     }
     return "스토어 설명을 확인해주세요.";
   }
@@ -196,7 +196,7 @@ export class IsValidStorePhoneNumberConstraint implements ValidatorConstraintInt
       return "스토어 연락처는 8자 이상 20자 이하여야 합니다.";
     }
     if (this.errorType === "형식") {
-      return "스토어 연락처는 숫자, 하이픈(-), 공백, 괄호, + 만 사용할 수 있습니다.";
+      return "스토어 연락처는 숫자, 하이픈(-), 공백, 괄호, + 만 사용할 수 있어요.";
     }
     return "스토어 연락처를 확인해주세요.";
   }
@@ -281,7 +281,7 @@ export class IsValidBankAccountNumberConstraint implements ValidatorConstraintIn
       return "계좌번호는 4자 이상 30자 이하여야 합니다.";
     }
     if (this.errorType === "형식") {
-      return "계좌번호는 숫자, 하이픈(-), 공백만 사용할 수 있습니다.";
+      return "계좌번호는 숫자, 하이픈(-), 공백만 사용할 수 있어요.";
     }
     return "계좌번호를 확인해주세요.";
   }
@@ -322,7 +322,7 @@ export class IsValidAccountHolderNameConstraint implements ValidatorConstraintIn
       return "예금주명은 2자 이상 30자 이하여야 합니다.";
     }
     if (this.errorType === "문자") {
-      return "예금주명은 한글, 영문, 숫자만 사용할 수 있습니다.";
+      return "예금주명은 한글, 영문, 숫자만 사용할 수 있어요.";
     }
     return "예금주명을 확인해주세요.";
   }
