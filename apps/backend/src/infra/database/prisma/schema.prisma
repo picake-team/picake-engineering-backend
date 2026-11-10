@@ -294,8 +294,6 @@ model QuoteRequest {
   requestNote String?       @map("request_note") @db.VarChar(200)
 
   entry       QuoteRequestEntry?
-  /// "요청 내용과 사진이 가게에 전달돼요" 동의 시각. 동의 칸을 없앤 2026-11-10 뒤 요청은 null
-  consentedAt DateTime?          @map("consented_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
