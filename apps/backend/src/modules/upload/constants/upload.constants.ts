@@ -76,7 +76,7 @@ export const UPLOAD_CONSTANTS = {
  * 업로드 관련 에러 메시지
  */
 export const UPLOAD_ERROR_MESSAGES = {
-  FILE_NOT_UPLOADED: "파일이 업로드되지 않았습니다.",
+  FILE_NOT_UPLOADED: "파일이 업로드되지 않았어요.",
 } as const;
 
 export const SWAGGER_EXAMPLES = {

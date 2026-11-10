@@ -55,9 +55,9 @@ export const SELLER_TERMS_TYPES = [
 ] as const;
 
 export const TERMS_ERROR_MESSAGES = {
-  NOT_FOUND: "약관을 찾을 수 없습니다.",
-  VERSION_DUPLICATE: "이미 존재하는 버전입니다.",
-  ACTIVE_NOT_FOUND: "현재 활성화된 약관이 없습니다.",
+  NOT_FOUND: "약관을 찾을 수 없어요.",
+  VERSION_DUPLICATE: "이미 존재하는 버전이에요.",
+  ACTIVE_NOT_FOUND: "현재 활성화된 약관이 없어요.",
 } as const;
 
 /** 약관 타입별 한국어 표시명 */

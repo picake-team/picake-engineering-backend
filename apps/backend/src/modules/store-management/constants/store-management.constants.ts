@@ -10,7 +10,7 @@ import { SELLER_ORDER_STATISTICS_TOP_PRODUCTS_LIMIT } from "@apps/backend/module
  * 스토어 관리(관리자) 상수
  */
 export const STORE_MANAGEMENT_ERROR_MESSAGES = {
-  STORE_NOT_FOUND: "해당 스토어를 찾을 수 없습니다.",
+  STORE_NOT_FOUND: "해당 스토어를 찾을 수 없어요.",
 } as const;
 
 /** GMV·완료 주문 집계 상태 (관리자/판매자 통계와 동일: 픽업 완료) */

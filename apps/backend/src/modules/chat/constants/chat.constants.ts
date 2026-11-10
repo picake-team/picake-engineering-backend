@@ -2,13 +2,13 @@ import { SWAGGER_EXAMPLES as USER_SWAGGER_EXAMPLES } from "@apps/backend/modules
 import { SWAGGER_EXAMPLES as STORE_SWAGGER_EXAMPLES } from "@apps/backend/modules/store/constants/store.constants";
 
 export const CHAT_ERROR_MESSAGES = {
-  STORE_NOT_FOUND: "스토어를 찾을 수 없습니다.",
-  STORE_NOT_OWNED: "해당 스토어에 대한 권한이 없습니다.",
-  CHAT_ROOM_NOT_FOUND: "채팅방을 찾을 수 없습니다.",
+  STORE_NOT_FOUND: "스토어를 찾을 수 없어요.",
+  STORE_NOT_OWNED: "해당 스토어에 대한 권한이 없어요.",
+  CHAT_ROOM_NOT_FOUND: "채팅방을 찾을 수 없어요.",
 } as const;
 
 export const CHAT_SUCCESS_MESSAGES = {
-  CHAT_ROOM_CREATED: "채팅방이 생성되었습니다.",
+  CHAT_ROOM_CREATED: "채팅방이 생성됐어요.",
 } as const;
 
 /**

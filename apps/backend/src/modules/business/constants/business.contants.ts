@@ -2,25 +2,25 @@ export const NTS_API_ERROR_MESSAGES = {
   HTTP_ERROR: "Http Error입니다.",
   INTERNAL_ERROR: "Internal Server Error입니다.",
   TOO_LARGE_REQUEST: "요청 사업자번호 또는 정보 100개 초과입니다.",
-  REQUEST_DATA_MALFORMED: "필수 요청 파라미터 누락되었습니다.",
-  BAD_JSON_REQUEST: "	JSON 포맷에 적합하지 않는 요청입니다.",
-  BUSINESS_STATUS_INACTIVE: "휴업 또는 폐업 상태입니다.",
-  DATA_NOT_FOUND: "데이터가 존재하지 않습니다.",
+  REQUEST_DATA_MALFORMED: "필수 요청 파라미터 누락됐어요.",
+  BAD_JSON_REQUEST: "	JSON 포맷에 적합하지 않는 요청이에요.",
+  BUSINESS_STATUS_INACTIVE: "휴업 또는 폐업 상태예요.",
+  DATA_NOT_FOUND: "데이터가 존재하지 않아요.",
 } as const;
 
 export const KFTC_API_ERROR_MESSAGES = {
-  "00": "정상 처리되었습니다.",
+  "00": "정상 처리됐어요.",
   "01": "어플리케이션 에러입니다.",
   "02": "데이터베이스 에러입니다.",
   "03": "데이터없음 에러입니다.",
   "04": "HTTP 에러입니다.",
   "05": "서비스 연결 실패 에러입니다.",
-  "10": "잘못된 요청 파라미터 에러입니다.",
-  "11": "필수 요청 파라미터가 누락되었습니다.",
-  "12": "해당 오픈API 서비스가 없거나 폐지되었습니다.",
+  "10": "잘못된 요청 파라미터 에러예요.",
+  "11": "필수 요청 파라미터가 누락됐어요.",
+  "12": "해당 오픈API 서비스가 없거나 폐지됐어요.",
   "20": "서비스 접근거부입니다.",
-  "21": "일시적으로 사용할 수 없는 서비스 키입니다.",
-  "22": "서비스 요청제한 횟수를 초과했습니다.",
+  "21": "일시적으로 사용할 수 없는 서비스 키예요.",
+  "22": "서비스 요청제한 횟수를 초과했어요.",
   "30": "등록되지 않은 서비스키입니다.",
   "31": "기한이 만료된 서비스키입니다.",
   "32": "등록되지 않은 IP주소입니다.",
@@ -28,12 +28,12 @@ export const KFTC_API_ERROR_MESSAGES = {
   HTTP_ERROR: "Http Error입니다.",
   INTERNAL_ERROR: "Internal Server Error입니다.",
   OPERATION_STATUS_NOT_NORMAL: "통신판매사업자의 운영상태가 정상영업이 아닙니다.",
-  ONLINE_TRADING_COMPANY_DETAIL_NOT_FOUND: "통신판매사업자 등록 정보가 존재하지 않습니다.",
+  ONLINE_TRADING_COMPANY_DETAIL_NOT_FOUND: "통신판매사업자 등록 정보가 존재하지 않아요.",
 } as const;
 
 export const BUSINESS_ERROR_MESSAGES = {
-  BUSINESS_REGISTRATION_NUMBER_ALREADY_EXISTS: "이미 등록된 사업자등록번호입니다.",
-  PERMISSION_MANAGEMENT_NUMBER_ALREADY_EXISTS: "이미 등록된 통신판매업번호입니다.",
+  BUSINESS_REGISTRATION_NUMBER_ALREADY_EXISTS: "이미 등록된 사업자등록번호예요.",
+  PERMISSION_MANAGEMENT_NUMBER_ALREADY_EXISTS: "이미 등록된 통신판매업번호예요.",
 } as const;
 
 export const BUSINESS_API_URLS = {

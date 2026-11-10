@@ -2,9 +2,9 @@
  * 회원(구매자·판매자) 관리 상수
  */
 export const MEMBER_MANAGEMENT_ERROR_MESSAGES = {
-  CONSUMER_NOT_FOUND: "해당 구매자를 찾을 수 없습니다.",
-  SELLER_NOT_FOUND: "해당 판매자를 찾을 수 없습니다.",
-  MEMBER_WITHDRAWN: "탈퇴한 회원의 계정 상태는 변경할 수 없습니다.",
+  CONSUMER_NOT_FOUND: "해당 구매자를 찾을 수 없어요.",
+  SELLER_NOT_FOUND: "해당 판매자를 찾을 수 없어요.",
+  MEMBER_WITHDRAWN: "탈퇴한 회원의 계정 상태는 변경할 수 없어요.",
 } as const;
 
 /**

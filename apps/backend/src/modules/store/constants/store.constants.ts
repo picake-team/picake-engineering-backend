@@ -22,27 +22,27 @@ export const STORE_DESCRIPTION_MAX_LENGTH = 2000;
 
 export const STORE_ERROR_MESSAGES = {
   BUSINESS_REGISTRATION_NUMBER_MISMATCH:
-    "1단계(사업자등록번호 진위확인)와 2단계(통신판매사업자 등록상세 조회)의 사업자등록번호가 일치하지 않습니다.",
+    "1단계(사업자등록번호 진위확인)와 2단계(통신판매사업자 등록상세 조회)의 사업자등록번호가 일치하지 않아요.",
   STORE_ALREADY_EXISTS_WITH_SAME_BUSINESS_INFO:
     "같은 사업자등록번호와 인허가관리번호(통신판매사업자 신고번호) 조합으로 이미 스토어가 존재합니다.",
-  NOT_FOUND: "스토어를 찾을 수 없습니다.",
-  FORBIDDEN: "스토어를 수정할 권한이 없습니다.",
-  LIKE_ALREADY_EXISTS: "이미 좋아요한 스토어입니다.",
+  NOT_FOUND: "스토어를 찾을 수 없어요.",
+  FORBIDDEN: "스토어를 수정할 권한이 없어요.",
+  LIKE_ALREADY_EXISTS: "이미 좋아요한 스토어예요.",
   LIKE_NOT_FOUND: "좋아요한 스토어가 아닙니다.",
   BUSINESS_CALENDAR_STANDARD_TIME_ORDER: "표준 영업 시작 시각은 종료 시각보다 이전이어야 합니다.",
   BUSINESS_CALENDAR_OVERRIDE_OPEN_REQUIRES_TIMES:
     "날짜별 설정에서 영업으로 둔 경우 시작·종료 시각을 모두 입력해야 합니다.",
   BUSINESS_CALENDAR_OVERRIDE_TIME_ORDER:
     "날짜별 영업의 시작 시각은 종료 시각보다 이전이어야 합니다.",
-  BUSINESS_CALENDAR_ORDER_CONFLICT: "진행 중인 예약과 영업 설정이 맞지 않아 저장할 수 없습니다.",
+  BUSINESS_CALENDAR_ORDER_CONFLICT: "진행 중인 예약과 영업 설정이 맞지 않아 저장할 수 없어요.",
   PICKUP_FILTER_DATE_PERIOD_PAIR:
     "pickupFilterDate(YYYY-MM-DD)와 pickupFilterPeriod는 함께 생략하거나 함께 지정해야 합니다.",
 } as const;
 
 export const STORE_SUCCESS_MESSAGES = {
-  CREATION_SUCCESS: "스토어가 생성되었습니다.",
-  LIKE_ADDED: "스토어에 좋아요를 추가했습니다.",
-  LIKE_REMOVED: "스토어 좋아요를 취소했습니다.",
+  CREATION_SUCCESS: "스토어가 생성됐어요.",
+  LIKE_ADDED: "스토어에 좋아요를 추가했어요.",
+  LIKE_REMOVED: "스토어 좋아요를 취소했어요.",
 } as const;
 
 /**
@@ -65,7 +65,7 @@ export enum StoreMapPickupPeriodKind {
 export const SWAGGER_EXAMPLES = {
   ID: "QXZw02vBqVXNQ29c4w9n9ZdG",
   NAME: "Picake",
-  DESCRIPTION: "맛있는 케이크를 판매하는 스토어입니다.",
+  DESCRIPTION: "맛있는 케이크를 판매하는 스토어예요.",
   CREATED_AT: new Date("2024-01-01T00:00:00.000Z"),
   // 주소/위치 정보
   ADDRESS: "서울특별시 강남구 역삼동 456-789",
