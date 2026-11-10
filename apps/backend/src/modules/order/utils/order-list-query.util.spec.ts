@@ -7,7 +7,11 @@ import {
   OrderType,
 } from "@apps/backend/modules/order/constants/order.constants";
 
-import { buildOrderOrderBy, mergeOrderPickupDateConditions } from "./order-list-query.util";
+import {
+  buildOrderKeywordCondition,
+  buildOrderOrderBy,
+  mergeOrderPickupDateConditions,
+} from "./order-list-query.util";
 
 const FINISHED_STATUSES = [
   OrderStatus.PICKUP_COMPLETED,
@@ -83,5 +87,32 @@ describe("mergeOrderPickupDateConditions", () => {
     mergeOrderPickupDateConditions(where, {});
 
     expect(where).toEqual({ storeId: "store-1" });
+  });
+});
+
+describe("buildOrderKeywordCondition", () => {
+  it("빈 검색어면 조건이 없다", () => {
+    expect(buildOrderKeywordCondition(undefined)).toBeNull();
+    expect(buildOrderKeywordCondition("  ")).toBeNull();
+  });
+
+  it("글자 검색어는 주문번호·상품명·예약자 이름에서 찾는다", () => {
+    expect(buildOrderKeywordCondition(" 하늘 ")).toEqual({
+      OR: [
+        { orderNumber: { contains: "하늘", mode: "insensitive" } },
+        { productName: { contains: "하늘", mode: "insensitive" } },
+        { reservationContactName: { contains: "하늘", mode: "insensitive" } },
+      ],
+    });
+  });
+
+  it("숫자 4자리 이상이면 하이픈·공백을 빼고 연락처에서도 찾는다", () => {
+    expect(buildOrderKeywordCondition("010-1234 5678")?.OR).toContainEqual({
+      reservationPhone: { contains: "01012345678" },
+    });
+    expect(buildOrderKeywordCondition("5678")?.OR).toContainEqual({
+      reservationPhone: { contains: "5678" },
+    });
+    expect(buildOrderKeywordCondition("567")?.OR).toHaveLength(3);
   });
 });

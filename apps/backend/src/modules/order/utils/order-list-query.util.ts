@@ -26,6 +26,26 @@ export function koreaCalendarDayEndUtc(dateStr: string): Date {
 }
 
 /**
+ * 판매자 주문 찾기 검색어 하나로 주문번호·상품명·예약자 이름·예약 연락처를 함께 찾는 조건.
+ * 픽업하러 온 손님을 이름이나 전화번호 뒷자리로 바로 찾기 위해서다. 연락처는 숫자만 저장하므로
+ * 검색어가 숫자(하이픈·공백 허용) 4자리 이상일 때만 숫자로 바꿔 찾는다. 빈 검색어면 null.
+ */
+export function buildOrderKeywordCondition(keyword?: string): Prisma.OrderWhereInput | null {
+  const k = keyword?.trim();
+  if (!k) return null;
+  const or: Prisma.OrderWhereInput[] = [
+    { orderNumber: { contains: k, mode: "insensitive" } },
+    { productName: { contains: k, mode: "insensitive" } },
+    { reservationContactName: { contains: k, mode: "insensitive" } },
+  ];
+  const digits = k.replace(/[-\s]/g, "");
+  if (/^\d{4,}$/.test(digits)) {
+    or.push({ reservationPhone: { contains: digits } });
+  }
+  return { OR: or };
+}
+
+/**
  * `type`(UPCOMING/PAST/FINISHED) 및 픽업일 달력 구간 필터를 `where`에 반영.
  * 둘 다 있으면 AND로 결합해 `pickupDate` 조건이 덮어쓰이지 않게 함.
  *

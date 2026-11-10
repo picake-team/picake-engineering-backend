@@ -8,6 +8,7 @@ import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { OrderMapperUtil } from "@apps/backend/modules/order/utils/order-mapper.util";
 import {
   buildOrderOrderBy,
+  buildOrderKeywordCondition,
   mergeOrderPickupDateConditions,
 } from "@apps/backend/modules/order/utils/order-list-query.util";
 import { calculatePaginationMeta } from "@apps/backend/common/utils/pagination.util";
@@ -46,6 +47,7 @@ export class OrderSellerListService {
       endDate,
       orderNumber,
       productName,
+      keyword,
       type,
       pickupStartDate,
       pickupEndDate,
@@ -119,6 +121,14 @@ export class OrderSellerListService {
       where.productName = {
         contains: productName,
       };
+    }
+
+    // 검색어 하나로 주문번호·상품명·예약자 이름·연락처 찾기(판매자 앱 주문 찾기)
+    const keywordCondition = buildOrderKeywordCondition(keyword);
+    if (keywordCondition) {
+      const existing = where.AND;
+      const prefix = Array.isArray(existing) ? existing : existing ? [existing] : [];
+      where.AND = [...prefix, keywordCondition];
     }
 
     mergeOrderPickupDateConditions(where, {
