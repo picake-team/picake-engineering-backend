@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsString, IsEnum, IsDateString } from "class-validator";
+import { IsNotEmpty, IsOptional, IsString, IsEnum, IsDateString, MaxLength } from "class-validator";
 import { IsYmdDateString } from "@apps/backend/common/decorators/date-query.decorator";
 import {
   OrderStatus,
@@ -73,6 +73,16 @@ export class OrderListRequestDto extends PaginationRequestDto {
   @IsOptional()
   @IsString()
   productName?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "(검색) 검색어 하나로 주문번호·상품명·예약자 이름·예약 연락처를 함께 찾는다(부분 일치, 대소문자 무시). 연락처는 숫자 4자리 이상일 때만(하이픈·공백 무시, 예: 뒷자리 5678)",
+    example: "5678",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  keyword?: string;
 
   @ApiPropertyOptional({
     description:
