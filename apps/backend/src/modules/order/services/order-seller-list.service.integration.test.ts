@@ -124,4 +124,39 @@ describe("판매자 주문 목록 정렬·지난 주문 거르기 (integration)"
 
     expect(result.data.map((o) => o.id)).toEqual([sooner.id, later.id, noPickup.id]);
   });
+
+  it("검색어 하나로 예약자 이름·전화번호 뒷자리·상품명·주문번호를 함께 찾는다", async () => {
+    const { prisma, refs, store, service, user } = await setup();
+    const kim = await createTestOrder(prisma, refs, {
+      reservationContactName: "김하늘",
+      reservationPhone: "01012345678",
+      productName: "딸기 생크림 케이크",
+      orderNumber: "ORD-20261110-001",
+    });
+    const lee = await createTestOrder(prisma, refs, {
+      reservationContactName: "이바다",
+      reservationPhone: "01099990000",
+      productName: "초코 레터링 케이크",
+      orderNumber: "ORD-20261110-002",
+    });
+    const find = async (keyword: string) =>
+      (
+        await service.getOrdersForSeller(
+          { page: 1, limit: 20, sortBy: OrderSortBy.PICKUP_ASC, storeId: store.id, keyword },
+          user,
+        )
+      ).data
+        .map((o) => o.id)
+        .sort();
+
+    expect(await find("하늘")).toEqual([kim.id]);
+    expect(await find("5678")).toEqual([kim.id]);
+    expect(await find("010-9999-0000")).toEqual([lee.id]);
+    expect(await find("초코")).toEqual([lee.id]);
+    expect(await find("ord-20261110-001")).toEqual([kim.id]);
+    expect(await find("케이크")).toEqual([kim.id, lee.id].sort());
+    // 숫자 3자리 이하는 전화번호로 찾지 않는다(주문번호·상품명에 든 숫자만)
+    expect(await find("567")).toEqual([]);
+    expect(await find("없는 이름")).toEqual([]);
+  });
 });
