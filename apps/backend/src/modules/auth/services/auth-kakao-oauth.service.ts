@@ -17,7 +17,10 @@ import {
 import { KakaoUserInfo } from "@apps/backend/modules/auth/types/auth.types";
 import { AuthPhoneService } from "@apps/backend/modules/auth/services/auth-phone.service";
 import { PhoneUtil } from "@apps/backend/modules/auth/utils/phone.util";
-import { maskDisplayNameForPrivacy } from "@apps/backend/modules/auth/utils/display-name.util";
+import {
+  maskDisplayNameForPrivacy,
+  maskLoginEmail,
+} from "@apps/backend/modules/auth/utils/display-name.util";
 import {
   KakaoLoginRequestDto,
   KakaoRegisterRequestDto,
@@ -316,6 +319,7 @@ export class AuthKakaoOauthService {
         message: AUTH_ERROR_MESSAGES.PHONE_KAKAO_ACCOUNT_EXISTS,
         name: maskDisplayNameForPrivacy(existingPhone.name),
         phone: PhoneUtil.maskPhone(existingPhone.phone),
+        email: maskLoginEmail(existingPhone.kakaoEmail),
       });
     }
     if (existingPhone?.googleId) {
@@ -323,6 +327,7 @@ export class AuthKakaoOauthService {
         message: AUTH_ERROR_MESSAGES.PHONE_GOOGLE_ACCOUNT_EXISTS,
         name: maskDisplayNameForPrivacy(existingPhone.name),
         phone: PhoneUtil.maskPhone(existingPhone.phone),
+        email: maskLoginEmail(existingPhone.googleEmail),
       });
     }
 
@@ -394,6 +399,7 @@ export class AuthKakaoOauthService {
         message: AUTH_ERROR_MESSAGES.PHONE_KAKAO_ACCOUNT_EXISTS,
         name: maskDisplayNameForPrivacy(existingPhone.name),
         phone: PhoneUtil.maskPhone(existingPhone.phone),
+        email: maskLoginEmail(existingPhone.kakaoEmail),
       });
     }
     if (existingPhone?.googleId) {
@@ -401,6 +407,7 @@ export class AuthKakaoOauthService {
         message: AUTH_ERROR_MESSAGES.PHONE_GOOGLE_ACCOUNT_EXISTS,
         name: maskDisplayNameForPrivacy(existingPhone.name),
         phone: PhoneUtil.maskPhone(existingPhone.phone),
+        email: maskLoginEmail(existingPhone.googleEmail),
       });
     }
 
