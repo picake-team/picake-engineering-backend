@@ -30,7 +30,6 @@ const row: QuoteRequestRow = {
   budgetMax: 50000,
   requestNote: "견과류 알레르기",
   entry: "HOME",
-  consentedAt: kst("2026-12-20T10:00:00"),
   createdAt: kst("2026-12-20T10:00:00"),
   stores: [
     {

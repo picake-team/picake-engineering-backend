@@ -59,7 +59,6 @@ export const QUOTE_REQUEST_SELECT = {
   budgetMax: true,
   requestNote: true,
   entry: true,
-  consentedAt: true,
   createdAt: true,
   stores: { select: QUOTE_REQUEST_STORE_SELECT, orderBy: { sortOrder: "asc" } },
 } satisfies Prisma.QuoteRequestSelect;
@@ -199,6 +198,5 @@ export function toAdminDetail(row: AdminQuoteRequestRow, now: Date): AdminQuoteR
     areaLatitude: row.areaLatitude,
     areaLongitude: row.areaLongitude,
     entry: row.entry,
-    consentedAt: row.consentedAt,
   };
 }
