@@ -19,6 +19,8 @@ export const PRODUCT_ERROR_MESSAGES = {
     "거리순 정렬에는 latitude와 longitude 쿼리 파라미터가 필요합니다.",
   SIZE_OPTION_REQUIRED: "노출 중인 사이즈 옵션이 1개 이상 필요합니다.",
   CUSTOM_OPTION_INVALID: "추가 옵션 설정이 올바르지 않습니다.",
+  /** 상품을 지우면 주문도 함께 지워지므로(orders.product_id ON DELETE CASCADE) 주문이 있으면 막는다 */
+  HAS_ORDERS: "주문이 있는 상품은 지울 수 없어요. 판매중지로 바꾸거나 숨겨 주세요.",
 } as const;
 
 /**
