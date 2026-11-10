@@ -22,7 +22,10 @@ import {
 import { AppleUserInfo, AppleIdTokenPayload } from "@apps/backend/modules/auth/types/auth.types";
 import { AuthPhoneService } from "@apps/backend/modules/auth/services/auth-phone.service";
 import { PhoneUtil } from "@apps/backend/modules/auth/utils/phone.util";
-import { maskDisplayNameForPrivacy } from "@apps/backend/modules/auth/utils/display-name.util";
+import {
+  maskDisplayNameForPrivacy,
+  maskLoginEmail,
+} from "@apps/backend/modules/auth/utils/display-name.util";
 import {
   AppleLoginRequestDto,
   AppleRegisterRequestDto,
@@ -321,6 +324,7 @@ export class AuthAppleOauthService {
         message: AUTH_ERROR_MESSAGES.PHONE_GOOGLE_ACCOUNT_EXISTS,
         name: maskDisplayNameForPrivacy(existingPhone.name),
         phone: PhoneUtil.maskPhone(existingPhone.phone),
+        email: maskLoginEmail(existingPhone.googleEmail),
       });
     }
 
@@ -329,6 +333,7 @@ export class AuthAppleOauthService {
         message: AUTH_ERROR_MESSAGES.PHONE_KAKAO_ACCOUNT_EXISTS,
         name: maskDisplayNameForPrivacy(existingPhone.name),
         phone: PhoneUtil.maskPhone(existingPhone.phone),
+        email: maskLoginEmail(existingPhone.kakaoEmail),
       });
     }
 
@@ -337,6 +342,7 @@ export class AuthAppleOauthService {
         message: AUTH_ERROR_MESSAGES.PHONE_APPLE_ACCOUNT_EXISTS,
         name: maskDisplayNameForPrivacy(existingPhone.name),
         phone: PhoneUtil.maskPhone(existingPhone.phone),
+        email: maskLoginEmail(existingPhone.appleEmail),
       });
     }
 
