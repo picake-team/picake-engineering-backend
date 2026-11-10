@@ -71,7 +71,6 @@ export const QUOTE_REQUEST_ERROR_MESSAGES = {
   STORE_NOT_FOUND: "물어볼 가게 중 찾을 수 없는 가게가 있어요.",
   DUPLICATE_STORE: "같은 가게를 두 번 넣었어요.",
   BUDGET_INVALID: "예산은 1만원부터 10만원까지 1만원 단위로 골라 주세요.",
-  CONSENT_REQUIRED: "요청 내용과 사진이 가게에 전달되는 것에 동의해야 보낼 수 있어요.",
   TOO_MANY_OPEN: "진행 중인 견적 요청이 많아요. 지난 요청을 닫은 뒤 다시 보내 주세요.",
   NOT_OPEN: "견적을 받는 중인 요청만 닫을 수 있어요.",
 } as const;

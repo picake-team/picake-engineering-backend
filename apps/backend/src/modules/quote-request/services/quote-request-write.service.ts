@@ -93,7 +93,8 @@ export class QuoteRequestWriteService {
         budgetMax,
         requestNote: dto.requestNote?.trim() || null,
         entry: dto.entry ?? null,
-        consentedAt: now,
+        // 동의 칸은 없앴다(2026-11-10). 예전 앱이 동의를 보내면 기록만 한다
+        consentedAt: dto.agreed ? now : null,
         stores: { createMany: { data: stores } },
       },
       select: QUOTE_REQUEST_SELECT,
