@@ -51,4 +51,29 @@ describe("SellerFcmTokenService.syncToken", () => {
       }),
     );
   });
+
+  it("동시 등록으로 유니크 충돌(P2002)이 나면 다시 해서 성공한다", async () => {
+    prismaMock.sellerFcmToken.upsert
+      .mockRejectedValueOnce({ code: "P2002", meta: { target: ["token"] } })
+      .mockResolvedValueOnce({} as never);
+
+    await expect(service.syncToken("seller-1", "device-1", "token-a")).resolves.toBeUndefined();
+    expect(prismaMock.sellerFcmToken.upsert).toHaveBeenCalledTimes(2);
+  });
+
+  it("유니크 충돌이 계속되면 세 번까지만 하고 오류를 낸다", async () => {
+    prismaMock.sellerFcmToken.upsert.mockRejectedValue({ code: "P2002" });
+
+    await expect(service.syncToken("seller-1", "device-1", "token-a")).rejects.toMatchObject({
+      code: "P2002",
+    });
+    expect(prismaMock.sellerFcmToken.upsert).toHaveBeenCalledTimes(3);
+  });
+
+  it("다른 오류는 다시 하지 않는다", async () => {
+    prismaMock.sellerFcmToken.upsert.mockRejectedValue(new Error("db down"));
+
+    await expect(service.syncToken("seller-1", "device-1", "token-a")).rejects.toThrow("db down");
+    expect(prismaMock.sellerFcmToken.upsert).toHaveBeenCalledTimes(1);
+  });
 });

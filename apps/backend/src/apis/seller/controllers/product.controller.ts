@@ -161,11 +161,13 @@ export class SellerProductController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "(로그인 필요) 상품 삭제",
-    description: "판매자가 등록한 상품을 삭제합니다.",
+    description:
+      "판매자가 등록한 상품을 삭제합니다. 주문이 하나라도 있으면 400(주문·거래 기록이 함께 지워지지 않게, 판매중지·숨김을 안내).",
   })
   @SwaggerResponse(200, {
     dataExample: createMessageObject(PRODUCT_SUCCESS_MESSAGES.PRODUCT_DELETED),
   })
+  @SwaggerResponse(400, { dataExample: createMessageObject(PRODUCT_ERROR_MESSAGES.HAS_ORDERS) })
   @SwaggerAuthResponses()
   @SwaggerResponse(403, { dataExample: createMessageObject(PRODUCT_ERROR_MESSAGES.FORBIDDEN) })
   @SwaggerResponse(404, { dataExample: createMessageObject(PRODUCT_ERROR_MESSAGES.NOT_FOUND) })
