@@ -79,8 +79,8 @@ describe("buildSellerOrderNotificationCopy", () => {
         source: ORDER_STATUS_TRANSITION_SOURCE.ORDER_CREATE,
       }),
     ).toEqual({
-      title: "예약 신청이 들어왔습니다",
-      body: "고객이 주문을 신청했습니다. 예약을 확인해 주세요.",
+      title: "새 예약 신청이 왔어요",
+      body: "손님이 예약을 신청했어요. 예약을 확인해 주세요.",
     });
   });
 
@@ -91,7 +91,7 @@ describe("buildSellerOrderNotificationCopy", () => {
         toStatus: OrderStatus.PAYMENT_COMPLETED,
         source: ORDER_STATUS_TRANSITION_SOURCE.USER_ACTION,
       })?.title,
-    ).toBe("입금이 완료되었습니다");
+    ).toBe("손님이 입금했어요");
   });
 });
 
@@ -144,11 +144,11 @@ describe("buildSellerOrderSummaryBody", () => {
 
 describe("withSellerStorePrefix", () => {
   it("스토어가 하나면 제목 그대로, 둘 이상이면 [스토어 이름]을 붙인다", () => {
-    expect(withSellerStorePrefix("예약 신청이 들어왔습니다", "달콤케이크", 1)).toBe(
-      "예약 신청이 들어왔습니다",
+    expect(withSellerStorePrefix("새 예약 신청이 왔어요", "달콤케이크", 1)).toBe(
+      "새 예약 신청이 왔어요",
     );
-    expect(withSellerStorePrefix("예약 신청이 들어왔습니다", "달콤케이크 2호점", 2)).toBe(
-      "[달콤케이크 2호점] 예약 신청이 들어왔습니다",
+    expect(withSellerStorePrefix("새 예약 신청이 왔어요", "달콤케이크 2호점", 2)).toBe(
+      "[달콤케이크 2호점] 새 예약 신청이 왔어요",
     );
   });
 });

@@ -12,6 +12,7 @@ export type OrderNotificationCopy = { title: string; body: string };
 
 /**
  * 주문 상태 전환 payload를 바로 받아 문구를 결정합니다.
+ * - 판매자 앱 화면과 같은 해요체, 손님은 "손님"이라 부릅니다(기획 I-48).
  * - kind/event 같은 중간 식별자는 사용하지 않습니다.
  */
 export function buildSellerOrderNotificationCopy(
@@ -21,63 +22,63 @@ export function buildSellerOrderNotificationCopy(
 
   if (isReservationRequestedOnCreate(payload)) {
     return {
-      title: "예약 신청이 들어왔습니다",
-      body: "고객이 주문을 신청했습니다. 예약을 확인해 주세요.",
+      title: "새 예약 신청이 왔어요",
+      body: "손님이 예약을 신청했어요. 예약을 확인해 주세요.",
     };
   }
 
   if (toStatus === OrderStatus.PAYMENT_PENDING) {
     return {
-      title: "입금 대기 안내가 전달되었습니다",
-      body: "예약 확인으로 바꾸면서 고객에게 입금 안내가 갔습니다.",
+      title: "손님에게 입금 안내를 보냈어요",
+      body: "예약을 확인해서 손님에게 입금 안내가 갔어요.",
     };
   }
 
   if (toStatus === OrderStatus.PAYMENT_COMPLETED) {
     return {
-      title: "입금이 완료되었습니다",
-      body: "고객이 입금 확인 처리했습니다. 이어서 진행해 주세요.",
+      title: "손님이 입금했어요",
+      body: "통장을 확인하고 예약을 확정해 주세요.",
     };
   }
 
   if (toStatus === OrderStatus.CONFIRMED) {
     return {
-      title: "예약이 확정되었습니다",
-      body: "주문이 예약 확정 상태입니다. 픽업 일정을 확인해 주세요.",
+      title: "예약이 확정됐어요",
+      body: "픽업 일정을 확인해 주세요.",
     };
   }
 
   if (toStatus === OrderStatus.PICKUP_PENDING) {
     return {
-      title: "픽업 대기입니다",
-      body: "픽업 준비가 되었습니다. 픽업 완료 여부를 확인해 주세요.",
+      title: "픽업을 기다리고 있어요",
+      body: "손님이 가져가면 픽업 완료를 눌러 주세요.",
     };
   }
 
   if (toStatus === OrderStatus.PICKUP_COMPLETED) {
     return {
-      title: "픽업이 완료되었습니다",
-      body: "픽업 완료로 처리했습니다.",
+      title: "픽업이 완료됐어요",
+      body: "픽업 완료로 처리했어요.",
     };
   }
 
   if (toStatus === OrderStatus.CANCEL_COMPLETED) {
     if (isPaymentExpiredCancelSource(payload)) {
       return {
-        title: "입금 기한이 지나 주문이 취소되었습니다",
-        body: "입금 대기 시간이 만료되어 취소 처리되었습니다.",
+        title: "입금 기한이 지나 주문이 취소됐어요",
+        body: "입금 마감까지 입금이 없어 자동으로 취소됐어요.",
       };
     }
     if (isUserAction(payload)) {
       return {
-        title: "고객이 주문을 취소했습니다",
-        body: "고객 취소가 반영되었습니다.",
+        title: "손님이 주문을 취소했어요",
+        body: "입금 전에 손님이 취소했어요.",
       };
     }
     if (isSellerStatusUpdate(payload)) {
       return {
-        title: "판매자 취소가 반영되었습니다",
-        body: "주문이 취소 처리되었습니다.",
+        title: "예약을 취소했어요",
+        body: "주문을 취소로 처리했어요.",
       };
     }
     return null;
@@ -86,21 +87,21 @@ export function buildSellerOrderNotificationCopy(
   if (toStatus === OrderStatus.CANCEL_REFUND_PENDING) {
     if (isUserAction(payload)) {
       return {
-        title: "고객이 환불을 요청했습니다",
-        body: "취소·환불 대기로 접수되었습니다. 내용을 확인해 주세요.",
+        title: "손님이 환불을 요청했어요",
+        body: "취소·환불 대기로 바뀌었어요. 내용을 확인해 주세요.",
       };
     }
     if (isSellerStatusUpdate(payload)) {
       return {
-        title: "환불 대기로 변경했습니다",
-        body: "취소·환불 대기 상태입니다. 고객 안내와 환불 처리를 진행해 주세요.",
+        title: "환불 대기로 바꿨어요",
+        body: "손님에게 안내하고 환불해 주세요.",
       };
     }
     // 취소완료로 종료됐던 주문을 관리자가 되돌린 경우. 판매자가 예상하지 못한 변화라 경위를 밝힙니다.
     if (isAdminStatusUpdate(payload)) {
       return {
-        title: "관리자가 환불 대기로 전환했습니다",
-        body: "취소완료였던 주문입니다. 고객 입금 내역을 확인한 뒤 환불을 진행해 주세요.",
+        title: "관리자가 환불 대기로 바꿨어요",
+        body: "취소완료였던 주문이에요. 손님 입금 내역을 확인하고 환불해 주세요.",
       };
     }
     return null;
@@ -108,15 +109,15 @@ export function buildSellerOrderNotificationCopy(
 
   if (toStatus === OrderStatus.CANCEL_REFUND_COMPLETED) {
     return {
-      title: "환불이 완료되었습니다",
-      body: "환불 처리가 완료되었습니다.",
+      title: "환불이 완료됐어요",
+      body: "환불 완료로 처리했어요.",
     };
   }
 
   if (toStatus === OrderStatus.NO_SHOW) {
     return {
-      title: "노쇼 처리되었습니다",
-      body: "노쇼로 기록된 주문입니다.",
+      title: "노쇼로 처리했어요",
+      body: "노쇼로 기록된 주문이에요.",
     };
   }
 
