@@ -17,5 +17,5 @@ export const QNA_LIST_ORDER_BY = [
 ] as const;
 
 export const QNA_ERROR_MESSAGES = {
-  NOT_FOUND: "Q&A를 찾을 수 없습니다.",
+  NOT_FOUND: "Q&A를 찾을 수 없어요.",
 } as const;

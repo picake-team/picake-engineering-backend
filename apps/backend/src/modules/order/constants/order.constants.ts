@@ -6,26 +6,26 @@ import { SWAGGER_EXAMPLES as USER_SWAGGER_EXAMPLES } from "@apps/backend/modules
  * 주문 관련 에러 메시지
  */
 export const ORDER_ERROR_MESSAGES = {
-  NOT_FOUND: "주문을 찾을 수 없습니다.",
-  FORBIDDEN: "해당 주문에 대한 권한이 없습니다.",
-  PRODUCT_NOT_FOUND: "상품을 찾을 수 없습니다.",
-  PRODUCT_INACTIVE: "판매중지된 상품입니다.",
-  PRODUCT_NOT_AVAILABLE: "구매할 수 없는 상품입니다.",
-  STORE_NOT_FOUND: "스토어를 찾을 수 없습니다.",
-  STORE_NOT_OWNED: "해당 스토어에 대한 권한이 없습니다.",
-  INVALID_ORDER_ITEMS: "주문 항목이 올바르지 않습니다.",
-  INVALID_TOTAL_QUANTITY: "총 수량이 올바르지 않습니다.",
-  INVALID_TOTAL_PRICE: "총 금액이 올바르지 않습니다.",
-  INVALID_STATUS_TRANSITION: "현재 주문 상태에서 요청한 상태로 변경할 수 없습니다.",
-  SAME_STATUS: "이미 해당 상태입니다.",
-  PAYMENT_PENDING_EXPIRED: "입금 가능 시간이 지나 예약이 취소되었습니다.",
-  INVALID_USER_ORDER_ACTION: "지금 이 주문에 대해 수행할 수 없는 작업입니다.",
+  NOT_FOUND: "주문을 찾을 수 없어요.",
+  FORBIDDEN: "해당 주문에 대한 권한이 없어요.",
+  PRODUCT_NOT_FOUND: "상품을 찾을 수 없어요.",
+  PRODUCT_INACTIVE: "판매중지된 상품이에요.",
+  PRODUCT_NOT_AVAILABLE: "구매할 수 없는 상품이에요.",
+  STORE_NOT_FOUND: "스토어를 찾을 수 없어요.",
+  STORE_NOT_OWNED: "해당 스토어에 대한 권한이 없어요.",
+  INVALID_ORDER_ITEMS: "주문 항목이 올바르지 않아요.",
+  INVALID_TOTAL_QUANTITY: "총 수량이 올바르지 않아요.",
+  INVALID_TOTAL_PRICE: "총 금액이 올바르지 않아요.",
+  INVALID_STATUS_TRANSITION: "현재 주문 상태에서 요청한 상태로 변경할 수 없어요.",
+  SAME_STATUS: "이미 해당 상태예요.",
+  PAYMENT_PENDING_EXPIRED: "입금 가능 시간이 지나 예약이 취소됐어요.",
+  INVALID_USER_ORDER_ACTION: "지금 이 주문에 대해 수행할 수 없는 작업이에요.",
   SELLER_CANCEL_REASON_REQUIRED: "예약 취소(취소완료) 시 취소 사유를 입력해 주세요.",
   SELLER_NO_SHOW_REASON_REQUIRED: "노쇼 처리 시 노쇼 사유를 입력해 주세요.",
   SELLER_CANCEL_REFUND_PENDING_REASON_REQUIRED: "취소환불대기로 변경할 때 사유를 입력해 주세요.",
   ORDER_CREATE_FAILED: "주문 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
   /** 픽업 일시가 스토어 영업 캘린더(정기 휴무·표준 시간·일별 예외)에 맞지 않음 */
-  PICKUP_OUTSIDE_STORE_BUSINESS_HOURS: "선택한 픽업 일시가 스토어 영업 시간에 포함되지 않습니다.",
+  PICKUP_OUTSIDE_STORE_BUSINESS_HOURS: "선택한 픽업 일시가 스토어 영업 시간에 포함되지 않아요.",
   /** 구매자가 옵션을 고르는 사이 판매자가 사이즈·추가 옵션을 바꿈 (409) */
   PRODUCT_OPTIONS_CHANGED: "판매자가 상품 옵션을 변경했어요. 옵션을 다시 선택해주세요.",
   SIZE_REQUIRED: "사이즈를 선택해주세요.",
@@ -39,7 +39,7 @@ export const ORDER_ERROR_MESSAGES = {
  * 주문 관련 성공 메시지 상수
  */
 export const ORDER_SUCCESS_MESSAGES = {
-  ORDER_CREATED: "주문이 성공적으로 생성되었습니다.",
+  ORDER_CREATED: "주문이 성공적으로 생성됐어요.",
 } as const;
 
 /**

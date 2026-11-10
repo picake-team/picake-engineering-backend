@@ -98,7 +98,7 @@ export class UploadCreateService {
           module: "upload",
           operation: "s3-put-object",
         });
-        throw new InternalServerErrorException("파일 업로드 중 서버 오류가 발생했습니다.");
+        throw new InternalServerErrorException("파일 업로드 중 서버 오류가 발생했어요.");
       }
 
       // 클라이언트 에러는 원본 메시지 유지 (이미 FileValidator에서 로깅됨)

@@ -12,5 +12,5 @@ export const NOTICE_SELECT = {
 export const NOTICE_LIST_ORDER_BY = [{ isPinned: "desc" }, { createdAt: "asc" }] as const;
 
 export const NOTICE_ERROR_MESSAGES = {
-  NOT_FOUND: "공지사항을 찾을 수 없습니다.",
+  NOT_FOUND: "공지사항을 찾을 수 없어요.",
 } as const;

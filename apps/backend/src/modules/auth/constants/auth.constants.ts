@@ -2,49 +2,49 @@
  * 인증 관련 에러 메시지 상수
  */
 export const AUTH_ERROR_MESSAGES = {
-  USER_ID_INVALID_FORMAT: "아이디는 4-20자의 영문, 숫자, 언더스코어만 사용할 수 있습니다.",
+  USER_ID_INVALID_FORMAT: "아이디는 4-20자의 영문, 숫자, 언더스코어만 사용할 수 있어요.",
   PASSWORD_INVALID_FORMAT:
     "비밀번호는 8자 이상의 영문 대소문자, 숫자, 특수문자(@$!%*?&)를 포함해야 합니다.",
   PHONE_INVALID_FORMAT: "올바른 한국 휴대폰 번호 형식이 아닙니다. (예: 010-1234-5678)",
-  PHONE_ALREADY_EXISTS: "이미 사용 중인 휴대폰 번호입니다.",
+  PHONE_ALREADY_EXISTS: "이미 사용 중인 휴대폰 번호예요.",
   PHONE_VERIFICATION_REQUIRED: "휴대폰 인증이 필요합니다.",
   PHONE_VERIFICATION_CODE_GENERATION_FAILED:
     "인증번호 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
-  PHONE_VERIFICATION_FAILED: "인증번호가 올바르지 않습니다.",
+  PHONE_VERIFICATION_FAILED: "인증번호가 올바르지 않아요.",
   PHONE_VERIFICATION_SEND_FAILED: "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해주세요.",
   VERIFICATION_CODE_INVALID_FORMAT: "인증번호는 6자리 숫자여야 합니다.",
-  ACCOUNT_NOT_FOUND_BY_PHONE: "해당 휴대폰 번호로 등록된 계정이 없습니다.",
-  GOOGLE_REGISTER_FAILED: "구글 로그인 회원가입에 실패했습니다.",
+  ACCOUNT_NOT_FOUND_BY_PHONE: "해당 휴대폰 번호로 등록된 계정이 없어요.",
+  GOOGLE_REGISTER_FAILED: "구글 로그인 회원가입에 실패했어요.",
   PROFILE_UPDATE_NO_FIELDS:
     "변경할 정보가 없습니다. name, nickname, profileImageUrl 중 하나 이상을 보내주세요.",
-  USER_NOT_FOUND: "사용자를 찾을 수 없습니다.",
-  PHONE_VERIFICATION_EXPIRED: "인증번호가 만료되었습니다.",
-  PHONE_GOOGLE_ACCOUNT_EXISTS: "해당 휴대폰 번호로 이미 등록된 구글 계정이 있습니다.",
-  GOOGLE_ID_ALREADY_EXISTS: "이미 사용 중인 구글 계정입니다.",
+  USER_NOT_FOUND: "사용자를 찾을 수 없어요.",
+  PHONE_VERIFICATION_EXPIRED: "인증번호가 만료됐어요.",
+  PHONE_GOOGLE_ACCOUNT_EXISTS: "해당 휴대폰 번호로 이미 등록된 구글 계정이 있어요.",
+  GOOGLE_ID_ALREADY_EXISTS: "이미 사용 중인 구글 계정이에요.",
   GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED: "구글 OAuth 토큰 교환 실패",
-  PHONE_KAKAO_ACCOUNT_EXISTS: "해당 휴대폰 번호로 이미 등록된 카카오 계정이 있습니다.",
-  KAKAO_ID_ALREADY_EXISTS: "이미 사용 중인 카카오 계정입니다.",
+  PHONE_KAKAO_ACCOUNT_EXISTS: "해당 휴대폰 번호로 이미 등록된 카카오 계정이 있어요.",
+  KAKAO_ID_ALREADY_EXISTS: "이미 사용 중인 카카오 계정이에요.",
   KAKAO_OAUTH_TOKEN_EXCHANGE_FAILED: "카카오 OAuth 토큰 교환 실패",
-  PHONE_APPLE_ACCOUNT_EXISTS: "해당 휴대폰 번호로 이미 등록된 애플 계정이 있습니다.",
-  APPLE_ID_ALREADY_EXISTS: "이미 사용 중인 애플 계정입니다.",
+  PHONE_APPLE_ACCOUNT_EXISTS: "해당 휴대폰 번호로 이미 등록된 애플 계정이 있어요.",
+  APPLE_ID_ALREADY_EXISTS: "이미 사용 중인 애플 계정이에요.",
   APPLE_OAUTH_TOKEN_EXCHANGE_FAILED: "애플 OAuth 토큰 교환 실패",
   /** 앱스토어/플레이스토어 심사용 로그인 — 코드 불일치 또는 미설정(비활성화) */
-  REVIEW_LOGIN_INVALID_CODE: "심사용 로그인 코드가 올바르지 않습니다.",
+  REVIEW_LOGIN_INVALID_CODE: "심사용 로그인 코드가 올바르지 않아요.",
   THROTTLE_LIMIT_EXCEEDED: "ThrottlerException: Too Many Requests",
-  USERNAME_ALREADY_EXISTS: "이미 사용 중인 아이디입니다.",
-  ADMIN_LOGIN_INVALID_CREDENTIALS: "아이디 또는 비밀번호가 올바르지 않습니다.",
-  ADMIN_REGISTRATION_PENDING: "가입 승인 대기 중입니다. 관리자의 승인 후 로그인할 수 있습니다.",
+  USERNAME_ALREADY_EXISTS: "이미 사용 중인 아이디예요.",
+  ADMIN_LOGIN_INVALID_CREDENTIALS: "아이디 또는 비밀번호가 올바르지 않아요.",
+  ADMIN_REGISTRATION_PENDING: "가입 승인 대기 중이에요. 관리자의 승인 후 로그인할 수 있어요.",
   ADMIN_REGISTRATION_REJECTED: "가입이 거절된 계정입니다. 관리자에게 문의해주세요.",
-  ADMIN_NOT_APPROVED: "승인되지 않은 계정입니다.",
+  ADMIN_NOT_APPROVED: "승인되지 않은 계정이에요.",
   ADMIN_TOTP_PENDING_TOKEN_INVALID: "유효하지 않은 임시 토큰입니다. 다시 로그인해주세요.",
-  ADMIN_ACCOUNT_INVALID_STATE: "계정 상태가 올바르지 않습니다.",
-  ADMIN_ACCOUNT_NOT_FOUND: "계정을 찾을 수 없습니다.",
+  ADMIN_ACCOUNT_INVALID_STATE: "계정 상태가 올바르지 않아요.",
+  ADMIN_ACCOUNT_NOT_FOUND: "계정을 찾을 수 없어요.",
   TOTP_SETUP_REQUIRED: "먼저 TOTP 설정을 시작해주세요.",
-  OTP_CODE_INVALID: "OTP 코드가 올바르지 않습니다.",
-  ADMIN_API_KEY_INVALID: "유효하지 않거나 비활성화된 관리자 API 키입니다.",
+  OTP_CODE_INVALID: "OTP 코드가 올바르지 않아요.",
+  ADMIN_API_KEY_INVALID: "유효하지 않거나 비활성화된 관리자 API 키예요.",
   ADMIN_API_KEY_MANAGEMENT_HUMAN_ONLY:
     "API 키로는 API 키를 관리(발급/폐기)할 수 없습니다. 관리자 계정으로 로그인해주세요.",
-  ADMIN_API_KEY_NOT_FOUND: "해당 API 키를 찾을 수 없습니다.",
+  ADMIN_API_KEY_NOT_FOUND: "해당 API 키를 찾을 수 없어요.",
   /* --------------------------------- 토큰 관련 에러 메시지 (반드시 401으로 사용) (주의: 프론트호환성을 위해, 여기 외에 401 오류가 있으면 안됨) --------------------------------- */
   REFRESH_TOKEN_EXPIRED:
     "[REFRESH_TOKEN_INVALID] 리프레시 토큰이 만료되었습니다. 다시 로그인해주세요.",
@@ -55,19 +55,19 @@ export const AUTH_ERROR_MESSAGES = {
     "[REFRESH_TOKEN_INVALID] 리프레시 토큰의 타입이 올바르지 않습니다. 다시 로그인해주세요.",
   REFRESH_TOKEN_MISSING_REQUIRED_INFO:
     "[REFRESH_TOKEN_INVALID] 리프레시 토큰에 필수 정보가 누락되었습니다. 다시 로그인해주세요.",
-  ACCESS_TOKEN_EXPIRED: "[ACCESS_TOKEN_INVALID] 액세스 토큰이 만료되었습니다.",
-  ACCESS_TOKEN_INVALID: "[ACCESS_TOKEN_INVALID] 액세스 토큰이 유효하지 않습니다.",
-  ACCESS_TOKEN_MISSING: "[ACCESS_TOKEN_INVALID] 액세스 토큰이 없습니다.",
-  ACCESS_TOKEN_WRONG_TYPE: "[ACCESS_TOKEN_INVALID] 액세스 토큰의 타입이 올바르지 않습니다.",
+  ACCESS_TOKEN_EXPIRED: "[ACCESS_TOKEN_INVALID] 액세스 토큰이 만료됐어요.",
+  ACCESS_TOKEN_INVALID: "[ACCESS_TOKEN_INVALID] 액세스 토큰이 유효하지 않아요.",
+  ACCESS_TOKEN_MISSING: "[ACCESS_TOKEN_INVALID] 액세스 토큰이 없어요.",
+  ACCESS_TOKEN_WRONG_TYPE: "[ACCESS_TOKEN_INVALID] 액세스 토큰의 타입이 올바르지 않아요.",
   ACCESS_TOKEN_MISSING_REQUIRED_INFO:
     "[ACCESS_TOKEN_INVALID] 액세스 토큰에 필수 정보가 누락되었습니다. 다시 로그인해주세요.",
-  ACCESS_TOKEN_ACCOUNT_NOT_FOUND: "[ACCESS_TOKEN_INVALID] 계정을 찾을 수 없습니다.",
-  ACCESS_TOKEN_ACCOUNT_INACTIVE: "[ACCESS_TOKEN_INVALID] 비활성화된 계정입니다.",
+  ACCESS_TOKEN_ACCOUNT_NOT_FOUND: "[ACCESS_TOKEN_INVALID] 계정을 찾을 수 없어요.",
+  ACCESS_TOKEN_ACCOUNT_INACTIVE: "[ACCESS_TOKEN_INVALID] 비활성화된 계정이에요.",
   /** 로그인·회원가입 시 관리자 비활성 계정 차단 (401 ACCESS_TOKEN_* 와 구분) */
   ACCOUNT_INACTIVE: "비활성화된 계정입니다. 관리자에게 문의해주세요.",
   /* ------------------------------------------------------------------------------------------------------ */
   AUDIENCE_NOT_AUTHORIZED: "이 API에 사용할 수 있는 인증 토큰이 아닙니다.",
-  JWT_TYPE_NOT_ALLOWED_FOR_ROUTE: "이 요청에 사용할 수 없는 토큰입니다.",
+  JWT_TYPE_NOT_ALLOWED_FOR_ROUTE: "이 요청에 사용할 수 없는 토큰이에요.",
   REQUIRED_TERMS_NOT_AGREED: "필수 약관에 모두 동의해야 회원가입이 가능합니다.",
   WITHDRAW_BLOCKED_ACTIVE_ORDERS:
     "진행 중인 주문이 있어 회원 탈퇴할 수 없습니다. 주문을 완료하거나 취소한 뒤 다시 시도해 주세요.",
@@ -77,13 +77,13 @@ export const AUTH_ERROR_MESSAGES = {
  * 인증 관련 성공 메시지 상수
  */
 export const AUTH_SUCCESS_MESSAGES = {
-  PHONE_VERIFICATION_SENT: "인증번호가 발송되었습니다.",
-  PHONE_VERIFICATION_CONFIRMED: "인증번호가 확인되었습니다.",
-  PHONE_CHANGED: "휴대폰 번호가 변경되었습니다.",
-  ACCOUNT_WITHDRAWN: "회원 탈퇴가 완료되었습니다.",
-  ACCESS_TOKEN_REFRESHED: "새로운 Access Token이 발급되었습니다.",
-  LOGOUT_SUCCESS: "로그아웃이 완료되었습니다.",
-  ADMIN_TOTP_ENABLED: "Google OTP 2단계 인증이 활성화되었습니다.",
+  PHONE_VERIFICATION_SENT: "인증번호가 발송됐어요.",
+  PHONE_VERIFICATION_CONFIRMED: "인증번호가 확인됐어요.",
+  PHONE_CHANGED: "휴대폰 번호가 변경됐어요.",
+  ACCOUNT_WITHDRAWN: "회원 탈퇴가 완료됐어요.",
+  ACCESS_TOKEN_REFRESHED: "새로운 Access Token이 발급됐어요.",
+  LOGOUT_SUCCESS: "로그아웃이 완료됐어요.",
+  ADMIN_TOTP_ENABLED: "Google OTP 2단계 인증이 활성화됐어요.",
 } as const;
 
 /**
