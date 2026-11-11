@@ -15,7 +15,7 @@ import { ChatCleanupService } from "@apps/backend/modules/chat/services/chat-cle
  * - 방은 손님 1명 × 가게 명부(shops) 1곳에 하나. 첫 글을 보낼 때 생긴다
  * - 새 글은 알림 소켓(`/notifications`)의 `chat_updated` 신호(내용 없음) + 휴대폰 알림
  * - 관리자 설정의 "채팅 여는 시각"(admin_configs.chat_opens_at) 전에는 입구·주소가 닫힌다
- * 옛 채팅(modules/chat의 소켓 채팅, chat_rooms·messages 표)은 쓰지 않아 코드를 지웠다. 표는 운영자 확인 뒤 지운다.
+ * 옛 채팅(modules/chat의 소켓 채팅, chat_rooms·messages 표)은 쓰지 않아 코드와 표를 지웠다(표는 20261112010000_drop_legacy_chat, 운영자 결정 11-12).
  */
 @Module({
   imports: [DatabaseModule, UploadModule, FcmModule, NotificationModule, OpsAlertModule],
