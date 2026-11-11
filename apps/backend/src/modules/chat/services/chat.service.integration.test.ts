@@ -418,6 +418,61 @@ describe("채팅 (integration)", () => {
     expect(list.threads[0].lastMessagePreview).toBe("사진을 보냈어요");
   });
 
+  it("보관 기간: 마지막 글 3년 지난 방은 지우고, 신고 처리 1년이 안 됐거나 처리 중이면 남긴다", async () => {
+    const { chat, cleanup, prisma, consumer, store, deleteFilesByUrl } = await build();
+    await chat.agreeRules("CONSUMER", consumer.id, CHAT_RULES_VERSION);
+    const old = await chat.startForConsumer(consumer.id, {
+      storeId: store.id,
+      clientId: cid(),
+      text: "오래된 문의",
+    });
+    const seller2 = await createTestSeller(prisma);
+    const store2 = await createTestStore(prisma, seller2.id, { name: "두번째가게" });
+    const reported = await chat.startForConsumer(consumer.id, {
+      storeId: store2.id,
+      clientId: cid(),
+      text: "신고된 오래된 문의",
+    });
+    const seller3 = await createTestSeller(prisma);
+    const store3 = await createTestStore(prisma, seller3.id, { name: "세번째가게" });
+    const recent = await chat.startForConsumer(consumer.id, {
+      storeId: store3.id,
+      clientId: cid(),
+      text: "최근 문의",
+    });
+    const now = new Date("2030-06-01T00:00:00.000Z");
+    const fourYearsAgo = new Date("2026-05-01T00:00:00.000Z");
+    await prisma.chatThread.updateMany({
+      where: { id: { in: [old.threadId, reported.threadId] } },
+      data: { lastMessageAt: fourYearsAgo },
+    });
+    await prisma.chatThread.update({
+      where: { id: recent.threadId },
+      data: { lastMessageAt: new Date("2029-01-01T00:00:00.000Z") },
+    });
+    await prisma.chatMessage.updateMany({
+      where: { threadId: old.threadId },
+      data: { imageUrls: ["https://cdn.example/chat/old.jpg"] },
+    });
+    const rep = await chat.reportForStore(seller2.id, store2.id, reported.threadId, {
+      reason: "SPAM",
+    });
+    await prisma.chatReport.update({
+      where: { id: rep.reportId },
+      data: { status: "RESOLVED", resolvedAt: new Date("2029-12-01T00:00:00.000Z") },
+    });
+
+    expect(await cleanup.purgeExpired(now)).toBe(1);
+    const left = await prisma.chatThread.findMany({ select: { id: true } });
+    expect(left.map((t) => t.id).sort()).toEqual([reported.threadId, recent.threadId].sort());
+    expect(await prisma.chatMessage.count({ where: { threadId: old.threadId } })).toBe(0);
+    expect(deleteFilesByUrl).toHaveBeenCalledWith(["https://cdn.example/chat/old.jpg"]);
+
+    // 신고 처리 1년이 지나면 그 방도 지운다
+    expect(await cleanup.purgeExpired(new Date("2031-01-02T00:00:00.000Z"))).toBe(1);
+    expect(await prisma.chatThread.count({ where: { id: reported.threadId } })).toBe(0);
+  });
+
   it("손님이 탈퇴하면 글·사진을 지우고, 가게 쪽에는 '탈퇴한 손님'으로 남아 더 못 쓴다", async () => {
     const { chat, cleanup, prisma, consumer, store, seller, deleteFilesByUrl } = await build();
     await chat.agreeRules("CONSUMER", consumer.id, CHAT_RULES_VERSION);
