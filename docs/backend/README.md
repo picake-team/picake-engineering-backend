@@ -47,6 +47,7 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 - **인증**: `/v1/consumer/auth/*` - 로그인, 회원가입, 휴대폰 인증, Google/Kakao/Apple OAuth, 앱스토어 심사용 로그인(`review-login`)
 - **상품**: `/v1/consumer/products/*` - 상품 조회, 필터링, 검색
 - **스토어**: `/v1/consumer/store/*` - 스토어 조회
+  - `/v1/consumer/store/:id/link-visits` - 사장님이 보낸 링크(`?from=link`)로 들어온 기기 남기기 (POST, 로그인 없이, 기기 임의 값만, 기획 I-45)
 - **입점 요청**: `/v1/consumer/store-entry-requests/*` - 비입점 카카오 장소 등록 요청
 - **견적 요청**: `/v1/consumer/quote-requests/*` - 손님 견적 요청서 보내기·내 견적 요청 목록·상세·닫기(기획 I-46, 새 요청은 디스코드 【PICAKE】운영으로 알림). 손님이 탈퇴하면 견적 요청과 참고 사진(S3)을 지운다(계정은 주문 보관 때문에 익명화만 해서 자동으로 지워지지 않음, `QuoteRequestCleanupService`). 장소 링크(`placeUrl`)는 http·https만 받는다(입점 요청도 같음)
 - **주문**: `/v1/consumer/orders/*` - 주문 생성 및 조회
@@ -71,6 +72,7 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
   - `/v1/seller/store/list` - 내 스토어 목록 조회 (GET)
   - `/v1/seller/store/:storeId` - 스토어 상세 조회/수정
   - `/v1/seller/store/:storeId/naver-place` - 네이버 매장 연결 (PUT) / 연결 해제 (DELETE)
+  - `/v1/seller/store/:storeId/link-stats` - 최근 30일 링크로 온 손님 기기 수·그 링크로 온 예약 신청 수 (GET, 기획 I-45)
 - **네이버 플레이스**: `/v1/seller/naver-place/preview` - 네이버 플레이스 링크로 매장 정보 미리 보기 (GET)
 - **네이버 상품**:
   - `/v1/seller/store/:storeId/naver-products` - 연결한 네이버 매장의 상품 목록 (GET)
