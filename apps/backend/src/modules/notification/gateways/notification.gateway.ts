@@ -28,6 +28,8 @@ export interface ChatUpdatedSocketPayload {
   storeId: string | null;
   /** 받는 사람이 판매자일 때 토스트에 쓰는 손님 닉네임(글 내용은 아님) */
   senderName?: string;
+  /** 받는 사람이 이 방 알림을 껐는지(화면 안 안내를 띄우지 않게) */
+  muted?: boolean;
 }
 
 /**

@@ -206,7 +206,9 @@ export class ChatService {
         message:
           d.reason === "SHOP_LEFT"
             ? CHAT_ERROR_MESSAGES.SHOP_LEFT
-            : CHAT_ERROR_MESSAGES.CANNOT_SEND,
+            : thread.blockedByConsumerAt
+              ? CHAT_ERROR_MESSAGES.BLOCKED_BY_ME
+              : CHAT_ERROR_MESSAGES.CANNOT_SEND,
       };
     }
     const d = decideShopWrite({
@@ -226,7 +228,9 @@ export class ChatService {
           ? "손님이 탈퇴해 대화가 지워졌어요."
           : d.reason === "SHOP_LEFT"
             ? CHAT_ERROR_MESSAGES.SHOP_LEFT
-            : CHAT_ERROR_MESSAGES.CANNOT_SEND;
+            : d.reason === "BLOCKED" && thread.blockedByShopAt
+              ? CHAT_ERROR_MESSAGES.BLOCKED_BY_ME
+              : CHAT_ERROR_MESSAGES.CANNOT_SEND;
     return { ok: false, message };
   }
 
@@ -546,6 +550,7 @@ export class ChatService {
           thread.shopSeenAt = now;
           if (unread) thread.shopReadAt = now;
         }
+        if (unread) await this.notify.afterRead({ threadId: thread.id, reader: side });
       }
     }
 

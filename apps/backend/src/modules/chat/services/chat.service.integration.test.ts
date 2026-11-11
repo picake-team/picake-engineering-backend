@@ -8,7 +8,10 @@ import { ChatCleanupService } from "@apps/backend/modules/chat/services/chat-cle
 import type { ChatNotifyService } from "@apps/backend/modules/chat/services/chat-notify.service";
 import type { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import type { UploadService } from "@apps/backend/modules/upload/upload.service";
-import { CHAT_RULES_VERSION } from "@apps/backend/modules/chat/constants/chat.constants";
+import {
+  CHAT_ERROR_MESSAGES,
+  CHAT_RULES_VERSION,
+} from "@apps/backend/modules/chat/constants/chat.constants";
 import { getAllowedUploadUrlPrefixes } from "@apps/backend/modules/upload/utils/upload-url.util";
 import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
 import { getTestPrisma } from "@apps/backend/test/integration/db";
@@ -36,11 +39,12 @@ describe("채팅 (integration)", () => {
     const open = new ChatOpenService(prisma);
     await open.setOpensAt(opts.open === false ? null : new Date(Date.now() - 60_000));
     const afterMessage = vi.fn().mockResolvedValue(undefined);
+    const afterRead = vi.fn().mockResolvedValue(undefined);
     const notifyChatReport = vi.fn().mockResolvedValue(undefined);
     const chat = new ChatService(
       prisma,
       open,
-      { afterMessage } as unknown as ChatNotifyService,
+      { afterMessage, afterRead } as unknown as ChatNotifyService,
       { notifyChatReport } as unknown as OpsAlertService,
     );
     const admin = new ChatAdminService(prisma, open);
@@ -61,6 +65,7 @@ describe("채팅 (integration)", () => {
       store,
       consumer,
       afterMessage,
+      afterRead,
       notifyChatReport,
       deleteFilesByUrl,
     };
@@ -263,7 +268,7 @@ describe("채팅 (integration)", () => {
   });
 
   it("사장님이 먼저: 픽업 전 예약이 있으면 주문 카드와 함께 열 수 있고, 끝난 주문이면 못 연다", async () => {
-    const { chat, prisma, consumer, store, seller } = await build();
+    const { chat, prisma, consumer, store, seller, afterRead } = await build();
     await chat.agreeRules("SELLER", seller.id, CHAT_RULES_VERSION);
     const product = await createTestProduct(prisma, store.id);
     const done = await createTestOrder(
@@ -302,6 +307,11 @@ describe("채팅 (integration)", () => {
     // 손님이 읽으면 안 읽음이 사라진다
     await chat.messagesForConsumer(consumer.id, r.threadId, { markRead: true });
     expect((await chat.unreadForConsumer(consumer.id)).unreadThreads).toBe(0);
+    // 읽음이 바뀌면 사장님 화면에 신호 한 번(새로 읽을 글이 없으면 다시 보내지 않음)
+    expect(afterRead).toHaveBeenCalledTimes(1);
+    expect(afterRead).toHaveBeenCalledWith({ threadId: r.threadId, reader: "CONSUMER" });
+    await chat.messagesForConsumer(consumer.id, r.threadId, { markRead: true });
+    expect(afterRead).toHaveBeenCalledTimes(1);
   });
 
   it("차단하면 상대는 못 보내고, 풀면 다시 된다", async () => {
@@ -324,6 +334,10 @@ describe("채팅 (integration)", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
     const shopSide = await chat.threadForStore(seller.id, store.id, r.threadId);
     expect(shopSide.blockedByMe).toBe(true);
+    // 차단한 쪽에는 푸는 법을, 차단당한 쪽에는 차단 사실을 알리지 않는 글을 준다
+    expect(shopSide.write.message).toBe(CHAT_ERROR_MESSAGES.BLOCKED_BY_ME);
+    const consumerSide = await chat.threadForConsumer(consumer.id, r.threadId);
+    expect(consumerSide.write.message).toBe(CHAT_ERROR_MESSAGES.CANNOT_SEND);
   });
 
   it("욕설은 가려서 보이고, 신고하면 운영자 알림 → 관리자에서 원문 확인·가리기(열람 기록)", async () => {
@@ -356,6 +370,32 @@ describe("채팅 (integration)", () => {
     expect(
       (await admin.listReports({ status: "OPEN" })).reports.find((x) => x.id === rep.reportId),
     ).toBeUndefined();
+  });
+
+  it("방 전체 신고는 운영자가 대화에서 고른 메시지만 가린다(다른 방 메시지는 안 바뀜)", async () => {
+    const { chat, admin, consumer, store, seller } = await build();
+    await chat.agreeRules("CONSUMER", consumer.id, CHAT_RULES_VERSION);
+    const r = await chat.startForConsumer(consumer.id, {
+      storeId: store.id,
+      clientId: cid(),
+      text: "광고 링크 보세요",
+    });
+    const second = await chat.sendForConsumer(consumer.id, r.threadId, {
+      clientId: cid(),
+      text: "평범한 문의",
+    });
+    const rep = await chat.reportForStore(seller.id, store.id, r.threadId, { reason: "SPAM" });
+    await expect(
+      admin.resolveReport("admin-1", rep.reportId, { action: "HIDE_MESSAGE" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    const done = await admin.resolveReport("admin-1", rep.reportId, {
+      action: "HIDE_MESSAGE",
+      messageIds: [r.messages[0].id, "other-thread-message"],
+    });
+    expect(done.resolution).toContain("메시지 1개 가림");
+    const view = await chat.messagesForConsumer(consumer.id, r.threadId, {});
+    expect(view.messages.map((m) => m.hidden)).toEqual([true, false]);
+    expect(view.messages[1].id).toBe(second.messages[0].id);
   });
 
   it("사진은 업로드 주소만, 5장까지", async () => {

@@ -37,6 +37,47 @@ export class ChatNotifyService {
     private readonly sellerPush: SellerFcmPushService,
   ) {}
 
+  /**
+   * 읽음이 바뀌면 상대 화면에 신호만 보낸다(상대 말풍선 "읽음"이 15초 확인을 기다리지 않게).
+   * 안내·휴대폰 알림은 없다. 상대가 신호를 받아 다시 가져와도 새로 읽을 글이 없어 되돌아오지 않는다.
+   */
+  async afterRead(input: { threadId: string; reader: "CONSUMER" | "SHOP" }): Promise<void> {
+    try {
+      const thread = await this.prisma.chatThread.findUnique({
+        where: { id: input.threadId },
+        select: {
+          id: true,
+          consumerId: true,
+          consumerMuted: true,
+          shopMuted: true,
+          shop: { select: { storeId: true, store: { select: { sellerId: true } } } },
+        },
+      });
+      if (!thread) return;
+      const storeId = thread.shop.storeId;
+      if (input.reader === "CONSUMER") {
+        const sellerId = thread.shop.store?.sellerId;
+        if (sellerId) {
+          this.gateway.emitChatUpdated(sellerId, {
+            threadId: thread.id,
+            storeId,
+            muted: thread.shopMuted,
+          });
+        }
+      } else {
+        this.gateway.emitChatUpdated(thread.consumerId, {
+          threadId: thread.id,
+          storeId,
+          muted: thread.consumerMuted,
+        });
+      }
+    } catch (e) {
+      LoggerUtil.log(
+        `[ChatNotify] 읽음 신호 실패 thread=${input.threadId}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
   async afterMessage(input: {
     threadId: string;
     from: "CONSUMER" | "SHOP";
@@ -68,12 +109,17 @@ export class ChatNotifyService {
       const nickname = thread.consumer.nickname?.trim() || "손님";
 
       // 소켓 신호(두 쪽 모두)
-      this.gateway.emitChatUpdated(thread.consumerId, { threadId: thread.id, storeId });
+      this.gateway.emitChatUpdated(thread.consumerId, {
+        threadId: thread.id,
+        storeId,
+        muted: thread.consumerMuted,
+      });
       if (sellerId) {
         this.gateway.emitChatUpdated(sellerId, {
           threadId: thread.id,
           storeId,
           senderName: input.from === "CONSUMER" ? nickname : undefined,
+          muted: thread.shopMuted,
         });
       }
 

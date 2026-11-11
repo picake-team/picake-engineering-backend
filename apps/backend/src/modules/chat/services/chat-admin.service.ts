@@ -140,22 +140,31 @@ export class ChatAdminService {
       select: { id: true, messageId: true, threadId: true },
     });
     if (!report) throw new NotFoundException(CHAT_ERROR_MESSAGES.REPORT_NOT_FOUND);
+    let hidden = 0;
     if (dto.action === "HIDE_MESSAGE") {
-      if (!report.messageId) {
-        throw new BadRequestException(
-          "방 전체 신고라 가릴 메시지가 없어요. 회원 관리에서 이용을 막아 주세요.",
-        );
+      const ids = dto.messageIds?.length
+        ? [...new Set(dto.messageIds)]
+        : report.messageId
+          ? [report.messageId]
+          : [];
+      if (ids.length === 0) {
+        throw new BadRequestException("가릴 메시지를 대화에서 골라 주세요.");
       }
-      await this.prisma.chatMessage.updateMany({
-        where: { id: report.messageId, threadId: report.threadId },
+      // 이 방의 메시지만 가린다(다른 방 id를 넣어도 바뀌지 않음)
+      const r = await this.prisma.chatMessage.updateMany({
+        where: { id: { in: ids }, threadId: report.threadId, hiddenAt: null },
         data: { hiddenAt: new Date() },
       });
+      hidden = r.count;
     }
     await this.prisma.chatReport.update({
       where: { id: report.id },
       data: {
         status: "RESOLVED",
-        resolution: [dto.action === "HIDE_MESSAGE" ? "메시지 가림" : "그대로 둠", dto.note?.trim()]
+        resolution: [
+          dto.action === "HIDE_MESSAGE" ? `메시지 ${hidden}개 가림` : "그대로 둠",
+          dto.note?.trim(),
+        ]
           .filter(Boolean)
           .join(" · ")
           .slice(0, 200),

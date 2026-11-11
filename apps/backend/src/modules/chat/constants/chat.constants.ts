@@ -63,6 +63,8 @@ export const CHAT_ERROR_MESSAGES = {
   INVALID_IMAGE: "사진은 업로드한 사진만 보낼 수 있어요.",
   RULES_NOT_AGREED: "채팅 이용 규칙에 동의한 뒤 보낼 수 있어요.",
   CANNOT_SEND: "지금은 메시지를 보낼 수 없어요.",
+  /** 내가 차단한 방(상대가 나를 차단한 건 알리지 않고 CANNOT_SEND) */
+  BLOCKED_BY_ME: "차단한 대화예요. 위쪽 ⋯에서 차단을 풀 수 있어요.",
   SHOP_LEFT: "가게가 Picake 채팅을 쓰지 않아요.",
   SHOP_LOCKED: "손님이 먼저 말하면 다시 보낼 수 있어요.",
   TOO_FAST: "너무 빨리 보내고 있어요. 잠시 뒤에 보내 주세요.",

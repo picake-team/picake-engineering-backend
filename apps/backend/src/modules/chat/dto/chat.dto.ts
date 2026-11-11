@@ -294,6 +294,17 @@ export class AdminChatReportResolveDto {
   @IsIn(["HIDE_MESSAGE", "NONE"])
   action: "HIDE_MESSAGE" | "NONE";
 
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      "가릴 메시지(이 방의 것, 50개까지). 없으면 신고된 메시지 하나. 방 전체 신고는 운영자가 대화에서 고른다",
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  messageIds?: string[];
+
   @ApiPropertyOptional({ description: "처리 메모(200자)" })
   @IsOptional()
   @IsString()
