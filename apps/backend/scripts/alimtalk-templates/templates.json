@@ -41,7 +41,7 @@
     },
     {
       "key": "CHAT_REPLY_ARRIVED",
-      "name": "채팅답변도착(손님이 보낸 채팅에 가게가 답했는데 앱 알림을 받지 못하거나 읽지 않았을 때, 방마다 3시간에 한 번)",
+      "name": "채팅답변도착(가게 답을 손님이 앱 알림으로 못 봤을 때)",
       "categoryCode": "002003",
       "messageType": "BA",
       "emphasizeType": "TEXT",
@@ -60,7 +60,7 @@
     },
     {
       "key": "CHAT_NEW_INQUIRY",
-      "name": "채팅새문의(손님이 가게에 채팅을 보냈는데 사장님이 판매자 앱 알림을 받지 못하거나 읽지 않았을 때, 방마다 3시간에 한 번)",
+      "name": "채팅새문의(손님 문의를 사장님이 앱 알림으로 못 봤을 때)",
       "categoryCode": "002003",
       "messageType": "BA",
       "emphasizeType": "TEXT",
