@@ -456,6 +456,40 @@ describe("채팅 (integration)", () => {
     );
   });
 
+  it("관리자 브리핑 숫자: 처리할 신고, 스토어가 답하지 않은 방(24시간 넘은 것), 최근 글 수", async () => {
+    const { chat, admin, prisma, consumer, store, seller } = await build();
+    await chat.agreeRules("CONSUMER", consumer.id, CHAT_RULES_VERSION);
+    const r = await chat.startForConsumer(consumer.id, {
+      storeId: store.id,
+      clientId: cid(),
+      text: "문의",
+    });
+    let sum = await admin.summary();
+    expect(sum.open).toBe(true);
+    expect(sum.openReports).toBe(0);
+    expect(sum.awaitingReplyByStore).toEqual([
+      expect.objectContaining({ storeId: store.id, awaiting: 1, over24h: 0 }),
+    ]);
+    expect(sum.messagesLast24h).toBe(1);
+    expect(sum.newThreadsLast24h).toBe(1);
+
+    await prisma.chatThread.update({
+      where: { id: r.threadId },
+      data: { lastMessageAt: new Date(Date.now() - 25 * 60 * 60 * 1000) },
+    });
+    await chat.reportForStore(seller.id, store.id, r.threadId, { reason: "SPAM" });
+    sum = await admin.summary();
+    expect(sum.openReports).toBe(1);
+    expect(sum.oldestOpenReportAt).not.toBeNull();
+    expect(sum.awaitingReplyByStore[0]).toMatchObject({ awaiting: 1, over24h: 1 });
+
+    // 스토어가 답하면 빠진다
+    await chat.agreeRules("SELLER", seller.id, CHAT_RULES_VERSION);
+    await chat.sendForStore(seller.id, store.id, r.threadId, { clientId: cid(), text: "답" });
+    sum = await admin.summary();
+    expect(sum.awaitingReplyByStore).toEqual([]);
+  });
+
   it("보관 기간: 마지막 글 3년 지난 방은 지우고, 신고 처리 1년이 안 됐거나 처리 중이면 남긴다", async () => {
     const { chat, cleanup, prisma, consumer, store, deleteFilesByUrl } = await build();
     await chat.agreeRules("CONSUMER", consumer.id, CHAT_RULES_VERSION);

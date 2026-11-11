@@ -6,6 +6,9 @@ import {
   AdminChatReportResolveDto,
 } from "@apps/backend/modules/chat/dto/chat.dto";
 import { ChatOpenService } from "@apps/backend/modules/chat/services/chat-open.service";
+import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
+
+const HOUR_MS = 60 * 60 * 1000;
 
 /**
  * 관리자 채팅(기획 I-11): 신고 목록·상세·처리, 채팅 여는 시각.
@@ -17,6 +20,63 @@ export class ChatAdminService {
     private readonly prisma: PrismaService,
     private readonly open: ChatOpenService,
   ) {}
+
+  /**
+   * 매일 브리핑용 숫자(hq `오늘 · 매일 브리핑`, 기획 I-11 "운영자는 브리핑으로만 본다"). 대화 내용은 없다.
+   * - 처리할 신고 수와 가장 오래된 신고 시각(24시간 안 처리)
+   * - 손님 글에 스토어가 아직 답하지 않은 방: 스토어별 수와 24시간 넘은 수(차단·탈퇴 방, 심사용 가게는 뺌)
+   * - 최근 24시간 글 수·새 방 수
+   */
+  async summary(now: Date = new Date()) {
+    const dayAgo = new Date(now.getTime() - 24 * HOUR_MS);
+    const [open, openReports, oldestReport, awaiting, messages24h, threads24h] = await Promise.all([
+      this.open.isOpen(),
+      this.prisma.chatReport.count({ where: { status: "OPEN" } }),
+      this.prisma.chatReport.findFirst({
+        where: { status: "OPEN" },
+        orderBy: { createdAt: "asc" },
+        select: { createdAt: true },
+      }),
+      this.prisma.chatThread.findMany({
+        where: {
+          lastMessageSender: "CONSUMER",
+          blockedByShopAt: null,
+          blockedByConsumerAt: null,
+          consumer: { withdrawnAt: null },
+          shop: { store: { businessNo: { not: REVIEW_STORE_BUSINESS_NO } } },
+        },
+        select: { lastMessageAt: true, shop: { select: { storeId: true, name: true } } },
+      }),
+      this.prisma.chatMessage.count({ where: { createdAt: { gte: dayAgo } } }),
+      this.prisma.chatThread.count({ where: { createdAt: { gte: dayAgo } } }),
+    ]);
+    const byStore = new Map<
+      string,
+      { storeId: string; storeName: string; awaiting: number; over24h: number }
+    >();
+    for (const t of awaiting) {
+      if (!t.shop.storeId) continue;
+      const row = byStore.get(t.shop.storeId) ?? {
+        storeId: t.shop.storeId,
+        storeName: t.shop.name,
+        awaiting: 0,
+        over24h: 0,
+      };
+      row.awaiting += 1;
+      if (t.lastMessageAt && t.lastMessageAt < dayAgo) row.over24h += 1;
+      byStore.set(t.shop.storeId, row);
+    }
+    return {
+      open,
+      openReports,
+      oldestOpenReportAt: oldestReport?.createdAt.toISOString() ?? null,
+      awaitingReplyByStore: [...byStore.values()].sort(
+        (a, b) => b.over24h - a.over24h || b.awaiting - a.awaiting,
+      ),
+      messagesLast24h: messages24h,
+      newThreadsLast24h: threads24h,
+    };
+  }
 
   async getOpenConfig() {
     const opensAt = await this.open.getOpensAt();

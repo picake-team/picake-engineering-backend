@@ -49,6 +49,16 @@ export class AdminChatController {
     return this.chatAdmin.setOpenConfig(dto.chatOpensAt);
   }
 
+  @Get("summary")
+  @ApiOperation({
+    summary:
+      "매일 브리핑용 숫자: 처리할 신고, 스토어가 답하지 않은 방(24시간 넘은 것), 최근 24시간 글·새 방 수",
+  })
+  @SwaggerAuthResponses()
+  async summary() {
+    return this.chatAdmin.summary();
+  }
+
   @Get("reports")
   @ApiOperation({ summary: "채팅 신고 목록(최근 100개)" })
   @SwaggerAuthResponses()

@@ -99,7 +99,7 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 - **회원 관리**: `/v1/admin/member-management/*` - 소비자/판매자 회원 관리
 - **스토어 관리**: `/v1/admin/store-management/*`, `/v1/admin/store-entry-request-management/*`
 - **견적 요청**: `/v1/admin/quote-request-management/*` - 견적 요청 목록(견적 받는 중·가게 연결·마감)·상세
-- **채팅**: `/v1/admin/chat/open`(여는 시각 GET/PUT, null이면 닫힘), `/v1/admin/chat/reports`(최근 100개, `?status=OPEN|RESOLVED`), `reports/:id`(최근 대화 50개 원문, 열면 열람 기록 `chat_access_logs`), PATCH `reports/:id`(`HIDE_MESSAGE` + `messageIds` 고른 메시지 가리기 / `NONE`)
+- **채팅**: `/v1/admin/chat/summary`(매일 브리핑용: 처리할 신고·스토어가 답하지 않은 방·최근 24시간 글 수, 대화 내용 없음), `/v1/admin/chat/open`(여는 시각 GET/PUT, null이면 닫힘, hq `오늘 · 채팅 여는 시각`이 관리자 API 키로 부름), `/v1/admin/chat/reports`(최근 100개, `?status=OPEN|RESOLVED`), `reports/:id`(최근 대화 50개 원문, 열면 열람 기록 `chat_access_logs`), PATCH `reports/:id`(`HIDE_MESSAGE` + `messageIds` 고른 메시지 가리기 / `NONE`)
 - **관리자 계정 관리**: `/v1/admin/admin-management/*` - 관리자 계정/권한 관리
 - **판매자 세그먼트 관리**: `/v1/admin/seller-segment-management/*`
 - **콘텐츠 관리**: `/v1/admin/home-banners/*`, `/v1/admin/notices/*`, `/v1/admin/qnas/*`, `/v1/admin/terms/*`
