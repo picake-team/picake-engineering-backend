@@ -5,21 +5,17 @@ import {
   AdminChatReportListQueryDto,
   AdminChatReportResolveDto,
 } from "@apps/backend/modules/chat/dto/chat.dto";
-import { ChatOpenService } from "@apps/backend/modules/chat/services/chat-open.service";
 import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
 
 const HOUR_MS = 60 * 60 * 1000;
 
 /**
- * 관리자 채팅(기획 I-11): 신고 목록·상세·처리, 채팅 여는 시각.
+ * 관리자 채팅(기획 I-11): 신고 목록·상세·처리, 매일 브리핑 숫자.
  * 운영자는 신고된 대화만 열고, 열 때마다 기록을 남긴다(처리방침 제9조 개정안).
  */
 @Injectable()
 export class ChatAdminService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly open: ChatOpenService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * 매일 브리핑용 숫자(hq `오늘 · 매일 브리핑`, 기획 I-11 "운영자는 브리핑으로만 본다"). 대화 내용은 없다.
@@ -29,8 +25,7 @@ export class ChatAdminService {
    */
   async summary(now: Date = new Date()) {
     const dayAgo = new Date(now.getTime() - 24 * HOUR_MS);
-    const [open, openReports, oldestReport, awaiting, messages24h, threads24h] = await Promise.all([
-      this.open.isOpen(),
+    const [openReports, oldestReport, awaiting, messages24h, threads24h] = await Promise.all([
       this.prisma.chatReport.count({ where: { status: "OPEN" } }),
       this.prisma.chatReport.findFirst({
         where: { status: "OPEN" },
@@ -67,7 +62,6 @@ export class ChatAdminService {
       byStore.set(t.shop.storeId, row);
     }
     return {
-      open,
       openReports,
       oldestOpenReportAt: oldestReport?.createdAt.toISOString() ?? null,
       awaitingReplyByStore: [...byStore.values()].sort(
@@ -76,22 +70,6 @@ export class ChatAdminService {
       messagesLast24h: messages24h,
       newThreadsLast24h: threads24h,
     };
-  }
-
-  async getOpenConfig() {
-    const opensAt = await this.open.getOpensAt();
-    return { chatOpensAt: opensAt?.toISOString() ?? null, open: await this.open.isOpen() };
-  }
-
-  async setOpenConfig(chatOpensAt: string | null | undefined) {
-    let value: Date | null = null;
-    if (chatOpensAt) {
-      value = new Date(chatOpensAt);
-      if (Number.isNaN(value.getTime()))
-        throw new BadRequestException("여는 시각 형식이 맞지 않아요.");
-    }
-    await this.open.setOpensAt(value);
-    return this.getOpenConfig();
   }
 
   async listReports(query: AdminChatReportListQueryDto) {

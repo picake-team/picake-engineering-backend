@@ -25,7 +25,6 @@ import {
   ChatReportDto,
   ChatSendDto,
   ChatSendResultDto,
-  ChatStatusDto,
   ChatThreadDetailDto,
   ChatThreadDto,
   ChatThreadListDto,
@@ -41,7 +40,6 @@ import {
   isUnreadFor,
   maskBlockedWords,
 } from "@apps/backend/modules/chat/utils/chat-policy.util";
-import { ChatOpenService } from "@apps/backend/modules/chat/services/chat-open.service";
 import { ChatNotifyService } from "@apps/backend/modules/chat/services/chat-notify.service";
 import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 
@@ -126,16 +124,11 @@ type CardSnapshot = { title: string; subtitle?: string | null; imageUrl?: string
 export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly open: ChatOpenService,
     private readonly notify: ChatNotifyService,
     private readonly opsAlert: OpsAlertService,
   ) {}
 
   // ───────────────────────── 공통 ─────────────────────────
-
-  async status(): Promise<ChatStatusDto> {
-    return { open: await this.open.isOpen(), rulesVersion: CHAT_RULES_VERSION };
-  }
 
   async agreeRules(actorType: "CONSUMER" | "SELLER", actorId: string, version: number) {
     if (version !== CHAT_RULES_VERSION) {
@@ -609,7 +602,6 @@ export class ChatService {
   }
 
   async unreadForConsumer(consumerId: string): Promise<ChatUnreadDto> {
-    if (!(await this.open.isOpen())) return { open: false, unreadThreads: 0 };
     const rows = await this.prisma.chatThread.findMany({
       where: { consumerId, lastMessageSender: "SHOP" },
       select: {
@@ -619,11 +611,10 @@ export class ChatService {
         shopReadAt: true,
       },
     });
-    return { open: true, unreadThreads: rows.filter((r) => isUnreadFor("CONSUMER", r)).length };
+    return { unreadThreads: rows.filter((r) => isUnreadFor("CONSUMER", r)).length };
   }
 
   async listForConsumer(consumerId: string, query: ChatListQueryDto): Promise<ChatThreadListDto> {
-    await this.open.assertOpen();
     const cursor = query.cursor ? new Date(query.cursor) : null;
     const rows = await this.prisma.chatThread.findMany({
       where: {
@@ -645,7 +636,6 @@ export class ChatService {
   }
 
   async existingForConsumer(consumerId: string, storeId: string): Promise<ChatExistingThreadDto> {
-    await this.open.assertOpen();
     const store = await this.prisma.store.findUnique({
       where: { id: storeId },
       select: { id: true, name: true, shop: { select: { id: true } } },
@@ -667,13 +657,11 @@ export class ChatService {
   }
 
   async threadForConsumer(consumerId: string, threadId: string): Promise<ChatThreadDetailDto> {
-    await this.open.assertOpen();
     const t = await this.getConsumerThread(consumerId, threadId);
     return this.toDetailDto("CONSUMER", t, consumerId);
   }
 
   async messagesForConsumer(consumerId: string, threadId: string, query: ChatMessagesQueryDto) {
-    await this.open.assertOpen();
     const t = await this.getConsumerThread(consumerId, threadId);
     return this.listMessages("CONSUMER", t, consumerId, query);
   }
@@ -683,7 +671,6 @@ export class ChatService {
     consumerId: string,
     dto: ConsumerStartChatDto,
   ): Promise<ChatSendResultDto> {
-    await this.open.assertOpen();
     if (!(await this.hasAgreed("CONSUMER", consumerId))) {
       throw new BadRequestException(CHAT_ERROR_MESSAGES.RULES_NOT_AGREED);
     }
@@ -741,7 +728,6 @@ export class ChatService {
   }
 
   async sendForConsumer(consumerId: string, threadId: string, dto: ChatSendDto) {
-    await this.open.assertOpen();
     if (!(await this.hasAgreed("CONSUMER", consumerId))) {
       throw new BadRequestException(CHAT_ERROR_MESSAGES.RULES_NOT_AGREED);
     }
@@ -757,7 +743,6 @@ export class ChatService {
     flag: "mute" | "block",
     value: boolean,
   ) {
-    await this.open.assertOpen();
     await this.getConsumerThread(consumerId, threadId);
     await this.prisma.chatThread.update({
       where: { id: threadId },
@@ -770,7 +755,6 @@ export class ChatService {
   }
 
   async reportForConsumer(consumerId: string, threadId: string, dto: ChatReportDto) {
-    await this.open.assertOpen();
     const t = await this.getConsumerThread(consumerId, threadId);
     return this.report("CONSUMER", consumerId, t, dto);
   }
@@ -804,7 +788,6 @@ export class ChatService {
 
   async unreadForStore(sellerId: string, storeId: string): Promise<ChatUnreadDto> {
     await this.assertStoreOwner(sellerId, storeId);
-    if (!(await this.open.isOpen())) return { open: false, unreadThreads: 0, replyNeeded: 0 };
     const rows = await this.prisma.chatThread.findMany({
       where: { shop: { storeId }, lastMessageSender: "CONSUMER" },
       select: {
@@ -818,7 +801,6 @@ export class ChatService {
       where: { shop: { storeId }, ...this.replyNeededWhere(new Date()) },
     });
     return {
-      open: true,
       unreadThreads: rows.filter((r) => isUnreadFor("SHOP", r)).length,
       replyNeeded,
     };
@@ -830,7 +812,6 @@ export class ChatService {
     query: ChatListQueryDto,
   ): Promise<ChatThreadListDto> {
     await this.assertStoreOwner(sellerId, storeId);
-    await this.open.assertOpen();
     const cursor = query.cursor ? new Date(query.cursor) : null;
     const rows = await this.prisma.chatThread.findMany({
       where: {
@@ -854,7 +835,6 @@ export class ChatService {
 
   async threadForStore(sellerId: string, storeId: string, threadId: string) {
     await this.assertStoreOwner(sellerId, storeId);
-    await this.open.assertOpen();
     const t = await this.getStoreThread(storeId, threadId);
     return this.toDetailDto("SHOP", t, sellerId);
   }
@@ -866,14 +846,12 @@ export class ChatService {
     query: ChatMessagesQueryDto,
   ) {
     await this.assertStoreOwner(sellerId, storeId);
-    await this.open.assertOpen();
     const t = await this.getStoreThread(storeId, threadId);
     return this.listMessages("SHOP", t, sellerId, query);
   }
 
   async sendForStore(sellerId: string, storeId: string, threadId: string, dto: ChatSendDto) {
     await this.assertStoreOwner(sellerId, storeId);
-    await this.open.assertOpen();
     if (!(await this.hasAgreed("SELLER", sellerId))) {
       throw new BadRequestException(CHAT_ERROR_MESSAGES.RULES_NOT_AGREED);
     }
@@ -890,7 +868,6 @@ export class ChatService {
     orderId: string,
   ): Promise<ChatExistingThreadDto> {
     await this.assertStoreOwner(sellerId, storeId);
-    await this.open.assertOpen();
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, storeId },
       select: {
@@ -932,7 +909,6 @@ export class ChatService {
     dto: ChatSendDto,
   ) {
     await this.assertStoreOwner(sellerId, storeId);
-    await this.open.assertOpen();
     if (!(await this.hasAgreed("SELLER", sellerId))) {
       throw new BadRequestException(CHAT_ERROR_MESSAGES.RULES_NOT_AGREED);
     }
@@ -977,7 +953,6 @@ export class ChatService {
     value: boolean,
   ) {
     await this.assertStoreOwner(sellerId, storeId);
-    await this.open.assertOpen();
     await this.getStoreThread(storeId, threadId);
     await this.prisma.chatThread.update({
       where: { id: threadId },
@@ -988,7 +963,6 @@ export class ChatService {
 
   async reportForStore(sellerId: string, storeId: string, threadId: string, dto: ChatReportDto) {
     await this.assertStoreOwner(sellerId, storeId);
-    await this.open.assertOpen();
     const t = await this.getStoreThread(storeId, threadId);
     return this.report("SHOP", sellerId, t, dto);
   }

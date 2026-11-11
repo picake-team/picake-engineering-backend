@@ -4,7 +4,6 @@ import { UploadModule } from "@apps/backend/modules/upload/upload.module";
 import { FcmModule } from "@apps/backend/modules/fcm/fcm.module";
 import { NotificationModule } from "@apps/backend/modules/notification/notification.module";
 import { OpsAlertModule } from "@apps/backend/modules/ops-alert/ops-alert.module";
-import { ChatOpenService } from "@apps/backend/modules/chat/services/chat-open.service";
 import { ChatNotifyService } from "@apps/backend/modules/chat/services/chat-notify.service";
 import { ChatService } from "@apps/backend/modules/chat/services/chat.service";
 import { ChatAdminService } from "@apps/backend/modules/chat/services/chat-admin.service";
@@ -19,13 +18,7 @@ import { ChatCleanupService } from "@apps/backend/modules/chat/services/chat-cle
  */
 @Module({
   imports: [DatabaseModule, UploadModule, FcmModule, NotificationModule, OpsAlertModule],
-  providers: [
-    ChatOpenService,
-    ChatNotifyService,
-    ChatService,
-    ChatAdminService,
-    ChatCleanupService,
-  ],
-  exports: [ChatService, ChatAdminService, ChatCleanupService, ChatOpenService],
+  providers: [ChatNotifyService, ChatService, ChatAdminService, ChatCleanupService],
+  exports: [ChatService, ChatAdminService, ChatCleanupService],
 })
 export class ChatModule {}

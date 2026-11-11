@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 
 import { ChatService } from "@apps/backend/modules/chat/services/chat.service";
-import { ChatOpenService } from "@apps/backend/modules/chat/services/chat-open.service";
 import { ChatAdminService } from "@apps/backend/modules/chat/services/chat-admin.service";
 import { ChatCleanupService } from "@apps/backend/modules/chat/services/chat-cleanup.service";
 import type { ChatNotifyService } from "@apps/backend/modules/chat/services/chat-notify.service";
@@ -25,7 +24,7 @@ import {
 
 /**
  * 채팅(기획 I-11) 1단계를 실제 Postgres로 확인한다:
- * 여는 시각 스위치, 규칙 동의, 첫 글에 방 만들기(한 쌍에 하나), 다시 보내기 한 번만, 카드,
+ * 규칙 동의, 첫 글에 방 만들기(한 쌍에 하나), 다시 보내기 한 번만, 카드,
  * 가게 쓰기 규칙(30일·픽업 전 예약), 차단, 거르기, 안 읽음, 신고·가리기, 손님 탈퇴, 가게 떠남.
  */
 describe("채팅 (integration)", () => {
@@ -34,20 +33,17 @@ describe("채팅 (integration)", () => {
   const photo = () =>
     `${getAllowedUploadUrlPrefixes()[0] ?? "https://cdn.example.com/"}uploads/chat-${seq}.jpg`;
 
-  async function build(opts: { open?: boolean } = {}) {
+  async function build() {
     const prisma = getTestPrisma();
-    const open = new ChatOpenService(prisma);
-    await open.setOpensAt(opts.open === false ? null : new Date(Date.now() - 60_000));
     const afterMessage = vi.fn().mockResolvedValue(undefined);
     const afterRead = vi.fn().mockResolvedValue(undefined);
     const notifyChatReport = vi.fn().mockResolvedValue(undefined);
     const chat = new ChatService(
       prisma,
-      open,
       { afterMessage, afterRead } as unknown as ChatNotifyService,
       { notifyChatReport } as unknown as OpsAlertService,
     );
-    const admin = new ChatAdminService(prisma, open);
+    const admin = new ChatAdminService(prisma);
     const deleteFilesByUrl = vi.fn().mockResolvedValue(0);
     const cleanup = new ChatCleanupService(prisma, {
       deleteFilesByUrl,
@@ -57,7 +53,6 @@ describe("채팅 (integration)", () => {
     const consumer = await createTestConsumer(prisma, { nickname: "달콤한_마카롱_1234" });
     return {
       prisma,
-      open,
       chat,
       admin,
       cleanup,
@@ -70,19 +65,6 @@ describe("채팅 (integration)", () => {
       deleteFilesByUrl,
     };
   }
-
-  it("여는 시각 전에는 닫혀 있다(입구 숨김, 보내기 403)", async () => {
-    const { chat, consumer, store } = await build({ open: false });
-    expect((await chat.status()).open).toBe(false);
-    expect((await chat.unreadForConsumer(consumer.id)).open).toBe(false);
-    await expect(
-      chat.startForConsumer(consumer.id, {
-        storeId: store.id,
-        clientId: cid(),
-        text: "안녕하세요",
-      }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-  });
 
   it("규칙에 동의해야 보낼 수 있고, 첫 글에 방이 생기며 같은 가게는 같은 방", async () => {
     const { chat, prisma, consumer, store, afterMessage } = await build();
@@ -465,7 +447,6 @@ describe("채팅 (integration)", () => {
       text: "문의",
     });
     let sum = await admin.summary();
-    expect(sum.open).toBe(true);
     expect(sum.openReports).toBe(0);
     expect(sum.awaitingReplyByStore).toEqual([
       expect.objectContaining({ storeId: store.id, awaiting: 1, over24h: 0 }),

@@ -26,7 +26,6 @@ import {
   ChatRulesAgreeDto,
   ChatSendDto,
   ChatSendResultDto,
-  ChatStatusDto,
   ChatThreadDetailDto,
   ChatThreadListDto,
   ChatToggleDto,
@@ -37,26 +36,8 @@ import {
 /** 새 글 확인은 소켓 신호 + 15초(끊기면 3초)마다라 한 사람·주소당 넉넉히. 통신사 공용 IP 뒤 손님들이 서로 막지 않게 */
 const POLL_THROTTLE = { default: { limit: 300, ttl: 60_000 } };
 
-/** 채팅 열렸나(로그인 없이) — 스토어 문의 창 입구를 보일지 정한다 */
-@ApiTags("채팅")
-@ApiExtraModels(ChatStatusDto)
-@Controller(`${AUDIENCE.CONSUMER}/chat-status`)
-@Auth({ isPublic: true })
-export class ConsumerChatStatusController {
-  constructor(private readonly chatService: ChatService) {}
-
-  @Get()
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "채팅이 열렸나(관리자 설정의 여는 시각)와 이용 규칙 버전" })
-  @SwaggerResponse(200, { dataDto: ChatStatusDto })
-  async status() {
-    return this.chatService.status();
-  }
-}
-
 /**
  * 손님 채팅(기획 I-11) — 손님 × 입점 가게. 방은 첫 글을 보낼 때 생긴다.
- * 채팅이 닫혀 있으면(여는 시각 전) 403 "채팅은 아직 준비 중이에요."
  */
 @ApiTags("채팅")
 @ApiExtraModels(

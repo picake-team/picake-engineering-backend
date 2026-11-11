@@ -249,16 +249,7 @@ export class ChatSendResultDto {
   threadId: string;
 }
 
-export class ChatStatusDto {
-  @ApiProperty({ description: "채팅이 열렸나(관리자 설정의 여는 시각)" })
-  open: boolean;
-  @ApiProperty({ description: "채팅 이용 규칙 버전" })
-  rulesVersion: number;
-}
-
 export class ChatUnreadDto {
-  @ApiProperty()
-  open: boolean;
   @ApiProperty({ description: "안 읽은 방 수" })
   unreadThreads: number;
   @ApiPropertyOptional({ description: "사장님: 답할 방 수" })
@@ -310,11 +301,4 @@ export class AdminChatReportResolveDto {
   @IsString()
   @MaxLength(200)
   note?: string;
-}
-
-export class AdminChatOpenDto {
-  @ApiPropertyOptional({ description: "채팅 여는 시각(ISO). null이면 닫음", nullable: true })
-  @IsOptional()
-  @IsString()
-  chatOpensAt?: string | null;
 }

@@ -51,7 +51,6 @@ export const CHAT_ALIMTALK_TEMPLATE_IDS = {
 export const SELLER_CHAT_PUSH_TITLE = "새 문의가 왔어요";
 
 export const CHAT_ERROR_MESSAGES = {
-  NOT_OPEN: "채팅은 아직 준비 중이에요.",
   THREAD_NOT_FOUND: "채팅을 찾을 수 없어요.",
   STORE_NOT_FOUND: "스토어를 찾을 수 없어요.",
   STORE_NOT_OWNED: "이 스토어의 채팅이 아니에요.",

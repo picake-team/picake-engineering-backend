@@ -62,8 +62,6 @@ model AdminConfig {
   id              String    @id @default("default")
   /// true: 가입 신청 후 기존 관리자가 승인해야 로그인 가능 / false: 가입 즉시 승인(APPROVED) 처리
   requireApproval Boolean   @default(false) @map("require_approval")
-  /// 채팅(기획 I-11)을 여는 시각. 비어 있거나 아직 안 됐으면 채팅 입구·주소가 닫힌다(배포 없이 처리방침 시행 시각에 맞춰 연다)
-  chatOpensAt     DateTime? @map("chat_opens_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   @@map("admin_configs")
