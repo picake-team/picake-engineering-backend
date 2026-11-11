@@ -76,9 +76,17 @@ export class UserNotificationPreferenceUpdateDto {
   @IsOptional()
   @IsBoolean()
   pushNotificationsEnabled?: boolean;
+
+  @ApiPropertyOptional({ description: "채팅 알림(앱 알림·알림톡). 기본 켬" })
+  @IsOptional()
+  @IsBoolean()
+  chatPushEnabled?: boolean;
 }
 
 export class UserNotificationPreferenceResponseDto {
   @ApiProperty()
   pushNotificationsEnabled: boolean;
+
+  @ApiProperty({ description: "채팅 알림(앱 알림·알림톡). 기본 켬" })
+  chatPushEnabled: boolean;
 }

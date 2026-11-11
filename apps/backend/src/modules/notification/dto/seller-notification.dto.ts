@@ -66,6 +66,16 @@ export class SellerNotificationPreferenceUpdateDto {
   @IsOptional()
   @IsBoolean()
   morningSummaryEnabled?: boolean;
+
+  @ApiPropertyOptional({ description: "채팅 알림(판매자 앱 알림·알림톡). 기본 켬" })
+  @IsOptional()
+  @IsBoolean()
+  chatNotificationsEnabled?: boolean;
+
+  @ApiPropertyOptional({ description: "밤 9시~아침 8시에는 채팅 알림 끄기. 기본 끔" })
+  @IsOptional()
+  @IsBoolean()
+  chatQuietNight?: boolean;
 }
 
 export class SellerNotificationItemResponseDto {
@@ -121,6 +131,12 @@ export class SellerNotificationPreferenceResponseDto {
 
   @ApiProperty({ description: "판매자 앱 아침 요약 휴대폰 알림. 기본 켬" })
   morningSummaryEnabled: boolean;
+
+  @ApiProperty({ description: "채팅 알림(판매자 앱 알림·알림톡). 기본 켬" })
+  chatNotificationsEnabled: boolean;
+
+  @ApiProperty({ description: "밤 9시~아침 8시에는 채팅 알림 끄기. 기본 끔" })
+  chatQuietNight: boolean;
 }
 
 export class SellerNotificationUnreadCountQueryDto {

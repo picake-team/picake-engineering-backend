@@ -22,6 +22,29 @@ export const SELLER_REVIEW_SAMPLE = {
   STORE_NAME: "픽케이크 심사용 가게",
 } as const;
 
+/**
+ * 심사용 예시 대화(기획 I-11, 애플 심사 1.2: 심사관이 채팅·신고·차단을 눌러 볼 수 있게).
+ * 마지막 글이 손님 것이라 "답할 채팅 1"로 보이고, 사장님 이용 규칙 동의는 남기지 않아 처음 보낼 때 규칙 창이 뜬다.
+ * 분 단위 숫자는 로그인 시각보다 그만큼 앞선 시각이다.
+ */
+export const SELLER_REVIEW_SAMPLE_CHAT: {
+  sender: "CONSUMER" | "SHOP";
+  text: string;
+  minutesAgo: number;
+}[] = [
+  {
+    sender: "CONSUMER",
+    text: "안녕하세요! 이번 주 토요일 픽업으로 레터링 케이크 문의드려요.",
+    minutesAgo: 30,
+  },
+  { sender: "SHOP", text: "네, 안녕하세요. 어떤 문구로 넣어 드릴까요?", minutesAgo: 25 },
+  {
+    sender: "CONSUMER",
+    text: '"생일 축하해"로 부탁드려요. 초도 같이 받을 수 있을까요?',
+    minutesAgo: 5,
+  },
+];
+
 const STORE_ADDRESS = {
   address: "서울특별시 중구 태평로1가 31",
   roadAddress: "서울특별시 중구 세종대로 110",

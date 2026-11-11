@@ -31,6 +31,7 @@ import { TokenEncryptionUtil } from "@apps/backend/common/utils/token-encryption
  * 사용자·판매자·관리자 인증, JWT, 휴대폰·OAuth 등을 제공합니다.
  */
 import { QuoteRequestModule } from "@apps/backend/modules/quote-request/quote-request.module";
+import { ChatModule } from "@apps/backend/modules/chat/chat.module";
 @Module({
   imports: [
     OpsAlertModule,
@@ -39,6 +40,7 @@ import { QuoteRequestModule } from "@apps/backend/modules/quote-request/quote-re
     TermsModule,
     SolapiModule,
     QuoteRequestModule,
+    ChatModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService) => ({

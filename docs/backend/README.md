@@ -19,7 +19,7 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 - **리뷰 시스템**: 리뷰 작성 및 조회
 - **좋아요 / 최근 본 상품**: 좋아요 추가/제거, 최근 본 상품 기록
 - **알림 시스템**: FCM 기반 푸시 알림 + WebSocket 실시간 알림 + 카카오 알림톡(SOLAPI)
-- **채팅 시스템**: Socket.IO 기반 WebSocket 채팅
+- **채팅(기획 I-11)**: 손님 × 입점 가게 1:1. 글은 REST, 새 글·읽음은 알림 소켓 `chat_updated` 신호(내용 없음)와 푸시. 사장님은 손님이 먼저 말한 방(손님 마지막 글 30일 안)이나 픽업 전 예약 손님에게만. 욕설 거르기·신고(디스코드 【PICAKE】운영, 관리자 24시간 처리)·차단·방 알림 끔. 배포하면 바로 열린다(따로 여는 시각 없음, 운영자 결정 11-12). 손님 탈퇴 시 글·사진 지움, 하루 한 번 마지막 글 3년 지난 방 지움(신고 처리 1년 안이면 남김). 자세한 것은 web 레포 `docs/common/feature/채팅 시스템 - 가이드.md`
 - **통계**: 판매자/관리자 매출·주문·회원 통계
 - **사업자진위확인**: 국세청 API 연동을 통한 사업자등록번호 진위확인
 - **콘텐츠 관리**: 홈 배너, 공지사항, Q&A, 약관(이용약관/개인정보처리방침)
@@ -54,7 +54,7 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 - **피드**: `/v1/consumer/feed/*` - 피드 조회
 - **리뷰**: `/v1/consumer/review/*` - 리뷰 작성 및 조회
 - **좋아요**: `/v1/consumer/like/*` - 좋아요 추가/제거
-- **채팅**: `/v1/consumer/chat-room/*` - 채팅방 목록/메시지 조회
+- **채팅**: `/v1/consumer/chats/*` - 목록·안 읽은 수·규칙 동의·가게와 방 찾기(`stores/:storeId`)·처음 보내기(POST)·방·글 가져오기(`after`/`before`/`markRead`)·보내기·알림 끔·차단·신고
 - **마이페이지**: `/v1/consumer/mypage/*` - 사용자 정보 조회/수정
 - **알림**: `/v1/consumer/notifications/*` - 알림 목록 조회
 - **FCM 토큰**: `/v1/consumer/fcm-tokens/*` - 푸시 알림 토큰 등록
@@ -83,10 +83,10 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 - **상품**: `/v1/seller/products/*` - 상품 CRUD
 - **주문**: `/v1/seller/orders/*` - 주문 관리
 - **피드**: `/v1/seller/feed/*` - 피드 CRUD
-- **채팅**: `/v1/seller/chat-room/*` - 채팅방 목록/메시지 조회
+- **채팅**: `/v1/seller/stores/:storeId/chats/*` - 목록(`?filter=reply|all`)·안 읽은 수·답할 수·규칙 동의·방·글·보내기·알림 끔·차단·신고, `orders/:orderId`(GET 방 찾기, POST 픽업 전 예약 손님에게 주문 카드와 함께 먼저 보내기). 손님이 보낸 글은 판매자 앱 푸시 "새 문의가 왔어요"(`data.path` = `/stores/:storeId/chats/:threadId`, 채팅 알림 끔·밤 9시~아침 8시 끄기·방 알림 끔이면 안 보냄)
 - **통계**: `/v1/seller/statistics/*` - 매출/주문 통계
 - **FCM 토큰(판매자 앱)**: `/v1/seller/fcm-tokens` - 판매자 앱 푸시 토큰 등록·해제(빈 토큰) (POST), `/v1/seller/fcm-tokens/test` - 테스트 알림, 받은 기기 수를 돌려줌 (POST). 손님·자동 처리·관리자가 바꾼 주문 상태(새 예약신청, 입금완료, 손님 취소·환불 요청 등)는 판매자 앱으로도 푸시하고 `data.path`에 판매자 웹 주문 상세 경로를 담음(기획 I-48). 내용은 "상품 이름(여러 개면 개수) · 픽업 일시"(판매자 페이지 안 알림도 같음), 스토어가 둘 이상이면 제목 앞에 [스토어 이름]. 픽업 시각이 되어 픽업대기로 바뀐 것은 푸시하지 않음. 아침 요약: 매일 8시~11시 사이 한 번, 그날 픽업이 있는 스토어마다 "오늘 픽업 n건 / 첫 픽업 hh:mm"(`data.path` = 스토어 홈)
-- **알림**: `/v1/seller/notifications/*` - 알림 목록/설정(스토어별: 주문 알림 받기, 주문 알림 소리, 아침 요약 `morningSummaryEnabled`)
+- **알림**: `/v1/seller/notifications/*` - 알림 목록/설정(스토어별: 주문 알림 받기, 주문 알림 소리, 아침 요약 `morningSummaryEnabled`, 채팅 알림 `chatNotificationsEnabled`, 밤 채팅 알림 끄기 `chatQuietNight`)
 - **홈**: `/v1/seller/home/*` - 판매자 홈 대시보드
 - **마이페이지**: `/v1/seller/mypage/*` - 판매자 정보 조회/수정
 - **업로드**: `/v1/seller/uploads/file` - 파일 업로드 (POST, multipart/form-data)
@@ -99,14 +99,14 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 - **회원 관리**: `/v1/admin/member-management/*` - 소비자/판매자 회원 관리
 - **스토어 관리**: `/v1/admin/store-management/*`, `/v1/admin/store-entry-request-management/*`
 - **견적 요청**: `/v1/admin/quote-request-management/*` - 견적 요청 목록(견적 받는 중·가게 연결·마감)·상세
+- **채팅**: `/v1/admin/chat/summary`(매일 브리핑용: 처리할 신고·스토어가 답하지 않은 방·최근 24시간 글 수, 대화 내용 없음), `/v1/admin/chat/reports`(최근 100개, `?status=OPEN|RESOLVED`), `reports/:id`(최근 대화 50개 원문, 열면 열람 기록 `chat_access_logs`), PATCH `reports/:id`(`HIDE_MESSAGE` + `messageIds` 고른 메시지 가리기 / `NONE`)
 - **관리자 계정 관리**: `/v1/admin/admin-management/*` - 관리자 계정/권한 관리
 - **판매자 세그먼트 관리**: `/v1/admin/seller-segment-management/*`
 - **콘텐츠 관리**: `/v1/admin/home-banners/*`, `/v1/admin/notices/*`, `/v1/admin/qnas/*`, `/v1/admin/terms/*`
 
 ### WebSocket
 
-- **채팅**: `ws://localhost:3000/` (namespace: `/`) - 채팅 메시지
-- **알림**: `ws://localhost:3000/notifications` (namespace: `/notifications`) - 실시간 주문 알림 (Seller + Consumer)
+- **알림**: `ws://localhost:3000/notifications` (namespace: `/notifications`) - 실시간 주문 알림 (Seller + Consumer), 채팅 신호 `chat_updated` `{ threadId, storeId, senderName?, muted? }`(글 내용 없음)
 
 ### API 문서
 

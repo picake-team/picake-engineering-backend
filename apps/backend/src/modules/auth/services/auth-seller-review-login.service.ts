@@ -20,12 +20,14 @@ import { ReviewLoginRequestDto } from "@apps/backend/modules/auth/dto/auth-revie
 import {
   REVIEW_SAMPLE_PRODUCTS,
   SELLER_REVIEW_SAMPLE,
+  SELLER_REVIEW_SAMPLE_CHAT,
   buildReviewProductCreateData,
   buildReviewSampleOrders,
   buildReviewStoreCreateData,
 } from "@apps/backend/modules/auth/utils/seller-review-sample.util";
 import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
+import { CHAT_RULES_VERSION } from "@apps/backend/modules/chat/constants/chat.constants";
 
 const SAMPLE_PRODUCT_SELECT = {
   id: true,
@@ -73,6 +75,7 @@ export class AuthSellerReviewLoginService {
           consumerId: consumer.id,
           products,
         });
+        await this.resetSampleChat(tx, { now, store, consumerId: consumer.id });
         await this.recordTermsAgreements(tx, seller.id);
         return seller.id;
       },
@@ -197,6 +200,68 @@ export class AuthSellerReviewLoginService {
     for (const data of orders) {
       await tx.order.create({ data });
     }
+  }
+
+  /**
+   * 예시 대화를 처음 모양으로 되돌린다(기획 I-11). 예시 손님과의 방을 지우고(글·신고 함께) 다시 만든다.
+   * 손님 알림·소켓 신호는 보내지 않는다.
+   */
+  private async resetSampleChat(
+    tx: Prisma.TransactionClient,
+    params: { now: Date; store: { id: string; name: string }; consumerId: string },
+  ): Promise<void> {
+    const { now, store, consumerId } = params;
+    const shop = await tx.shop.upsert({
+      where: { storeId: store.id },
+      create: { storeId: store.id, name: store.name.slice(0, 100) },
+      update: {},
+      select: { id: true },
+    });
+    await tx.chatThread.deleteMany({ where: { consumerId, shopId: shop.id } });
+    const at = (m: number) => new Date(now.getTime() - m * 60_000);
+    const last = SELLER_REVIEW_SAMPLE_CHAT[SELLER_REVIEW_SAMPLE_CHAT.length - 1];
+    const lastConsumer = [...SELLER_REVIEW_SAMPLE_CHAT]
+      .reverse()
+      .find((m) => m.sender === "CONSUMER");
+    const lastShop = [...SELLER_REVIEW_SAMPLE_CHAT].reverse().find((m) => m.sender === "SHOP");
+    const thread = await tx.chatThread.create({
+      data: {
+        consumerId,
+        shopId: shop.id,
+        lastMessageAt: at(last.minutesAgo),
+        lastMessageSender: last.sender,
+        lastMessagePreview: last.text.slice(0, 40),
+        lastConsumerMessageAt: lastConsumer ? at(lastConsumer.minutesAgo) : null,
+        consumerReadAt: at(last.minutesAgo),
+        shopReadAt: lastShop ? at(lastShop.minutesAgo) : null,
+      },
+      select: { id: true },
+    });
+    for (const [i, m] of SELLER_REVIEW_SAMPLE_CHAT.entries()) {
+      await tx.chatMessage.create({
+        data: {
+          threadId: thread.id,
+          clientId: `review-sample-${i}`,
+          sender: m.sender,
+          kind: "TEXT",
+          text: m.text,
+          maskedText: m.text,
+          createdAt: at(m.minutesAgo),
+        },
+      });
+    }
+    // 예시 손님은 규칙에 동의한 것으로(손님 글이 규칙 동의 없이 있는 모양이 되지 않게)
+    await tx.chatRuleAgreement.upsert({
+      where: {
+        actorType_actorId_version: {
+          actorType: "CONSUMER",
+          actorId: consumerId,
+          version: CHAT_RULES_VERSION,
+        },
+      },
+      create: { actorType: "CONSUMER", actorId: consumerId, version: CHAT_RULES_VERSION },
+      update: {},
+    });
   }
 
   /** 마이페이지 약관이 "미동의"로 보이지 않게 지금 판매자 약관에 동의한 것으로 둔다 */

@@ -1,98 +1,198 @@
-import { Controller, Get, Post, Param, Request, Query, HttpCode, HttpStatus } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiExtraModels } from "@nestjs/swagger";
-import { ChatService } from "@apps/backend/modules/chat/chat.service";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  Request,
+} from "@nestjs/common";
+import { ApiExtraModels, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
-import { createMessageObject } from "@apps/backend/common/utils/message.util";
-import { AuthenticatedUser, JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
+import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
 import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
-import { CHAT_ERROR_MESSAGES } from "@apps/backend/modules/chat/constants/chat.constants";
+import { ChatService } from "@apps/backend/modules/chat/services/chat.service";
 import {
-  ChatRoomListForSellerResponseDto,
-  ChatRoomForSellerResponseDto,
-} from "@apps/backend/modules/chat/dto/chat-room-list.dto";
-import { MessageListResponseDto } from "@apps/backend/modules/chat/dto/chat-message-list.dto";
-import { PaginationRequestDto } from "@apps/backend/common/dto/pagination-request.dto";
+  ChatExistingThreadDto,
+  ChatListQueryDto,
+  ChatMessagesDto,
+  ChatMessagesQueryDto,
+  ChatReportDto,
+  ChatRulesAgreeDto,
+  ChatSendDto,
+  ChatSendResultDto,
+  ChatThreadDetailDto,
+  ChatThreadListDto,
+  ChatToggleDto,
+  ChatUnreadDto,
+} from "@apps/backend/modules/chat/dto/chat.dto";
+
+const POLL_THROTTLE = { default: { limit: 300, ttl: 60_000 } };
 
 /**
- * 채팅 관련 컨트롤러 (판매자용)
- * 채팅방과 메시지 관리를 통합적으로 처리합니다.
+ * 사장님 채팅(기획 I-11) — 스토어마다. 가게는 먼저 말을 걸 수 없고,
+ * 손님 마지막 글 30일 안이거나 픽업 전 예약이 있을 때만 쓴다(주문 상세에서 먼저 열기 포함).
  */
 @ApiTags("채팅")
 @ApiExtraModels(
-  ChatRoomListForSellerResponseDto,
-  ChatRoomForSellerResponseDto,
-  MessageListResponseDto,
+  ChatThreadListDto,
+  ChatThreadDetailDto,
+  ChatMessagesDto,
+  ChatSendResultDto,
+  ChatUnreadDto,
+  ChatExistingThreadDto,
 )
-@Controller(`${AUDIENCE.SELLER}/chat-room`)
-@Auth({ isPublic: false, audiences: ["seller"] }) // 판매자 JWT(aud: seller)만 허용
+@Controller(`${AUDIENCE.SELLER}/stores/:storeId/chats`)
+@Auth({ isPublic: false, audiences: ["seller"] })
 export class SellerChatController {
   constructor(private readonly chatService: ChatService) {}
 
-  /**
-   * 스토어의 채팅방 목록 조회 API
-   * 특정 스토어의 모든 채팅방 목록을 조회합니다.
-   */
-  @Get("store/:storeId")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: "(로그인 필요) 스토어의 채팅방 목록 조회",
-    description:
-      "특정 스토어의 모든 채팅방 목록을 조회합니다. 마지막 메시지 시간 기준으로 정렬됩니다. 자신이 소유한 스토어만 조회 가능합니다. 페이지네이션을 지원합니다.",
-  })
-  @SwaggerResponse(200, { dataDto: ChatRoomListForSellerResponseDto })
+  @Get()
+  @ApiOperation({ summary: "채팅 목록(filter=reply: 답할 것 / all: 전체)" })
+  @SwaggerResponse(200, { dataDto: ChatThreadListDto })
   @SwaggerAuthResponses()
-  @SwaggerResponse(403, {
-    dataExample: createMessageObject(CHAT_ERROR_MESSAGES.STORE_NOT_OWNED),
-  })
-  @SwaggerResponse(404, { dataExample: createMessageObject(CHAT_ERROR_MESSAGES.STORE_NOT_FOUND) })
-  async getChatRoomsByStore(
+  async list(
     @Param("storeId") storeId: string,
+    @Query() query: ChatListQueryDto,
     @Request() req: { user: JwtVerifiedPayload },
-    @Query() query: PaginationRequestDto,
   ) {
-    return await this.chatService.getChatRoomsByStoreIdForSeller(storeId, req.user.sub, query);
+    return this.chatService.listForStore(req.user.sub, storeId, query);
   }
 
-  /**
-   * 채팅방 읽음 처리 API (판매자용)
-   * 채팅방 입장 시 판매자의 읽지 않은 메시지 수를 초기화합니다.
-   */
-  @Post(":roomId/read")
-  @HttpCode(HttpStatus.OK)
+  @Get("unread")
+  @Throttle(POLL_THROTTLE)
   @ApiOperation({
-    summary: "(로그인 필요) 채팅방 읽음 처리",
-    description: "채팅방 입장 시 판매자의 읽지 않은 메시지 수를 0으로 초기화합니다.",
+    summary: "안 읽은 방·답할 방 수(아래 탭 숫자, 홈 '답할 채팅'). 닫혀 있으면 open=false",
   })
-  @SwaggerResponse(200, { dataExample: { success: true } })
+  @SwaggerResponse(200, { dataDto: ChatUnreadDto })
   @SwaggerAuthResponses()
-  @SwaggerResponse(404, {
-    dataExample: createMessageObject(CHAT_ERROR_MESSAGES.CHAT_ROOM_NOT_FOUND),
-  })
-  async markAsRead(@Param("roomId") roomId: string, @Request() req: { user: AuthenticatedUser }) {
-    return await this.chatService.markChatRoomAsRead(roomId, req.user.sub, "store");
+  async unread(@Param("storeId") storeId: string, @Request() req: { user: JwtVerifiedPayload }) {
+    return this.chatService.unreadForStore(req.user.sub, storeId);
   }
 
-  /**
-   * 메시지 목록 조회 API
-   */
-  @Get(":roomId/messages")
+  @Post("rules/agree")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: "(로그인 필요) 메시지 목록 조회",
-    description: "채팅방의 메시지 목록을 조회합니다. 페이지 기반 페이지네이션을 지원합니다.",
-  })
-  @SwaggerResponse(200, { dataDto: MessageListResponseDto })
+  @ApiOperation({ summary: "채팅 이용 규칙 동의(사장님, 처음 보낼 때 한 번)" })
   @SwaggerAuthResponses()
-  @SwaggerResponse(404, {
-    dataExample: createMessageObject(CHAT_ERROR_MESSAGES.CHAT_ROOM_NOT_FOUND),
+  async agree(@Body() dto: ChatRulesAgreeDto, @Request() req: { user: JwtVerifiedPayload }) {
+    return this.chatService.agreeRules("SELLER", req.user.sub, dto.version);
+  }
+
+  @Get("orders/:orderId")
+  @ApiOperation({
+    summary: "주문 상세 '채팅': 이 주문 손님과의 방(있으면)과 먼저 쓸 수 있는지(픽업 전 예약)",
   })
-  async getMessages(
-    @Param("roomId") roomId: string,
-    @Query() query: PaginationRequestDto,
-    @Request() req: { user: AuthenticatedUser },
+  @SwaggerResponse(200, { dataDto: ChatExistingThreadDto })
+  @SwaggerAuthResponses()
+  async byOrder(
+    @Param("storeId") storeId: string,
+    @Param("orderId") orderId: string,
+    @Request() req: { user: JwtVerifiedPayload },
   ) {
-    return await this.chatService.getMessages(roomId, req.user.sub, "store", query);
+    return this.chatService.byOrderForStore(req.user.sub, storeId, orderId);
+  }
+
+  @Post("orders/:orderId/messages")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: "픽업 전 예약 손님에게 먼저 보내기(방이 없으면 생김, 주문 카드가 한 번 붙음)",
+  })
+  @SwaggerResponse(201, { dataDto: ChatSendResultDto })
+  @SwaggerAuthResponses()
+  async startFromOrder(
+    @Param("storeId") storeId: string,
+    @Param("orderId") orderId: string,
+    @Body() dto: ChatSendDto,
+    @Request() req: { user: JwtVerifiedPayload },
+  ) {
+    return this.chatService.startFromOrderForStore(req.user.sub, storeId, orderId, dto);
+  }
+
+  @Get(":threadId")
+  @ApiOperation({ summary: "채팅방 정보(쓸 수 있나, 손님이 읽은 때)" })
+  @SwaggerResponse(200, { dataDto: ChatThreadDetailDto })
+  @SwaggerAuthResponses()
+  async thread(
+    @Param("storeId") storeId: string,
+    @Param("threadId") threadId: string,
+    @Request() req: { user: JwtVerifiedPayload },
+  ) {
+    return this.chatService.threadForStore(req.user.sub, storeId, threadId);
+  }
+
+  @Get(":threadId/messages")
+  @Throttle(POLL_THROTTLE)
+  @ApiOperation({
+    summary: "글 가져오기(after: 새 글 / before: 위로 더 보기, markRead=true면 읽음)",
+  })
+  @SwaggerResponse(200, { dataDto: ChatMessagesDto })
+  @SwaggerAuthResponses()
+  async messages(
+    @Param("storeId") storeId: string,
+    @Param("threadId") threadId: string,
+    @Query() query: ChatMessagesQueryDto,
+    @Request() req: { user: JwtVerifiedPayload },
+  ) {
+    return this.chatService.messagesForStore(req.user.sub, storeId, threadId, query);
+  }
+
+  @Post(":threadId/messages")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: "보내기" })
+  @SwaggerResponse(201, { dataDto: ChatSendResultDto })
+  @SwaggerAuthResponses()
+  async send(
+    @Param("storeId") storeId: string,
+    @Param("threadId") threadId: string,
+    @Body() dto: ChatSendDto,
+    @Request() req: { user: JwtVerifiedPayload },
+  ) {
+    return this.chatService.sendForStore(req.user.sub, storeId, threadId, dto);
+  }
+
+  @Post(":threadId/mute")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "이 채팅 알림 끄기·켜기(value=true면 끔)" })
+  @SwaggerResponse(200, { dataDto: ChatThreadDetailDto })
+  @SwaggerAuthResponses()
+  async mute(
+    @Param("storeId") storeId: string,
+    @Param("threadId") threadId: string,
+    @Body() dto: ChatToggleDto,
+    @Request() req: { user: JwtVerifiedPayload },
+  ) {
+    return this.chatService.setStoreFlag(req.user.sub, storeId, threadId, "mute", dto.value);
+  }
+
+  @Post(":threadId/block")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "손님 차단·풀기(value=true면 차단)" })
+  @SwaggerResponse(200, { dataDto: ChatThreadDetailDto })
+  @SwaggerAuthResponses()
+  async block(
+    @Param("storeId") storeId: string,
+    @Param("threadId") threadId: string,
+    @Body() dto: ChatToggleDto,
+    @Request() req: { user: JwtVerifiedPayload },
+  ) {
+    return this.chatService.setStoreFlag(req.user.sub, storeId, threadId, "block", dto.value);
+  }
+
+  @Post(":threadId/reports")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: "신고(운영자에게 바로 알림, 24시간 안 확인)" })
+  @SwaggerAuthResponses()
+  async report(
+    @Param("storeId") storeId: string,
+    @Param("threadId") threadId: string,
+    @Body() dto: ChatReportDto,
+    @Request() req: { user: JwtVerifiedPayload },
+  ) {
+    return this.chatService.reportForStore(req.user.sub, storeId, threadId, dto);
   }
 }
