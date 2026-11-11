@@ -1,3 +1,4 @@
+import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
@@ -55,6 +56,7 @@ describe("AuthKakaoOauthService.consumerKakaoLoginWithCode", () => {
         { provide: ConfigService, useValue: configServiceMock },
         { provide: AuthPhoneService, useValue: {} },
         { provide: TermsService, useValue: {} },
+        { provide: OpsAlertService, useValue: { notifyNewSeller: vi.fn() } },
       ],
     }).compile();
 
