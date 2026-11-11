@@ -1,4 +1,15 @@
-import { Controller, Get, Param, Query, HttpCode, HttpStatus, Request } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  HttpCode,
+  HttpStatus,
+  Request,
+} from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiExtraModels } from "@nestjs/swagger";
 import { StoreService } from "@apps/backend/modules/store/store.service";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
@@ -17,6 +28,8 @@ import {
 } from "@apps/backend/modules/store/dto/store-list.dto";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
 import { StoreRegionDepthsResponseDto } from "@apps/backend/modules/store/dto/store-region-list.dto";
+import { StoreLinkStatsService } from "@apps/backend/modules/store/services/store-link-stats.service";
+import { RecordStoreLinkVisitRequestDto } from "@apps/backend/modules/store/dto/store-link-stats.dto";
 
 /**
  * 스토어 관련 컨트롤러
@@ -32,7 +45,10 @@ import { StoreRegionDepthsResponseDto } from "@apps/backend/modules/store/dto/st
 @Controller(`${AUDIENCE.CONSUMER}/store`)
 @Auth({ isOptionalPublic: true, audiences: ["consumer"] }) // 선택적 인증(비로그인 사용자도 접근 가능) - 구매자 JWT(aud: user)만 허용
 export class ConsumerStoreController {
-  constructor(private readonly storeService: StoreService) {}
+  constructor(
+    private readonly storeService: StoreService,
+    private readonly storeLinkStatsService: StoreLinkStatsService,
+  ) {}
 
   /**
    * 스토어 지역 depth 정보 조회 API
@@ -90,5 +106,24 @@ export class ConsumerStoreController {
   @SwaggerResponse(404, { dataExample: createMessageObject(STORE_ERROR_MESSAGES.NOT_FOUND) })
   async getStoreDetail(@Param("id") id: string, @Request() req: { user?: JwtVerifiedPayload }) {
     return await this.storeService.getStoreByIdForUser(id, req.user);
+  }
+
+  /**
+   * 링크 방문 남기기 API (기획 I-45 링크 효과)
+   * 사장님이 보낸 가게·상품 링크(?from=link)로 손님 웹이 열리면 부른다. 로그인 없이 부르고 계정과 잇지 않는다.
+   */
+  @Post(":id/link-visits")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @ApiOperation({
+    summary: "링크 방문 남기기",
+    description:
+      "사장님이 보낸 가게·상품 링크(?from=link)로 들어온 손님 기기를 남깁니다. 기기 임의 값(UUID)만 받고 계정과 잇지 않습니다. 같은 기기는 가게마다 한 번만 세고 마지막 방문 시각만 바꿉니다.",
+  })
+  @SwaggerResponse(200, { dataExample: { id: "cmwaqqby400021yrymi335nkb" } })
+  @SwaggerResponse(404, { dataExample: createMessageObject(STORE_ERROR_MESSAGES.NOT_FOUND) })
+  async recordLinkVisit(@Param("id") id: string, @Body() body: RecordStoreLinkVisitRequestDto) {
+    await this.storeLinkStatsService.recordVisit(id, body.visitorKey);
+    return { id };
   }
 }
