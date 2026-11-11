@@ -1,3 +1,4 @@
+import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
@@ -55,6 +56,7 @@ describe("AuthGoogleOauthService.consumerGoogleLoginWithCode", () => {
         { provide: ConfigService, useValue: configServiceMock },
         { provide: AuthPhoneService, useValue: {} },
         { provide: TermsService, useValue: {} },
+        { provide: OpsAlertService, useValue: { notifyNewSeller: vi.fn() } },
       ],
     }).compile();
 
@@ -173,6 +175,7 @@ describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone — 이미 가�
         { provide: ConfigService, useValue: { get: vi.fn(() => "x") } },
         { provide: AuthPhoneService, useValue: phoneServiceMock },
         { provide: TermsService, useValue: {} },
+        { provide: OpsAlertService, useValue: { notifyNewSeller: vi.fn() } },
       ],
     }).compile();
     service = moduleRef.get(AuthGoogleOauthService);

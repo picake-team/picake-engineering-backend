@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { OpsAlertModule } from "@apps/backend/modules/ops-alert/ops-alert.module";
 import { StoreService } from "@apps/backend/modules/store/store.service";
 import { StoreCreateService } from "@apps/backend/modules/store/services/store-create.service";
 import { StoreListService } from "@apps/backend/modules/store/services/store-list.service";
@@ -15,7 +16,7 @@ import { StoreLinkStatsService } from "@apps/backend/modules/store/services/stor
  * 스토어 관련 모듈
  */
 @Module({
-  imports: [BusinessModule, DatabaseModule, LikeModule, NaverPlaceModule],
+  imports: [BusinessModule, DatabaseModule, LikeModule, NaverPlaceModule, OpsAlertModule],
   providers: [
     StoreService,
     StoreCreateService,
