@@ -1,3 +1,8 @@
+import { ChatModule } from "@apps/backend/modules/chat/chat.module";
+import {
+  ConsumerChatController,
+  ConsumerChatStatusController,
+} from "@apps/backend/apis/consumer/controllers/chat.controller";
 import { Module } from "@nestjs/common";
 import { ConsumerAuthController } from "@apps/backend/apis/consumer/controllers/auth.controller";
 import { ConsumerProductController } from "@apps/backend/apis/consumer/controllers/product.controller";
@@ -57,7 +62,7 @@ import { ConsumerQuoteRequestController } from "@apps/backend/apis/consumer/cont
     QnaModule,
     StoreEntryRequestModule,
     QuoteRequestModule,
-    // ChatModule,
+    ChatModule,
   ],
   controllers: [
     ConsumerUploadController,
@@ -77,7 +82,8 @@ import { ConsumerQuoteRequestController } from "@apps/backend/apis/consumer/cont
     ConsumerQnaController,
     ConsumerStoreEntryRequestController,
     ConsumerQuoteRequestController,
-    // ConsumerChatController,
+    ConsumerChatStatusController,
+    ConsumerChatController,
   ],
 })
 export class ConsumerApiModule {}

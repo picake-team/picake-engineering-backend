@@ -22,6 +22,14 @@ import type {
   UserNotificationItemDto,
 } from "@apps/backend/modules/notification/services/notification.service";
 
+/** 채팅 신호(기획 I-11). 내용 없이 어느 방·스토어인지와 보낸 쪽 이름만 */
+export interface ChatUpdatedSocketPayload {
+  threadId: string;
+  storeId: string | null;
+  /** 받는 사람이 판매자일 때 토스트에 쓰는 손님 닉네임(글 내용은 아님) */
+  senderName?: string;
+}
+
 /**
  * 실시간 알림 (namespace `/notifications`)
  * - SELLER: `seller_notification` (판매자 웹)
@@ -157,6 +165,20 @@ export class NotificationGateway
     }
     sockets.forEach((socketId) => {
       this.server.to(socketId).emit("seller_notification", item);
+    });
+  }
+
+  /**
+   * 채팅 "새 글 있음" 신호(기획 I-11). 글 내용은 싣지 않고, 받으면 웹이 채팅 주소로 다시 가져온다.
+   * 같은 계정의 여러 기기(PC·폰)에 모두 보낸다.
+   */
+  emitChatUpdated(userId: string, payload: ChatUpdatedSocketPayload): void {
+    const sockets = this.connectedUsers.get(userId);
+    if (!sockets || sockets.size === 0) {
+      return;
+    }
+    sockets.forEach((socketId) => {
+      this.server.to(socketId).emit("chat_updated", payload);
     });
   }
 

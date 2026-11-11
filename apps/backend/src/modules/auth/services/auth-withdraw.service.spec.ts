@@ -14,12 +14,16 @@ import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-
 
 import { AuthWithdrawService } from "./auth-withdraw.service";
 import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
+import { ChatCleanupService } from "@apps/backend/modules/chat/services/chat-cleanup.service";
 
 describe("AuthWithdrawService.withdraw", () => {
   const prismaMock = mockDeep<PrismaService>();
   const authAppleOauthServiceMock = { revokeToken: vi.fn() };
   const quoteCleanupMock = {
     deleteAllForConsumer: vi.fn().mockResolvedValue({ requests: 0, photos: 0 }),
+  };
+  const chatCleanupMock = {
+    deleteAllForConsumer: vi.fn().mockResolvedValue({ messages: 0, photos: 0 }),
   };
 
   let service: AuthWithdrawService;
@@ -34,6 +38,7 @@ describe("AuthWithdrawService.withdraw", () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuthAppleOauthService, useValue: authAppleOauthServiceMock },
         { provide: QuoteRequestCleanupService, useValue: quoteCleanupMock },
+        { provide: ChatCleanupService, useValue: chatCleanupMock },
       ],
     }).compile();
 
@@ -51,6 +56,8 @@ describe("AuthWithdrawService.withdraw", () => {
       await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
 
       expect(quoteCleanupMock.deleteAllForConsumer).toHaveBeenCalledWith("consumer-1");
+      // 채팅 글·사진도 탈퇴 즉시 지운다(기획 I-11)
+      expect(chatCleanupMock.deleteAllForConsumer).toHaveBeenCalledWith("consumer-1");
       expect(prismaMock.consumer.update).toHaveBeenCalled();
     });
 
@@ -66,6 +73,7 @@ describe("AuthWithdrawService.withdraw", () => {
         service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유"),
       ).rejects.toThrow();
       expect(quoteCleanupMock.deleteAllForConsumer).not.toHaveBeenCalled();
+      expect(chatCleanupMock.deleteAllForConsumer).not.toHaveBeenCalled();
     });
 
     it("계정이 없으면 NotFoundException을 던진다", async () => {

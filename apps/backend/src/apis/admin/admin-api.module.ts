@@ -1,3 +1,5 @@
+import { ChatModule } from "@apps/backend/modules/chat/chat.module";
+import { AdminChatController } from "@apps/backend/apis/admin/controllers/chat-report.controller";
 import { Module } from "@nestjs/common";
 import { UploadModule } from "@apps/backend/modules/upload/upload.module";
 import { AuthModule } from "@apps/backend/modules/auth/auth.module";
@@ -52,6 +54,7 @@ import { AdminQuoteRequestManagementController } from "@apps/backend/apis/admin/
     StoreManagementModule,
     StoreEntryRequestModule,
     QuoteRequestModule,
+    ChatModule,
     SellerSegmentModule,
   ],
   controllers: [
@@ -70,6 +73,7 @@ import { AdminQuoteRequestManagementController } from "@apps/backend/apis/admin/
     AdminStoreManagementController,
     AdminStoreEntryRequestManagementController,
     AdminQuoteRequestManagementController,
+    AdminChatController,
     AdminSellerSegmentManagementController,
   ],
 })

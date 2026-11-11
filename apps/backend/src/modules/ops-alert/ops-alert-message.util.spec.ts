@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildChatReportMessage,
   buildNewSellerMessage,
   buildNewStoreEntryRequestMessage,
   buildNewStoreMessage,
@@ -59,5 +60,16 @@ describe("운영자 실시간 알림 문구 (I-56)", () => {
       "제과,베이커리",
       "3명",
     ]);
+  });
+
+  it("채팅 신고는 대화 내용 없이 사유·신고한 쪽과 관리자 신고 화면 링크만(I-11)", () => {
+    const m = buildChatReportMessage(
+      { id: "rep_1", reason: "FRAUD", reporter: "CONSUMER", createdAt: at },
+      ctx,
+    );
+    const e = m.embeds[0];
+    expect(e.title).toBe("채팅 신고 — 사기 의심");
+    expect(e.url).toBe("https://admin.picakes.com/chat-reports/rep_1");
+    expect(e.fields.map((f) => f.value)).toEqual(["사기가 의심돼요", "손님"]);
   });
 });

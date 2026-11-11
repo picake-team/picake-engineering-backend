@@ -252,6 +252,7 @@ describe("AuthSellerReviewLoginService (integration)", () => {
       {
         deleteAllForConsumer: vi.fn(),
       } as any,
+      { deleteAllForConsumer: vi.fn() } as any,
     );
     await withdrawService.withdraw(AUDIENCE.SELLER, before.seller!.id, "심사 확인");
 
