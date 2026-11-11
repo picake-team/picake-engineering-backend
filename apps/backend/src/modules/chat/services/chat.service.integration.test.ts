@@ -418,6 +418,44 @@ describe("채팅 (integration)", () => {
     expect(list.threads[0].lastMessagePreview).toBe("사진을 보냈어요");
   });
 
+  it("사장님 '답할 것'에는 지금 답할 수 있는 방만(차단·탈퇴·30일 지난 방은 빠짐)", async () => {
+    const { chat, prisma, consumer, store, seller } = await build();
+    await chat.agreeRules("CONSUMER", consumer.id, CHAT_RULES_VERSION);
+    const r = await chat.startForConsumer(consumer.id, {
+      storeId: store.id,
+      clientId: cid(),
+      text: "문의",
+    });
+    const count = async () => (await chat.unreadForStore(seller.id, store.id)).replyNeeded;
+    const listed = async () =>
+      (await chat.listForStore(seller.id, store.id, { filter: "reply" })).threads.length;
+    expect(await count()).toBe(1);
+    expect(await listed()).toBe(1);
+
+    await chat.setStoreFlag(seller.id, store.id, r.threadId, "block", true);
+    expect(await count()).toBe(0);
+    expect(await listed()).toBe(0);
+    await chat.setStoreFlag(seller.id, store.id, r.threadId, "block", false);
+
+    await prisma.chatThread.update({
+      where: { id: r.threadId },
+      data: { lastConsumerMessageAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) },
+    });
+    expect(await count()).toBe(0);
+    await prisma.chatThread.update({
+      where: { id: r.threadId },
+      data: { lastConsumerMessageAt: new Date() },
+    });
+    expect(await count()).toBe(1);
+
+    await prisma.consumer.update({ where: { id: consumer.id }, data: { withdrawnAt: new Date() } });
+    expect(await count()).toBe(0);
+    // "전체"에는 남는다
+    expect((await chat.listForStore(seller.id, store.id, { filter: "all" })).threads.length).toBe(
+      1,
+    );
+  });
+
   it("보관 기간: 마지막 글 3년 지난 방은 지우고, 신고 처리 1년이 안 됐거나 처리 중이면 남긴다", async () => {
     const { chat, cleanup, prisma, consumer, store, deleteFilesByUrl } = await build();
     await chat.agreeRules("CONSUMER", consumer.id, CHAT_RULES_VERSION);

@@ -786,6 +786,22 @@ export class ChatService {
     return t;
   }
 
+  /**
+   * "답할 것": 마지막 글이 손님 것이고 사장님이 지금 답할 수 있는 방(차단·탈퇴 아님, 손님 마지막 글 30일 안).
+   * 답할 수 없는 방이 숫자에 남아 줄지 않는 일을 막는다. 30일 지나도 픽업 전 예약으로 답할 수 있는 방은 "전체"에 있다
+   */
+  private replyNeededWhere(now: Date): Prisma.ChatThreadWhereInput {
+    return {
+      lastMessageSender: "CONSUMER",
+      blockedByShopAt: null,
+      blockedByConsumerAt: null,
+      consumer: { withdrawnAt: null },
+      lastConsumerMessageAt: {
+        gte: new Date(now.getTime() - CHAT_LIMITS.SHOP_WRITE_WINDOW_DAYS * 24 * 60 * 60 * 1000),
+      },
+    };
+  }
+
   async unreadForStore(sellerId: string, storeId: string): Promise<ChatUnreadDto> {
     await this.assertStoreOwner(sellerId, storeId);
     if (!(await this.open.isOpen())) return { open: false, unreadThreads: 0, replyNeeded: 0 };
@@ -798,10 +814,13 @@ export class ChatService {
         shopReadAt: true,
       },
     });
+    const replyNeeded = await this.prisma.chatThread.count({
+      where: { shop: { storeId }, ...this.replyNeededWhere(new Date()) },
+    });
     return {
       open: true,
       unreadThreads: rows.filter((r) => isUnreadFor("SHOP", r)).length,
-      replyNeeded: rows.length,
+      replyNeeded,
     };
   }
 
@@ -817,7 +836,7 @@ export class ChatService {
       where: {
         shop: { storeId },
         lastMessageAt: cursor && !Number.isNaN(cursor.getTime()) ? { lt: cursor } : { not: null },
-        ...(query.filter === "reply" ? { lastMessageSender: "CONSUMER" as const } : {}),
+        ...(query.filter === "reply" ? this.replyNeededWhere(new Date()) : {}),
       },
       orderBy: [{ lastMessageAt: "desc" }, { id: "desc" }],
       take: CHAT_LIMITS.PAGE_SIZE + 1,
