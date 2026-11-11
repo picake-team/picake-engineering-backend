@@ -158,6 +158,46 @@ describe("AuthSellerReviewLoginService (integration)", () => {
     ).toBe(true);
   });
 
+  it("예시 대화(기획 I-11): 손님 글로 끝나는 방 하나를 만들고, 심사관이 답하거나 차단해도 다시 로그인하면 처음 모양", async () => {
+    const prisma = getTestPrisma();
+    const { service } = buildService();
+    await service.sellerReviewLogin({ code: TEST_CODE });
+    const { stores } = await reviewData();
+    const threads = () =>
+      prisma.chatThread.findMany({
+        where: { shop: { storeId: stores[0]!.id } },
+        include: { messages: { orderBy: { createdAt: "asc" } } },
+      });
+    const first = await threads();
+    expect(first).toHaveLength(1);
+    expect(first[0]!.messages.map((m) => m.sender)).toEqual(["CONSUMER", "SHOP", "CONSUMER"]);
+    expect(first[0]!.lastMessageSender).toBe("CONSUMER");
+    expect(first[0]!.blockedByShopAt).toBeNull();
+
+    // 심사관이 답하고 차단한 상황
+    await prisma.chatMessage.create({
+      data: {
+        threadId: first[0]!.id,
+        clientId: "reviewer-1",
+        sender: "SHOP",
+        kind: "TEXT",
+        text: "네",
+      },
+    });
+    await prisma.chatThread.update({
+      where: { id: first[0]!.id },
+      data: { blockedByShopAt: new Date(), lastMessageSender: "SHOP" },
+    });
+
+    await service.sellerReviewLogin({ code: TEST_CODE });
+    const again = await threads();
+    expect(again).toHaveLength(1);
+    expect(again[0]!.id).not.toBe(first[0]!.id);
+    expect(again[0]!.messages).toHaveLength(3);
+    expect(again[0]!.blockedByShopAt).toBeNull();
+    expect(again[0]!.lastMessageSender).toBe("CONSUMER");
+  });
+
   it("지운 예시 상품은 다시 만든다", async () => {
     const prisma = getTestPrisma();
     const { service } = buildService();
