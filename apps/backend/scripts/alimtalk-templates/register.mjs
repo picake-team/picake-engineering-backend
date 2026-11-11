@@ -110,8 +110,12 @@ for (const t of existing.filter((e) => e.channelId === SOLAPI_PFID)) {
   log("```");
   log(t.content ?? "");
   log("```");
-  log(`버튼: ${(t.buttons ?? []).map((b) => `[${b.buttonName}] ${b.buttonType} ${b.linkMo ?? ""}`).join(", ") || "없음"}`);
-  log(`강조: ${t.emphasizeType ?? "-"} / ${t.emphasizeTitle ?? "-"} / ${t.emphasizeSubtitle ?? "-"}, 메시지 유형: ${t.messageType ?? "-"}`);
+  log(
+    `버튼: ${(t.buttons ?? []).map((b) => `[${b.buttonName}] ${b.buttonType} ${b.linkMo ?? ""}`).join(", ") || "없음"}`,
+  );
+  log(
+    `강조: ${t.emphasizeType ?? "-"} / ${t.emphasizeTitle ?? "-"} / ${t.emphasizeSubtitle ?? "-"}, 메시지 유형: ${t.messageType ?? "-"}`,
+  );
   log("</details>");
   log("");
 }

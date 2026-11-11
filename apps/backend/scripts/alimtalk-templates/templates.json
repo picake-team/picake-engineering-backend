@@ -38,6 +38,44 @@
           "targetOut": true
         }
       ]
+    },
+    {
+      "key": "CONFIRMED_V2",
+      "name": "예약확정(판매자가 변경한 상태, 픽업 전날 안내 문구)",
+      "categoryCode": "002003",
+      "messageType": "BA",
+      "emphasizeType": "TEXT",
+      "emphasizeTitle": "예약 확정",
+      "emphasizeSubtitle": "picake",
+      "content": "안녕하세요 #{고객명}님,\n#{스토어명} 예약이 확정되었습니다.\n\n예약번호 : #{주문번호}\n상품명 : #{상품명}\n결제금액 : #{결제금액}\n픽업일시 : #{픽업일시}\n픽업장소 : #{픽업주소}\n\n픽업까지 하루 넘게 남았다면 픽업 전날 안내 알림을 한 번 더 보내드립니다.\n자세한 내용은 아래 버튼에서 확인하실 수 있습니다.",
+      "buttons": [
+        {
+          "buttonType": "WL",
+          "buttonName": "주문 상세보기",
+          "linkMo": "https://#{도메인}/order/#{주문ID}",
+          "linkPc": "https://#{도메인}/order/#{주문ID}",
+          "targetOut": true
+        }
+      ]
+    },
+    {
+      "key": "CANCEL_REFUND_PENDING_BY_ADMIN",
+      "name": "취소환불대기(취소된 주문의 입금이 확인되어 운영자가 되돌린 상태)",
+      "categoryCode": "002003",
+      "messageType": "BA",
+      "emphasizeType": "TEXT",
+      "emphasizeTitle": "환불 진행 안내",
+      "emphasizeSubtitle": "picake",
+      "content": "안녕하세요 #{고객명}님,\n취소된 #{스토어명} 예약 건의 입금이 확인되어 환불을 진행합니다.\n\n예약번호 : #{주문번호}\n상품명 : #{상품명}\n결제금액 : #{결제금액}\n\n환불받으실 계좌를 아직 알려 주지 않으셨다면 아래 버튼에서 입력해 주세요.\n계좌를 확인한 뒤 스토어에서 고객님의 계좌로 직접 환불 입금해 드릴 예정입니다.\n환불이 완료되면 알림톡으로 한 번 더 안내해 드리겠습니다.",
+      "buttons": [
+        {
+          "buttonType": "WL",
+          "buttonName": "주문 상세보기",
+          "linkMo": "https://#{도메인}/order/#{주문ID}",
+          "linkPc": "https://#{도메인}/order/#{주문ID}",
+          "targetOut": true
+        }
+      ]
     }
   ],
   "inspectionComment": "손님이 Picake에서 직접 보낸 케이크 견적 요청에 대해, 가게 견적이 도착했거나 견적 없이 마감되었을 때 요청한 손님 본인에게만 보내는 안내입니다. 광고 내용은 없습니다."

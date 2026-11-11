@@ -13,6 +13,7 @@
  *  6. 취소완료(입금 마감 초과 자동)        → CANCEL_COMPLETED_PAYMENT_EXPIRED
  *  7. 취소완료(판매자 취소)               → CANCEL_COMPLETED_BY_SELLER
  *  8. 취소환불대기(판매자 환불 진행)       → CANCEL_REFUND_PENDING_BY_SELLER
+ *  8-1. 취소환불대기(운영자가 취소완료를 되돌림, 입금 확인) → CANCEL_REFUND_PENDING_BY_ADMIN
  *  9. 취소환불완료(판매자 환불 완료)       → CANCEL_REFUND_COMPLETED
  * 10. 재입금안내(입금 마감 3시간 전 자동)   → PAYMENT_REMINDER
  */
@@ -33,6 +34,12 @@ export const USER_ORDER_ALIMTALK_TEMPLATE_IDS = {
   CANCEL_COMPLETED_BY_SELLER: "KA01TP260709151146942Qy7LHpaqUCO",
   /** 템플릿8 취소환불대기: 판매자 환불 진행 안내 */
   CANCEL_REFUND_PENDING_BY_SELLER: "KA01TP260709152017983qyEZLcjRAe4",
+  /**
+   * 템플릿8-1 취소환불대기: 운영자가 취소된 주문의 입금을 확인해 되돌림(관리자 환불 누락 관리, F-46).
+   * 템플릿8은 "스토어 사정으로 취소"라 이 경우와 맞지 않아 따로 둔다(기획 I-37, 2026-11-11).
+   * 카카오 검수 승인 뒤 ID를 넣는다(scripts/alimtalk-templates/templates.json의 CANCEL_REFUND_PENDING_BY_ADMIN). 비어 있으면 보내지 않는다
+   */
+  CANCEL_REFUND_PENDING_BY_ADMIN: "",
   /** 템플릿9 취소환불완료 */
   CANCEL_REFUND_COMPLETED: "KA01TP260709152105867mWUzCUiR1E8",
   /** 템플릿10 재입금안내: 입금 마감 3시간 전 안내 (30분 전 2차 안내도 동일 템플릿 재사용) */
