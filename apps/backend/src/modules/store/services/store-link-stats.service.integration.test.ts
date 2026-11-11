@@ -74,6 +74,36 @@ describe("링크 효과 (integration)", () => {
     await expect(service.getStatsForSeller(store.id, other)).rejects.toThrow(ForbiddenException);
   });
 
+  it("30일 지난 방문 기록은 지우고, 최근 것과 예약 표시는 남긴다", async () => {
+    const { prisma, store, service } = await setup();
+    const now = new Date();
+    const old = new Date(now.getTime() - 31 * DAY);
+    await prisma.storeLinkVisit.create({
+      data: {
+        storeId: store.id,
+        visitorKey: randomUUID(),
+        firstVisitedAt: old,
+        lastVisitedAt: old,
+      },
+    });
+    await service.recordVisit(store.id, randomUUID());
+    const consumer = await createTestConsumer(prisma);
+    const product = await createTestProduct(prisma, store.id);
+    await createTestOrder(
+      prisma,
+      { consumerId: consumer.id, productId: product.id, storeId: store.id },
+      { entrySource: OrderEntrySource.STORE_LINK, createdAt: old },
+    );
+
+    expect(await service.deleteExpiredVisits(now)).toBe(1);
+    expect(await prisma.storeLinkVisit.count({ where: { storeId: store.id } })).toBe(1);
+    expect(
+      await prisma.order.count({
+        where: { storeId: store.id, entrySource: OrderEntrySource.STORE_LINK },
+      }),
+    ).toBe(1);
+  });
+
   it("없는 가게로는 방문을 남기지 않는다", async () => {
     const { service } = await setup();
     await expect(service.recordVisit("no-such-store", randomUUID())).rejects.toThrow(
