@@ -17,6 +17,6 @@ import { SolapiModule } from "@apps/backend/modules/solapi/solapi.module";
 @Module({
   imports: [DatabaseModule, JwtModule, ConfigModule, FcmModule, SolapiModule],
   providers: [NotificationService, NotificationGateway, NotificationOrderDispatchService],
-  exports: [NotificationService, NotificationOrderDispatchService],
+  exports: [NotificationService, NotificationOrderDispatchService, NotificationGateway],
 })
 export class NotificationModule {}

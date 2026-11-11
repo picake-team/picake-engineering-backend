@@ -4,9 +4,11 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { isProduction } from "@apps/backend/common/utils/environment.util";
 import {
+  buildChatReportMessage,
   buildNewSellerMessage,
   buildNewStoreEntryRequestMessage,
   buildNewStoreMessage,
+  type ChatReportAlert,
   type NewSellerAlert,
   type NewStoreAlert,
   type NewStoreEntryRequestAlert,
@@ -34,6 +36,10 @@ export class OpsAlertService {
     return this.send("new-store-entry-request", (ctx) =>
       buildNewStoreEntryRequestMessage(req, ctx),
     );
+  }
+
+  notifyChatReport(report: ChatReportAlert): Promise<void> {
+    return this.send("chat-report", (ctx) => buildChatReportMessage(report, ctx));
   }
 
   private async send(kind: string, build: (ctx: OpsAlertContext) => object): Promise<void> {

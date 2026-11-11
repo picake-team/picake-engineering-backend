@@ -1,3 +1,5 @@
+import { ChatModule } from "@apps/backend/modules/chat/chat.module";
+import { SellerChatController } from "@apps/backend/apis/seller/controllers/chat.controller";
 import { Module } from "@nestjs/common";
 import { AuthModule } from "@apps/backend/modules/auth/auth.module";
 import { ProductModule } from "@apps/backend/modules/product/product.module";
@@ -50,7 +52,7 @@ import { SellerFcmTokenController } from "@apps/backend/apis/seller/controllers/
     NaverPlaceModule,
     ProductNaverModule,
     FcmModule,
-    // ChatModule,
+    ChatModule,
   ],
   controllers: [
     SellerFcmTokenController,
@@ -68,7 +70,7 @@ import { SellerFcmTokenController } from "@apps/backend/apis/seller/controllers/
     SellerTermsController,
     SellerNaverPlaceController,
     SellerProductNaverController,
-    // SellerChatController,
+    SellerChatController,
   ],
 })
 export class SellerApiModule {}

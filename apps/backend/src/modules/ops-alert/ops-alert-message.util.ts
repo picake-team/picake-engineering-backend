@@ -133,3 +133,37 @@ export function buildNewStoreEntryRequestMessage(
     at: req.createdAt,
   });
 }
+
+export const CHAT_REPORT_REASON_LABELS = {
+  ABUSE: "욕설·비방·괴롭힘",
+  SEXUAL: "음란·불쾌한 사진",
+  SPAM: "광고·도배",
+  FRAUD: "사기가 의심돼요",
+  OTHER: "그 밖의 이유",
+} as const;
+
+export interface ChatReportAlert {
+  id: string;
+  reason: keyof typeof CHAT_REPORT_REASON_LABELS;
+  /** 누가 신고했나: 손님 / 가게 */
+  reporter: "CONSUMER" | "SHOP";
+  createdAt: Date;
+}
+
+/**
+ * 채팅 신고(기획 I-11, 애플 심사 지침 1.2) — 24시간 안에 확인해야 한다.
+ * 대화 내용·이름은 넣지 않고 관리자 신고 화면 링크만(열면 열람 기록이 남는다).
+ */
+export function buildChatReportMessage(report: ChatReportAlert, ctx: OpsAlertContext) {
+  return embed(ctx, {
+    title: report.reason === "FRAUD" ? "채팅 신고 — 사기 의심" : "채팅 신고",
+    hint: "24시간 안에 확인해 가리거나 막아 주세요.",
+    path: `/chat-reports/${encodeURIComponent(report.id)}`,
+    fields: [
+      { name: "사유", value: CHAT_REPORT_REASON_LABELS[report.reason] },
+      { name: "신고한 쪽", value: report.reporter === "CONSUMER" ? "손님" : "가게" },
+    ],
+    footer: `신고 ${report.id}`,
+    at: report.createdAt,
+  });
+}
