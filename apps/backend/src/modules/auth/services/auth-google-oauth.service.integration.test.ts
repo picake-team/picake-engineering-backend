@@ -1,3 +1,4 @@
+import type { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import { randomUUID } from "crypto";
 
 import { ConflictException } from "@nestjs/common";
@@ -40,6 +41,7 @@ describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone (integration)",
       configService,
       authPhoneService,
       termsService,
+      { notifyNewSeller: vi.fn().mockResolvedValue(undefined) } as unknown as OpsAlertService,
     );
   }
 

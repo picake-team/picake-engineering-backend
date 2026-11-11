@@ -1,3 +1,4 @@
+import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import { Test } from "@nestjs/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockDeep } from "vitest-mock-extended";
@@ -63,6 +64,7 @@ describe("StoreCreateService 통신판매업 정보(선택)", () => {
         StoreCreateService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: BusinessService, useValue: businessServiceMock },
+        { provide: OpsAlertService, useValue: { notifyNewStore: vi.fn() } },
       ],
     }).compile();
     service = moduleRef.get(StoreCreateService);

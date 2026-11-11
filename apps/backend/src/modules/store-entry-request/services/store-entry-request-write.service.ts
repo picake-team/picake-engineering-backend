@@ -1,5 +1,6 @@
 import { Injectable, ConflictException } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
+import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { CreateStoreEntryRequestDto } from "@apps/backend/modules/store-entry-request/dto/store-entry-request.dto";
 import { STORE_ENTRY_REQUEST_ERROR_MESSAGES } from "@apps/backend/modules/store-entry-request/constants/store-entry-request.constants";
@@ -10,7 +11,10 @@ import { STORE_ENTRY_REQUEST_ERROR_MESSAGES } from "@apps/backend/modules/store-
  */
 @Injectable()
 export class StoreEntryRequestWriteService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly opsAlert: OpsAlertService,
+  ) {}
 
   /**
    * 입점 요청 추가 (사용자용)
@@ -46,5 +50,22 @@ export class StoreEntryRequestWriteService {
       );
       throw error;
     }
+
+    // 손님이 입점을 원한 가게를 운영자에게 바로 알린다(기획 I-56). 실패해도 요청은 그대로
+    void this.notifyOps(dto);
+  }
+
+  private async notifyOps(dto: CreateStoreEntryRequestDto): Promise<void> {
+    const requestCount = await this.prisma.storeEntryRequest
+      .count({ where: { kakaoPlaceId: dto.kakaoPlaceId } })
+      .catch(() => 1);
+    await this.opsAlert.notifyNewStoreEntryRequest({
+      placeName: dto.placeName,
+      roadAddress: dto.roadAddress,
+      address: dto.address,
+      categoryName: dto.categoryName,
+      requestCount,
+      createdAt: new Date(),
+    });
   }
 }

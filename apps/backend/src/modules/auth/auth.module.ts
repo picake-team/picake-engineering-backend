@@ -1,3 +1,4 @@
+import { OpsAlertModule } from "@apps/backend/modules/ops-alert/ops-alert.module";
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
@@ -32,6 +33,7 @@ import { TokenEncryptionUtil } from "@apps/backend/common/utils/token-encryption
 import { QuoteRequestModule } from "@apps/backend/modules/quote-request/quote-request.module";
 @Module({
   imports: [
+    OpsAlertModule,
     AdminManagementModule,
     AdminApiKeyModule,
     TermsModule,
