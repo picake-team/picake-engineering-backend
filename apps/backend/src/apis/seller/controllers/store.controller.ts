@@ -14,6 +14,8 @@ import {
 import { ApiTags, ApiOperation, ApiExtraModels } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { StoreNaverPlaceService } from "@apps/backend/modules/store/services/store-naver-place.service";
+import { StoreLinkStatsService } from "@apps/backend/modules/store/services/store-link-stats.service";
+import { StoreLinkStatsResponseDto } from "@apps/backend/modules/store/dto/store-link-stats.dto";
 import {
   ConnectNaverPlaceRequestDto,
   NaverPlacePreviewResponseDto,
@@ -66,6 +68,7 @@ import {
   UpdateStoreBusinessCalendarResponseDto,
   RefundCancellationPolicyDto,
   RefundRuleItemDto,
+  StoreLinkStatsResponseDto,
 )
 @Controller(`${AUDIENCE.SELLER}/store`)
 @Auth({ isPublic: false, audiences: ["seller"] }) // 판매자 JWT(aud: seller)만 허용
@@ -73,6 +76,7 @@ export class SellerStoreController {
   constructor(
     private readonly storeService: StoreService,
     private readonly storeNaverPlaceService: StoreNaverPlaceService,
+    private readonly storeLinkStatsService: StoreLinkStatsService,
   ) {}
 
   /**
@@ -185,6 +189,25 @@ export class SellerStoreController {
   @SwaggerResponse(404, { dataExample: createMessageObject(STORE_ERROR_MESSAGES.NOT_FOUND) })
   async getStoreDetail(@Param("id") id: string, @Request() req: { user: JwtVerifiedPayload }) {
     return await this.storeService.getStoreByIdForSeller(id, req.user);
+  }
+
+  /**
+   * 링크 효과 API (기획 I-45)
+   * 판매자 앱 "손님에게 링크 보내기" 창에 최근 30일 링크로 온 손님 수와 예약 신청 수를 보인다.
+   */
+  @Get(":id/link-stats")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "(로그인 필요) 링크 효과 조회",
+    description:
+      "최근 30일 동안 사장님이 보낸 가게·상품 링크(?from=link)로 들어온 손님 기기 수와, 그 링크로 들어와 한 예약 신청 수(취소 포함)를 돌려줍니다. 자신이 소유한 스토어만 조회할 수 있습니다.",
+  })
+  @SwaggerResponse(200, { dataDto: StoreLinkStatsResponseDto })
+  @SwaggerAuthResponses()
+  @SwaggerResponse(403, { dataExample: createMessageObject(STORE_ERROR_MESSAGES.FORBIDDEN) })
+  @SwaggerResponse(404, { dataExample: createMessageObject(STORE_ERROR_MESSAGES.NOT_FOUND) })
+  async getLinkStats(@Param("id") id: string, @Request() req: { user: JwtVerifiedPayload }) {
+    return await this.storeLinkStatsService.getStatsForSeller(id, req.user);
   }
 
   /**

@@ -9,6 +9,7 @@ import { DatabaseModule } from "@apps/backend/infra/database/database.module";
 import { LikeModule } from "@apps/backend/modules/like/like.module";
 import { NaverPlaceModule } from "@apps/backend/modules/naver-place/naver-place.module";
 import { StoreNaverPlaceService } from "@apps/backend/modules/store/services/store-naver-place.service";
+import { StoreLinkStatsService } from "@apps/backend/modules/store/services/store-link-stats.service";
 
 /**
  * 스토어 관련 모듈
@@ -22,6 +23,7 @@ import { StoreNaverPlaceService } from "@apps/backend/modules/store/services/sto
     StoreUpdateService,
     StoreBusinessCalendarService,
     StoreNaverPlaceService,
+    StoreLinkStatsService,
   ],
   exports: [
     StoreService,
@@ -30,6 +32,7 @@ import { StoreNaverPlaceService } from "@apps/backend/modules/store/services/sto
     StoreListService,
     StoreBusinessCalendarService,
     StoreNaverPlaceService,
+    StoreLinkStatsService,
   ],
 })
 export class StoreModule {}

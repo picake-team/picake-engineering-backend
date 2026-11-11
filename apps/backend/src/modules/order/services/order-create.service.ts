@@ -57,6 +57,7 @@ export class OrderCreateService {
       pickupLongitude,
       reservationContactName,
       reservationPhone,
+      entrySource,
     } = createOrderDto;
 
     // 상품 존재 여부 및 판매 가능 여부 확인
@@ -186,6 +187,7 @@ export class OrderCreateService {
                 pickupLongitude,
                 reservationContactName: reservationContactName ?? null,
                 reservationPhone: reservationPhone ?? null,
+                entrySource: entrySource ?? null,
                 orderStatus,
                 orderItems: {
                   create: normalizedItems,
