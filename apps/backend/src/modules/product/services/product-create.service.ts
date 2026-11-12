@@ -14,6 +14,10 @@ import { ProductOwnershipUtil } from "@apps/backend/modules/product/utils/produc
 import { validateProductPrices } from "@apps/backend/modules/product/utils/product-price.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { ProductNaverLinkUtil } from "@apps/backend/modules/product/utils/product-naver-link.util";
+import {
+  koreaCalendarDayStartUtc,
+  koreaCalendarYmd,
+} from "@apps/backend/modules/order/utils/order-list-query.util";
 
 @Injectable()
 export class ProductCreateService {
@@ -61,13 +65,11 @@ export class ProductCreateService {
     try {
       return await this.prisma.$transaction(
         async (tx) => {
+          // 상품 번호: 한국 날짜 + 그날 0시부터 지난 밀리초 + 무작위 3자리
           const now = new Date();
-          const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
-
-          const startOfDay = new Date(now);
-          startOfDay.setHours(0, 0, 0, 0);
-          const endOfDay = new Date(now);
-          endOfDay.setHours(23, 59, 59, 999);
+          const ymd = koreaCalendarYmd(now);
+          const dateStr = ymd.replace(/-/g, "");
+          const startOfDay = koreaCalendarDayStartUtc(ymd);
 
           const millisOfDay = now.getTime() - startOfDay.getTime();
           const timePart = String(millisOfDay).padStart(8, "0");

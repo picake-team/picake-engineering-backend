@@ -14,6 +14,15 @@ const ORDER_STATUSES_ALWAYS_PAST_TAB: OrderStatus[] = [
 ];
 
 const KOREA_OFFSET = "+09:00";
+const KOREA_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/**
+ * 시각 → 그 시각의 한국 달력 날짜(YYYY-MM-DD). 서울은 서머타임이 없어 +9시간으로 충분하다.
+ * 서버(EC2·Vercel)는 UTC라 `getDate()`·`setHours()`·`toISOString()` 날짜는 자정~아침 9시에 하루 어긋난다.
+ */
+export function koreaCalendarYmd(date: Date): string {
+  return new Date(date.getTime() + KOREA_OFFSET_MS).toISOString().slice(0, 10);
+}
 
 /** YYYY-MM-DD (Asia/Seoul 달력일) → 해당 일 00:00:00.000 KST 의 UTC 시각 */
 export function koreaCalendarDayStartUtc(dateStr: string): Date {

@@ -7,6 +7,7 @@ import {
 } from "@apps/backend/infra/database/prisma/generated/client";
 import { computePaymentPendingDeadline } from "@apps/backend/modules/order/utils/order-datetime.util";
 import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
+import { koreaCalendarYmd } from "@apps/backend/modules/order/utils/order-list-query.util";
 
 /**
  * 판매자 앱 심사용 가게의 예시 데이터 (I-48, SC-62).
@@ -395,7 +396,7 @@ export function buildReviewSampleOrders(params: {
   randomSuffix: () => string;
 }): Prisma.OrderUncheckedCreateInput[] {
   const { now, storeId, storeName, consumerId, products, randomSuffix } = params;
-  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+  const dateStr = koreaCalendarYmd(now).replace(/-/g, ""); // 실제 주문번호와 같은 한국 날짜
   const byNumber = new Map(products.map((product) => [product.productNumber, product]));
 
   return SAMPLE_ORDERS.flatMap((spec, index) => {

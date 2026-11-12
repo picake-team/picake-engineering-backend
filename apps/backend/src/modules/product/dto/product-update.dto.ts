@@ -10,7 +10,7 @@ import {
   Min,
   ArrayMaxSize,
 } from "class-validator";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   EnableStatus,
   ProductCategoryType,
@@ -45,6 +45,8 @@ export class UpdateProductRequestDto {
     example: PRODUCT_SWAGGER_EXAMPLES.PRODUCT_DATA.name,
   })
   @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value)) // 앞뒤 공백 저장 안 함(미리보기 제목에 빈칸이 두 번 나오던 것)
+  @IsNotEmpty() // 보낼 때는 빈 이름(공백만 포함)으로 바꿀 수 없음
   @IsString()
   name?: string;
 
