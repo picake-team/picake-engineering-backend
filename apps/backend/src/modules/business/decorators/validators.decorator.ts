@@ -4,6 +4,7 @@ import {
   ValidatorConstraintInterface,
   ValidationOptions,
 } from "class-validator";
+import { koreaCalendarYmd } from "@apps/backend/modules/order/utils/order-list-query.util";
 
 /**
  * 사업자등록번호 유효성 검증 제약 조건
@@ -156,10 +157,8 @@ export class IsValidStartDateConstraint implements ValidatorConstraintInterface 
       return false;
     }
 
-    // 미래 날짜 체크
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (date > today) {
+    // 미래 날짜 체크(한국 날짜 기준 — 서버는 UTC라 전에는 자정~아침 9시에 오늘 개업일을 미래로 봤다)
+    if (trimmed > koreaCalendarYmd(new Date()).replace(/-/g, "")) {
       this.errorType = "미래날짜";
       return false;
     }
