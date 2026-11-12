@@ -19,6 +19,10 @@ export const AUTH_ERROR_MESSAGES = {
     "변경할 정보가 없습니다. name, nickname, profileImageUrl 중 하나 이상을 보내주세요.",
   USER_NOT_FOUND: "사용자를 찾을 수 없어요.",
   PHONE_VERIFICATION_EXPIRED: "인증번호가 만료됐어요.",
+  PHONE_VERIFICATION_RESEND_TOO_SOON: "인증번호는 30초 뒤에 다시 받을 수 있어요.",
+  PHONE_VERIFICATION_DAILY_LIMIT:
+    "오늘은 이 번호로 인증번호를 더 받을 수 없어요. 내일 다시 받아 주세요.",
+  PHONE_VERIFICATION_TOO_MANY_ATTEMPTS: "인증번호를 여러 번 틀렸어요. 인증번호를 다시 받아 주세요.",
   PHONE_GOOGLE_ACCOUNT_EXISTS: "해당 휴대폰 번호로 이미 등록된 구글 계정이 있어요.",
   GOOGLE_ID_ALREADY_EXISTS: "이미 사용 중인 구글 계정이에요.",
   GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED: "구글 OAuth 토큰 교환 실패",
@@ -299,6 +303,14 @@ export const SWAGGER_DESCRIPTIONS = {
 
 /** SMS 인증번호 입력 가능 시간(분) — `PhoneUtil.getExpirationTime`·`AuthPhoneService.sendVerificationCode`와 동일 */
 export const PHONE_VERIFICATION_CODE_EXPIRY_MINUTES = 5;
+
+/**
+ * 문자 인증 남용 막기(2026-11-12 전체 검토): 같은 번호·목적은 30초 뒤에 다시 보내고,
+ * 한 번호에 24시간 동안 10번까지 보낸다(문자는 보낼 때마다 비용). 인증번호는 5번 틀리면 다시 받게 한다.
+ */
+export const PHONE_VERIFICATION_RESEND_COOLDOWN_MS = 30 * 1000;
+export const PHONE_VERIFICATION_DAILY_MAX = 10;
+export const PHONE_VERIFICATION_MAX_ATTEMPTS = 5;
 
 /**
  * 휴대폰 인증번호 SMS 본문 템플릿.

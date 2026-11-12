@@ -87,6 +87,7 @@ export class KftcApiService {
    * 통신판매사업자 등록상세 조회
    * @param detailDto 통신판매사업자 등록상세 조회 요청 데이터
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 임시로 꺼 둔 확인(재활성화 때 씀)
   async getOnlineTradingCompanyDetail(detailDto: OnlineTradingCompanyDetailRequestDto) {
     try {
       if (!this.dataGoKrApiKey) {
