@@ -52,6 +52,7 @@ import {
   linkChatOpenUntil,
   quoteTotal,
   rechooseUntil,
+  shopCanSeeRequestContent,
   targetState,
 } from "@apps/backend/modules/quote-request/utils/quote-policy.util";
 import {
@@ -208,6 +209,8 @@ export class QuoteService {
   private forShop(t: TargetWithRequest, now: Date): QuoteRequestForShopDto {
     const r = t.quoteRequest;
     const state = this.stateOf(r, t, now);
+    // 끝난 요청의 손님 글·사진은 보내지 않는다(처리방침 보유 기간, 화면만 가리지 않고 서버에서)
+    const visible = shopCanSeeRequestContent(state, r.pickupStartAt, now);
     return {
       requestId: r.id,
       targetId: t.id,
@@ -219,9 +222,10 @@ export class QuoteService {
       deadline: formatKstDateTime(r.deadlineAt),
       deadlineAt: r.deadlineAt,
       quantity: r.quantity,
-      description: r.description,
-      requestNote: r.requestNote,
-      photoUrls: r.photoUrls,
+      description: visible ? r.description : null,
+      requestNote: visible ? r.requestNote : null,
+      photoUrls: visible ? r.photoUrls : [],
+      contentHidden: !visible,
       state,
       // 어려워요로 답한 가게도 마감 전엔 견적으로 바꿀 수 있지만, 그사이 견적이 다 모였으면 보낼 수 없다
       canEdit:

@@ -322,6 +322,46 @@ describe("견적 ② (integration)", () => {
     expect(consumerRoom.messages.some((m) => m.text === "지난 요청")).toBe(true);
   });
 
+  it("끝난 요청은 가게에 손님 글·사진을 보내지 않는다(처리방침 보유 기간), 고른 가게는 보인다", async () => {
+    const t = await build();
+    const requestId = await t.createRequest();
+    await t.prisma.quoteRequest.update({
+      where: { id: requestId },
+      data: { photoUrls: ["https://example.com/a.jpg"], requestNote: "딸기 넣어 주세요" },
+    });
+    await t.quotes.sendNewRequestToApps(requestId);
+    expect(await t.quotes.sellerView(t.seller.id, t.store.id, requestId)).toMatchObject({
+      contentHidden: false,
+      description: "하늘색 바탕에 곰돌이",
+      photoUrls: ["https://example.com/a.jpg"],
+    });
+    // 고르면 고른 가게는 계속 본다
+    await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(40000));
+    const q = (await t.quotes.consumerSection(t.consumer.id, requestId)).quotes[0];
+    await t.quotes.choose(t.consumer.id, requestId, q.id);
+    expect(await t.quotes.sellerView(t.seller.id, t.store.id, requestId)).toMatchObject({
+      state: "CHOSEN_ME",
+      contentHidden: false,
+    });
+    // 다른 요청이 닫히면 그 가게에는 손님 글·사진이 가지 않는다
+    const closed = await t.createRequest();
+    await t.quotes.sendNewRequestToApps(closed);
+    await t.prisma.quoteRequest.update({
+      where: { id: closed },
+      data: { status: QuoteRequestStatus.CLOSED, closedAt: new Date() },
+    });
+    expect(await t.quotes.sellerView(t.seller.id, t.store.id, closed)).toMatchObject({
+      state: "CLOSED",
+      contentHidden: true,
+      description: null,
+      requestNote: null,
+      photoUrls: [],
+    });
+    // 채팅 카드 사진도 가게 쪽에는 주지 않는다
+    const room = await t.chat.messagesForStore(t.seller.id, t.store.id, q.threadId!, {});
+    expect(room.messages.filter((m) => m.card).every((m) => m.card!.imageUrl === null)).toBe(true);
+  });
+
   it("어려워요로 답한 가게는 그사이 견적이 다 모이면 견적으로 바꿀 수 없다", async () => {
     const t = await build();
     const requestId = await t.createRequest();

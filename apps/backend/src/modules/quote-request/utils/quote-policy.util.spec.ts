@@ -8,6 +8,7 @@ import {
   isStalled,
   linkChatOpenUntil,
   rechooseUntil,
+  shopCanSeeRequestContent,
   targetState,
 } from "./quote-policy.util";
 
@@ -125,5 +126,21 @@ describe("견적 ② 규칙(기획 I-46·I-11)", () => {
     });
     expect(targetState({ ...base, request: chosen })).toBe("CHOSEN_ME");
     expect(targetState({ ...base, targetId: "t2", request: chosen })).toBe("CHOSEN_OTHER");
+  });
+
+  it("가게가 손님 글·사진을 보는 때: 끝난 요청(마감·다른 가게를 고름)은 못 보고, 고른 가게는 픽업 24시간 뒤까지", () => {
+    const pickup = new Date(now.getTime() + 2 * H);
+    expect(shopCanSeeRequestContent("OPEN", pickup, now)).toBe(true);
+    expect(shopCanSeeRequestContent("SENT", pickup, now)).toBe(true);
+    expect(shopCanSeeRequestContent("DECLINED", pickup, now)).toBe(true);
+    expect(shopCanSeeRequestContent("FULL", pickup, now)).toBe(true);
+    expect(shopCanSeeRequestContent("CLOSED", pickup, now)).toBe(false);
+    expect(shopCanSeeRequestContent("CHOSEN_OTHER", pickup, now)).toBe(false);
+    expect(shopCanSeeRequestContent("CHOSEN_ME", pickup, now)).toBe(true);
+    const dayAfter = new Date(pickup.getTime() + 24 * H);
+    expect(shopCanSeeRequestContent("CHOSEN_ME", pickup, new Date(dayAfter.getTime() - 1))).toBe(
+      true,
+    );
+    expect(shopCanSeeRequestContent("CHOSEN_ME", pickup, dayAfter)).toBe(false);
   });
 });

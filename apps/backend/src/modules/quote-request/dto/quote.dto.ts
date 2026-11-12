@@ -176,6 +176,11 @@ export class QuoteRequestForShopDto {
   @ApiProperty({ nullable: true, type: String }) description!: string | null;
   @ApiProperty({ nullable: true, type: String }) requestNote!: string | null;
   @ApiProperty({ type: [String] }) photoUrls!: string[];
+  @ApiProperty({
+    description:
+      "끝난 요청이라 손님이 쓴 설명·요청 사항·사진을 보내지 않았는지(처리방침 보유 기간, 고른 가게는 픽업 24시간 뒤까지 보임)",
+  })
+  contentHidden!: boolean;
   @ApiProperty({ enum: QUOTE_TARGET_STATES }) state!: QuoteTargetState;
   @ApiProperty() canEdit!: boolean;
   @ApiProperty({ nullable: true, type: QuoteDto }) quote!: QuoteDto | null;

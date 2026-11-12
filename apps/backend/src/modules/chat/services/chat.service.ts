@@ -471,7 +471,8 @@ export class ChatService {
         refId: m.refQuoteRequestId,
         title: snap?.title ?? "견적",
         subtitle: snap?.subtitle ?? null,
-        imageUrl: snap?.imageUrl ?? null,
+        // 가게 쪽 화면은 견적 카드 사진을 쓰지 않고, 손님 요청서 사진일 수 있어 보내지 않는다
+        imageUrl: viewer === "SHOP" ? null : (snap?.imageUrl ?? null),
         quoteState: live.quoteState.get(m.refQuoteRequestId) ?? null,
         otherChosen: snap?.otherChosen ?? false,
       };
