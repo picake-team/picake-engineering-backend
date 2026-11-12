@@ -158,7 +158,11 @@ describe("견적 ② (integration)", () => {
     expect(first.quotes[0].threadId).toBe(consumerList.threads[0].id);
     expect((await t.quotes.consumerSection(t.consumer.id, requestId)).quotes[0].unseen).toBe(false);
 
-    // 고치면 "고침"과 고침 알림
+    // 고치면 "고침"과 고침 알림. 10분 안에 또 고치면 알림은 다시 보내지 않는다
+    await t.prisma.quote.updateMany({
+      where: { quoteRequestId: requestId },
+      data: { createdAt: new Date(Date.now() - 11 * 60 * 1000) },
+    });
     const edited = await t.quotes.sellerSubmit(
       t.seller.id,
       t.store.id,
@@ -169,6 +173,9 @@ describe("견적 ② (integration)", () => {
     expect(t.notify.quoteArrived).toHaveBeenLastCalledWith(
       expect.objectContaining({ edited: true }),
     );
+    const calls = t.notify.quoteArrived.mock.calls.length;
+    await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(54000));
+    expect(t.notify.quoteArrived.mock.calls.length).toBe(calls);
   });
 
   it("운영자 가게 추가·견적 링크 → 링크로 견적, 링크 안 대화, 고르면 다른 가게 쓰기 잠금·다시 고르기", async () => {

@@ -32,7 +32,14 @@ export function buildNewQuoteRequestDiscordMessage(
   const stores =
     row.stores.length === 0
       ? "없음(근처 가게를 찾아 물어보기)"
-      : row.stores.map((s) => `${plain(s.name)}${s.storeId ? "" : "(입점 전)"}`).join(", ");
+      : row.stores
+          .map((s) => `${plain(s.name)}${s.storeId ? "(Picake·판매자 앱으로 보냄)" : "(입점 전)"}`)
+          .join(", ");
+  // Picake 가게는 판매자 앱 채팅으로 요청서가 바로 간다(기획 I-46 ②). 입점 전 가게만 운영자가 링크로 묻는다
+  const hint =
+    row.onlyDesignatedStores && row.stores.every((s) => s.storeId)
+      ? "손님이 지정한 Picake 가게에 판매자 앱으로 보냈어요."
+      : "입점 전 가게는 관리자에서 견적 링크를 만들어 DM으로 물어봐 주세요.";
   // 손님이 쓴 설명·요청 사항은 디스코드에 보내지 않는다(다른 사람 이름이 들어갈 수 있다). 관리자 상세에서 본다
   const design = [
     row.photoUrls.length > 0 ? `참고 사진 ${row.photoUrls.length}장` : null,
@@ -65,9 +72,7 @@ export function buildNewQuoteRequestDiscordMessage(
     embeds: [
       {
         title: `${env}새 견적 요청`,
-        description: url
-          ? `[관리자에서 열기](${url}) · 견적 마감 전에 가게에 물어봐 주세요.`
-          : "견적 마감 전에 가게에 물어봐 주세요.",
+        description: url ? `[관리자에서 열기](${url}) · ${hint}` : hint,
         url,
         color: 0xff653e,
         fields,

@@ -323,6 +323,8 @@ export class QuoteService {
     };
 
     let edited = false;
+    // 바로 앞에 고친(또는 보낸) 때. 연달아 고치면 손님 알림을 한 번만 보낸다
+    const previousAt = t.quote ? (t.quote.editedAt ?? t.quote.createdAt) : null;
     if (t.quote) {
       t.quote = await this.prisma.quote.update({
         where: { id: t.quote.id },
@@ -380,12 +382,18 @@ export class QuoteService {
       );
       SentryUtil.captureException(e, "warning", { module: "quote", operation: "chat-card" });
     }
-    void this.notify.quoteArrived({
-      requestId: r.id,
-      storeName: quote.storeName,
-      total: quote.total,
-      edited,
-    });
+    const quietEdit =
+      edited &&
+      !!previousAt &&
+      now.getTime() - previousAt.getTime() < QUOTE_LIMITS.EDIT_NOTIFY_GAP_MINUTES * 60 * 1000;
+    if (!quietEdit) {
+      void this.notify.quoteArrived({
+        requestId: r.id,
+        storeName: quote.storeName,
+        total: quote.total,
+        edited,
+      });
+    }
     if (!edited && source !== QuoteSource.ADMIN) {
       void this.notify.ops("QUOTE_ARRIVED", r.id, quote.storeName);
     }

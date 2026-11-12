@@ -74,6 +74,21 @@ describe("새 견적 요청 디스코드 알림", () => {
     expect(JSON.stringify(msg)).not.toContain("견과류");
   });
 
+  it("Picake 가게는 판매자 앱으로 보냈다고, 입점 전 가게는 링크로 물어보라고 안내한다(견적 ②)", () => {
+    const picake = { ...row.stores[0], storeId: "store_1", name: "달콤스토어" };
+    const onlyPicake = buildNewQuoteRequestDiscordMessage(
+      { ...row, onlyDesignatedStores: true, stores: [picake] },
+      { adminDomain: null },
+    );
+    expect(onlyPicake.embeds[0].description).toBe(
+      "손님이 지정한 Picake 가게에 판매자 앱으로 보냈어요.",
+    );
+    const fields = Object.fromEntries(onlyPicake.embeds[0].fields.map((f) => [f.name, f.value]));
+    expect(fields["꼭 물어볼 가게"]).toBe("달콤스토어(Picake·판매자 앱으로 보냄)");
+    const mixed = buildNewQuoteRequestDiscordMessage(row, { adminDomain: null });
+    expect(mixed.embeds[0].description).toContain("견적 링크를 만들어 DM으로");
+  });
+
   it("staging이면 제목에 환경을 붙이고, 관리자 주소가 없으면 링크를 뺀다", () => {
     const msg = buildNewQuoteRequestDiscordMessage(
       { ...row, stores: [] },

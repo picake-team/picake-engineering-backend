@@ -26,6 +26,8 @@ export const QUOTE_LIMITS = {
   /** 입점 전 가게가 손님 글에 이 시간 답이 없으면 운영자 디스코드(방마다 하루 한 번) */
   UNENTERED_NO_REPLY_MINUTES: 60,
   LINK_TOKEN_BYTES: 24,
+  /** 견적을 고친 지 이 시간 안에 또 고치면 "견적이 바뀌었어요" 알림을 다시 보내지 않는다(알림 폭탄 막기) */
+  EDIT_NOTIFY_GAP_MINUTES: 10,
   /** 마감·알림톡·운영자 알림을 확인하는 간격 */
   JOB_INTERVAL_MS: 5 * 60 * 1000,
 } as const;
