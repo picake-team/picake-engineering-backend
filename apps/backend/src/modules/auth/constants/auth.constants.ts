@@ -19,6 +19,7 @@ export const AUTH_ERROR_MESSAGES = {
     "변경할 정보가 없습니다. name, nickname, profileImageUrl 중 하나 이상을 보내주세요.",
   USER_NOT_FOUND: "사용자를 찾을 수 없어요.",
   PHONE_VERIFICATION_EXPIRED: "인증번호가 만료됐어요.",
+  PROFILE_IMAGE_URL_INVALID: "프로필 사진은 업로드한 사진만 넣을 수 있어요.",
   PHONE_VERIFICATION_RESEND_TOO_SOON: "인증번호는 30초 뒤에 다시 받을 수 있어요.",
   PHONE_VERIFICATION_DAILY_LIMIT:
     "오늘은 이 번호로 인증번호를 더 받을 수 없어요. 내일 다시 받아 주세요.",

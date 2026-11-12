@@ -1,3 +1,4 @@
+import { isAllowedUploadUrl } from "@apps/backend/modules/upload/utils/upload-url.util";
 import {
   Injectable,
   BadRequestException,
@@ -115,6 +116,10 @@ export class AuthMypageProfileService {
     if (dto.nickname !== undefined) {
       data.nickname = dto.nickname;
     }
+    // 프로필 사진은 우리 저장소에 올린 사진만(지우기는 null)
+    if (dto.profileImageUrl && !isAllowedUploadUrl(dto.profileImageUrl)) {
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.PROFILE_IMAGE_URL_INVALID);
+    }
     if (dto.profileImageUrl !== undefined) {
       data.profileImageUrl = dto.profileImageUrl;
     }
@@ -153,6 +158,10 @@ export class AuthMypageProfileService {
     }
     if (dto.nickname !== undefined) {
       data.nickname = dto.nickname;
+    }
+    // 프로필 사진은 우리 저장소에 올린 사진만(지우기는 null)
+    if (dto.profileImageUrl && !isAllowedUploadUrl(dto.profileImageUrl)) {
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.PROFILE_IMAGE_URL_INVALID);
     }
     if (dto.profileImageUrl !== undefined) {
       data.profileImageUrl = dto.profileImageUrl;
