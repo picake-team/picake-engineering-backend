@@ -28,7 +28,6 @@ import type {
 } from "@apps/backend/modules/chat/dto/chat.dto";
 import {
   QUOTE_CONTACT_LABELS,
-  QUOTE_DECLINE_REASON_LABELS,
   QUOTE_ERROR_MESSAGES,
   QUOTE_LIMITS,
   QUOTE_SIMILARITY_LABELS,
@@ -609,13 +608,8 @@ export class QuoteService {
     return {
       quotes,
       declined: r.stores
-        .filter((t) => !t.quote && t.declinedAt && t.declineReason)
-        .map((t) => ({
-          targetId: t.id,
-          storeName: this.storeName(t),
-          reason: t.declineReason!,
-          reasonLabel: QUOTE_DECLINE_REASON_LABELS[t.declineReason!],
-        })),
+        .filter((t) => !t.quote && t.declinedAt)
+        .map((t) => ({ targetId: t.id, storeName: this.storeName(t) })),
       askedCount: r.stores.filter(
         (t) => t.linkCreatedAt || t.sentToAppAt || t.quote || t.declinedAt,
       ).length,

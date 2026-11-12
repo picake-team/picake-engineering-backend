@@ -267,9 +267,8 @@ describe("견적 ② (integration)", () => {
     await t.quotes.sendNewRequestToApps(requestId);
     await t.quotes.sellerDecline(t.seller.id, t.store.id, requestId, "FULLY_BOOKED");
     const sec = await t.quotes.consumerSection(t.consumer.id, requestId);
-    expect(sec.declined).toEqual([
-      expect.objectContaining({ storeName: "구름베이커리", reasonLabel: "그날 주문이 꽉 찼어요" }),
-    ]);
+    // 이유는 손님에게 주지 않는다
+    expect(sec.declined).toEqual([{ targetId: expect.any(String), storeName: "구름베이커리" }]);
     expect((await t.quotes.sellerView(t.seller.id, t.store.id, requestId)).state).toBe("DECLINED");
     await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(40000));
     expect((await t.quotes.consumerSection(t.consumer.id, requestId)).declined).toHaveLength(0);

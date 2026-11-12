@@ -286,6 +286,8 @@ export class ChatService {
       lastConsumerMessageAt: thread.lastConsumerMessageAt,
       hasActiveOrder: ctx.hasActiveOrder,
       otherChosenAt: thread.shopLockedAt,
+      // 견적을 보낸 입점 전 가게는 손님이 먼저 말하지 않아도 대화 기간 안에 쓸 수 있다
+      liveQuote: unentered && ctx.unenteredOpen,
     });
     if (d.ok) return { ok: true, message: null };
     const message =

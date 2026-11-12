@@ -131,11 +131,10 @@ export class ConsumerQuoteDto extends QuoteDto {
   threadId!: string | null;
 }
 
+/** 어려워요로 답한 가게. 이유는 손님에게 주지 않는다("이번 요청은 어렵대요"만, SC-19 ③) */
 export class DeclinedTargetDto {
   @ApiProperty() targetId!: string;
   @ApiProperty() storeName!: string;
-  @ApiProperty({ enum: QuoteDeclineReason }) reason!: QuoteDeclineReason;
-  @ApiProperty() reasonLabel!: string;
 }
 
 /** 요청 상세에 붙는 견적 묶음(SC-18) */

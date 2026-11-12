@@ -79,6 +79,8 @@ export function decideShopWrite(input: {
   lastConsumerMessageAt: Date | null;
   hasActiveOrder: boolean;
   otherChosenAt?: Date | null;
+  /** 이 가게 견적이 살아 있음(견적을 보낸 입점 전 가게의 대화 기간 안, 기획 I-11 ③) */
+  liveQuote?: boolean;
 }): ShopWriteDecision {
   if (!input.shopHasStore) return { ok: false, reason: "SHOP_LEFT" };
   if (input.consumerWithdrawn) return { ok: false, reason: "CONSUMER_GONE" };
@@ -90,6 +92,7 @@ export function decideShopWrite(input: {
   ) {
     return { ok: false, reason: "OTHER_CHOSEN" };
   }
+  if (input.liveQuote) return { ok: true };
   if (
     input.lastConsumerMessageAt &&
     input.now.getTime() - input.lastConsumerMessageAt.getTime() <=
