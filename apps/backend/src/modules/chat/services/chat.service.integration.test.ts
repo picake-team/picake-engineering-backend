@@ -9,6 +9,7 @@ import type { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.
 import type { UploadService } from "@apps/backend/modules/upload/upload.service";
 import {
   CHAT_ERROR_MESSAGES,
+  CHAT_HIDDEN_PREVIEW,
   CHAT_RULES_VERSION,
 } from "@apps/backend/modules/chat/constants/chat.constants";
 import { getAllowedUploadUrlPrefixes } from "@apps/backend/modules/upload/utils/upload-url.util";
@@ -349,6 +350,11 @@ describe("채팅 (integration)", () => {
     await admin.resolveReport("admin-1", rep.reportId, { action: "HIDE_MESSAGE" });
     const after = await chat.messagesForConsumer(consumer.id, r.threadId, {});
     expect(after.messages[0]).toMatchObject({ hidden: true, text: null });
+    // 가린 글이 마지막 글이면 목록 미리보기에도 남지 않는다(손님·사장님 목록)
+    const consumerList = await chat.listForConsumer(consumer.id, {});
+    expect(consumerList.threads.find((t) => t.id === r.threadId)?.lastMessagePreview).toBe(
+      CHAT_HIDDEN_PREVIEW,
+    );
     expect(
       (await admin.listReports({ status: "OPEN" })).reports.find((x) => x.id === rep.reportId),
     ).toBeUndefined();
