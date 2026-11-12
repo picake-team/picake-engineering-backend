@@ -52,6 +52,7 @@ import {
   linkChatOpenUntil,
   quoteTotal,
   rechooseUntil,
+  shopCanSeeRequestContent,
   targetState,
 } from "@apps/backend/modules/quote-request/utils/quote-policy.util";
 import {
@@ -68,7 +69,6 @@ const QUOTE_SELECT = {
   unitPrice: true,
   priceMayVary: true,
   similarity: true,
-  contacts: true,
   memo: true,
   photoUrls: true,
   editedAt: true,
@@ -83,10 +83,6 @@ const TARGET_SELECT = {
   storeId: true,
   kakaoPlaceId: true,
   name: true,
-  phone: true,
-  placeUrl: true,
-  addedBy: true,
-  sortOrder: true,
   shopId: true,
   linkToken: true,
   linkCreatedAt: true,
@@ -100,9 +96,6 @@ const TARGET_SELECT = {
       name: true,
       sellerId: true,
       logoImageUrl: true,
-      phoneNumber: true,
-      kakaoChannelId: true,
-      instagramId: true,
     },
   },
   quote: { select: QUOTE_SELECT },
@@ -144,7 +137,8 @@ type TargetWithRequest = TargetRow & { quoteRequest: RequestRow };
 /**
  * 가게 견적(기획 I-46 ②, 운영자 결정 2026-11-12).
  * 견적이 들어오는 길: 견적 링크(입점 전 가게, 가입 없이) · 판매자 앱 채팅의 요청서 카드(입점 가게) · 운영자 대신 적기.
- * 셋 다 같은 칸(금액·비슷한 정도·주문 받는 곳·사진·메모)이고, 손님 화면에는 같은 견적 카드로 보인다.
+ * 셋 다 같은 칸(금액·비슷한 정도·사진·메모)이고, 손님 화면에는 같은 견적 카드로 보인다.
+ * 주문 받는 곳은 묻지 않는다(운영자 2026-11-12) — 손님이 고르면 채팅(입점 전 가게는 견적 링크 대화)에서 주문을 정한다.
  * 손님이 고르면 그 가게와의 채팅으로 이어진다(입점 전 가게는 견적 링크 안에서 대화).
  */
 @Injectable()
@@ -215,6 +209,8 @@ export class QuoteService {
   private forShop(t: TargetWithRequest, now: Date): QuoteRequestForShopDto {
     const r = t.quoteRequest;
     const state = this.stateOf(r, t, now);
+    // 끝난 요청의 손님 글·사진은 보내지 않는다(처리방침 보유 기간, 화면만 가리지 않고 서버에서)
+    const visible = shopCanSeeRequestContent(state, r.pickupStartAt, now);
     return {
       requestId: r.id,
       targetId: t.id,
@@ -226,11 +222,16 @@ export class QuoteService {
       deadline: formatKstDateTime(r.deadlineAt),
       deadlineAt: r.deadlineAt,
       quantity: r.quantity,
-      description: r.description,
-      requestNote: r.requestNote,
-      photoUrls: r.photoUrls,
+      description: visible ? r.description : null,
+      requestNote: visible ? r.requestNote : null,
+      photoUrls: visible ? r.photoUrls : [],
+      contentHidden: !visible,
       state,
-      canEdit: state === "OPEN" || state === "SENT" || state === "DECLINED",
+      // 어려워요로 답한 가게도 마감 전엔 견적으로 바꿀 수 있지만, 그사이 견적이 다 모였으면 보낼 수 없다
+      canEdit:
+        state === "OPEN" ||
+        state === "SENT" ||
+        (state === "DECLINED" && r._count.quotes < QUOTE_LIMITS.MAX_QUOTES),
       quote: this.toQuoteDto(t, r.quantity),
       declineReason: t.quote ? null : t.declineReason,
       prefillContacts: [],
@@ -559,17 +560,17 @@ export class QuoteService {
     const withQuote = r.stores
       .filter((t) => t.quote)
       .sort((a, b) => a.quote!.createdAt.getTime() - b.quote!.createdAt.getTime());
-    const quotes = [];
-    for (const t of withQuote) {
-      const threadId = t.shopId ? await this.chat.threadIdFor(consumerId, t.shopId) : null;
-      quotes.push({
-        ...this.toQuoteDto(t, r.quantity)!,
-        unseen: !t.quote!.consumerSeenAt,
-        chosen: r.chosenTargetId === t.id,
-        canChoose: canChoose(r, t.id, now, stalled),
-        threadId,
-      });
-    }
+    const threadIds = await this.chat.threadIdsFor(
+      consumerId,
+      withQuote.map((t) => t.shopId).filter((v): v is string => !!v),
+    );
+    const quotes = withQuote.map((t) => ({
+      ...this.toQuoteDto(t, r.quantity)!,
+      unseen: !t.quote!.consumerSeenAt,
+      chosen: r.chosenTargetId === t.id,
+      canChoose: canChoose(r, t.id, now, stalled),
+      threadId: (t.shopId && threadIds.get(t.shopId)) ?? null,
+    }));
     if (withQuote.some((t) => !t.quote!.consumerSeenAt)) {
       await this.prisma.quote.updateMany({
         where: { quoteRequestId: r.id, consumerSeenAt: null },

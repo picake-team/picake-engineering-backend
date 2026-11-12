@@ -322,6 +322,69 @@ describe("견적 ② (integration)", () => {
     expect(consumerRoom.messages.some((m) => m.text === "지난 요청")).toBe(true);
   });
 
+  it("끝난 요청은 가게에 손님 글·사진을 보내지 않는다(처리방침 보유 기간), 고른 가게는 보인다", async () => {
+    const t = await build();
+    const requestId = await t.createRequest();
+    await t.prisma.quoteRequest.update({
+      where: { id: requestId },
+      data: { photoUrls: ["https://example.com/a.jpg"], requestNote: "딸기 넣어 주세요" },
+    });
+    await t.quotes.sendNewRequestToApps(requestId);
+    expect(await t.quotes.sellerView(t.seller.id, t.store.id, requestId)).toMatchObject({
+      contentHidden: false,
+      description: "하늘색 바탕에 곰돌이",
+      photoUrls: ["https://example.com/a.jpg"],
+    });
+    // 고르면 고른 가게는 계속 본다
+    await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(40000));
+    const q = (await t.quotes.consumerSection(t.consumer.id, requestId)).quotes[0];
+    await t.quotes.choose(t.consumer.id, requestId, q.id);
+    expect(await t.quotes.sellerView(t.seller.id, t.store.id, requestId)).toMatchObject({
+      state: "CHOSEN_ME",
+      contentHidden: false,
+    });
+    // 다른 요청이 닫히면 그 가게에는 손님 글·사진이 가지 않는다
+    const closed = await t.createRequest();
+    await t.quotes.sendNewRequestToApps(closed);
+    await t.prisma.quoteRequest.update({
+      where: { id: closed },
+      data: { status: QuoteRequestStatus.CLOSED, closedAt: new Date() },
+    });
+    expect(await t.quotes.sellerView(t.seller.id, t.store.id, closed)).toMatchObject({
+      state: "CLOSED",
+      contentHidden: true,
+      description: null,
+      requestNote: null,
+      photoUrls: [],
+    });
+    // 채팅 카드 사진도 가게 쪽에는 주지 않는다
+    const room = await t.chat.messagesForStore(t.seller.id, t.store.id, q.threadId!, {});
+    expect(room.messages.filter((m) => m.card).every((m) => m.card!.imageUrl === null)).toBe(true);
+  });
+
+  it("어려워요로 답한 가게는 그사이 견적이 다 모이면 견적으로 바꿀 수 없다", async () => {
+    const t = await build();
+    const requestId = await t.createRequest();
+    await t.quotes.sendNewRequestToApps(requestId);
+    await t.quotes.sellerDecline(t.seller.id, t.store.id, requestId, "FULLY_BOOKED");
+    expect(await t.quotes.sellerView(t.seller.id, t.store.id, requestId)).toMatchObject({
+      state: "DECLINED",
+      canEdit: true,
+    });
+    for (let i = 0; i < 5; i += 1) {
+      const kakaoPlaceId = `kp-full-${Date.now()}-${++seq}`;
+      await t.quotes.adminAddTarget(requestId, { kakaoPlaceId, name: `가게${i}` });
+      const target = await t.prisma.quoteRequestStore.findFirstOrThrow({
+        where: { quoteRequestId: requestId, kakaoPlaceId },
+      });
+      await t.quotes.adminSubmit(requestId, target.id, quoteInput(40000 + i));
+    }
+    expect(await t.quotes.sellerView(t.seller.id, t.store.id, requestId)).toMatchObject({
+      state: "DECLINED",
+      canEdit: false,
+    });
+  });
+
   it("어려워요는 손님에게 한 줄로, 보낸 뒤에는 어려워요 대신 고치기", async () => {
     const t = await build();
     const requestId = await t.createRequest();
@@ -383,6 +446,38 @@ describe("견적 ② (integration)", () => {
     const list = await t.chat.listForStore(t.seller.id, t.store.id, {});
     const room = await t.chat.messagesForStore(t.seller.id, t.store.id, list.threads[0].id, {});
     expect(room.messages[0].card?.quoteState).toBe("CLOSED");
+  });
+
+  it("같은 손님의 요청 두 개 중 하나가 끝나도, 남은 요청은 사장님 답할 것에 그대로", async () => {
+    const t = await build();
+    const first = await t.createRequest();
+    const second = await t.createRequest();
+    await t.quotes.sendNewRequestToApps(second);
+    await t.quotes.sendNewRequestToApps(first);
+    expect(await t.chat.unreadForStore(t.seller.id, t.store.id)).toMatchObject({
+      replyNeeded: 1,
+      quoteRequests: 2,
+    });
+    // 나중 카드(first)가 끝나도 앞 카드(second)는 아직 답을 기다린다
+    await t.prisma.quoteRequest.update({
+      where: { id: first },
+      data: { status: QuoteRequestStatus.CLOSED, closedAt: new Date() },
+    });
+    await t.quotes.retireRequestCards(first);
+    expect(await t.chat.unreadForStore(t.seller.id, t.store.id)).toMatchObject({
+      replyNeeded: 1,
+      quoteRequests: 1,
+    });
+    // 남은 요청까지 끝나면 그때 답할 것에서 빠진다
+    await t.prisma.quoteRequest.update({
+      where: { id: second },
+      data: { status: QuoteRequestStatus.CLOSED, closedAt: new Date() },
+    });
+    await t.quotes.retireRequestCards(second);
+    expect(await t.chat.unreadForStore(t.seller.id, t.store.id)).toMatchObject({
+      replyNeeded: 0,
+      quoteRequests: 0,
+    });
   });
 
   it("사장님 홈 견적 요청 수: 받은 요청은 세고 견적을 보내면 빠진다", async () => {

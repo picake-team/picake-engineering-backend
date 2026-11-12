@@ -86,6 +86,20 @@ export function isReminderDue(
   return r.arrivalAlimtalkAt.getTime() < at && now.getTime() >= at;
 }
 
+/**
+ * 가게가 손님이 쓴 내용(설명·요청 사항·참고 사진)을 볼 수 있나.
+ * 처리방침 v1.3 제3조 ②의 보유 기간("견적 요청이 마감될 때까지")에 맞춰, 끝난 요청(마감·닫힘·다른 가게를 고름)에서는
+ * 가리고, 고른 가게는 케이크를 만들어야 하니 손님 "진행 중"과 같이 픽업 시작 24시간 뒤까지 보인다.
+ */
+export function shopCanSeeRequestContent(
+  state: QuoteTargetStateValue,
+  pickupStartAt: Date,
+  now: Date,
+): boolean {
+  if (state === "CHOSEN_ME") return now.getTime() < pickupStartAt.getTime() + 24 * MS_HOUR;
+  return state !== "CLOSED" && state !== "CHOSEN_OTHER";
+}
+
 /** 손님 화면에 보일 합계(개수가 2개 이상이면 1개 금액 × 개수) */
 export function quoteTotal(unitPrice: number, quantity: number): number {
   return unitPrice * Math.max(1, quantity);
