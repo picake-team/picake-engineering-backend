@@ -137,7 +137,8 @@ describe("견적 ② (integration)", () => {
     expect(view.state).toBe("OPEN");
     const q = await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(58000));
     expect(q).toMatchObject({ total: 58000, similarityLabel: "거의 똑같이", isPicakeStore: true });
-    expect(q.contacts[0]).toMatchObject({ type: "INSTAGRAM", value: "gureum_bakery" });
+    // 주문 받는 곳은 묻지 않음(11-12): 옛 화면이 보내도 저장하지 않는다
+    expect(q.contacts).toEqual([]);
     expect(t.notify.quoteArrived).toHaveBeenCalledWith(
       expect.objectContaining({ requestId, edited: false, total: 58000 }),
     );

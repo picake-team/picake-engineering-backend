@@ -27,11 +27,9 @@ import type {
   ChatSendResultDto,
 } from "@apps/backend/modules/chat/dto/chat.dto";
 import {
-  QUOTE_CONTACT_LABELS,
   QUOTE_ERROR_MESSAGES,
   QUOTE_LIMITS,
   QUOTE_SIMILARITY_LABELS,
-  type QuoteContactType,
 } from "@apps/backend/modules/quote-request/constants/quote.constants";
 import {
   QUOTE_CAKE_SIZE_LABELS,
@@ -41,7 +39,6 @@ import type {
   AdminQuoteSectionDto,
   ChooseQuoteResponseDto,
   ConsumerQuoteSectionDto,
-  QuoteContactDto,
   QuoteDto,
   QuoteInputDto,
   QuoteLinkViewDto,
@@ -53,11 +50,9 @@ import {
   isAccepting,
   isStalled,
   linkChatOpenUntil,
-  normalizeContacts,
   quoteTotal,
   rechooseUntil,
   targetState,
-  type QuoteContact,
 } from "@apps/backend/modules/quote-request/utils/quote-policy.util";
 import {
   formatBudget,
@@ -175,39 +170,6 @@ export class QuoteService {
     return t.store?.name ?? t.name;
   }
 
-  private contactsDto(raw: Prisma.JsonValue): QuoteContactDto[] {
-    const list = Array.isArray(raw) ? (raw as unknown as QuoteContact[]) : [];
-    return list
-      .filter((c) => c && typeof c.value === "string" && QUOTE_CONTACT_LABELS[c.type])
-      .map((c) => ({
-        type: c.type,
-        label: QUOTE_CONTACT_LABELS[c.type],
-        value: c.value,
-        href:
-          c.type === "PHONE"
-            ? `tel:${c.value.replace(/-/g, "")}`
-            : c.type === "INSTAGRAM"
-              ? `https://www.instagram.com/${c.value}`
-              : c.value,
-      }));
-  }
-
-  /** 주문 받는 곳 미리 채움: 보낸 견적이 있으면 그것, 없으면 가게 정보(카톡 채널·인스타·전화) */
-  private prefillContacts(t: TargetRow): QuoteContactDto[] {
-    if (t.quote) return this.contactsDto(t.quote.contacts);
-    const raw: { type: QuoteContactType; value: string }[] = [];
-    if (t.store?.kakaoChannelId) {
-      raw.push({ type: "KAKAO", value: `https://pf.kakao.com/${t.store.kakaoChannelId}` });
-    }
-    if (t.store?.instagramId) raw.push({ type: "INSTAGRAM", value: t.store.instagramId });
-    const phone = t.store?.phoneNumber ?? t.phone;
-    if (phone) raw.push({ type: "PHONE", value: phone });
-    const normalized = raw
-      .map((c) => normalizeContacts([c])?.[0])
-      .filter((c): c is QuoteContact => !!c);
-    return this.contactsDto(normalized as unknown as Prisma.JsonValue);
-  }
-
   private toQuoteDto(t: TargetRow, quantity: number): QuoteDto | null {
     const q = t.quote;
     if (!q) return null;
@@ -227,7 +189,8 @@ export class QuoteService {
       similarity: q.similarity,
       similarityLabel: sim.label,
       similarityDetail: sim.detail,
-      contacts: this.contactsDto(q.contacts),
+      // 주문 받는 곳은 묻지 않음(11-12). 바뀌기 전 화면 호환용 빈 목록
+      contacts: [],
       memo: q.memo,
       photoUrls: q.photoUrls,
       edited: !!q.editedAt,
@@ -269,7 +232,7 @@ export class QuoteService {
       canEdit: state === "OPEN" || state === "SENT" || state === "DECLINED",
       quote: this.toQuoteDto(t, r.quantity),
       declineReason: t.quote ? null : t.declineReason,
-      prefillContacts: this.prefillContacts(t),
+      prefillContacts: [],
     };
   }
 
@@ -303,9 +266,6 @@ export class QuoteService {
         r.chosenTargetId ? QUOTE_ERROR_MESSAGES.ALREADY_CHOSEN : QUOTE_ERROR_MESSAGES.NOT_ACCEPTING,
       );
     }
-    const contacts = normalizeContacts(dto.contacts ?? []);
-    if (!contacts) throw new BadRequestException(QUOTE_ERROR_MESSAGES.CONTACT_INVALID);
-    if (contacts.length === 0) throw new BadRequestException(QUOTE_ERROR_MESSAGES.CONTACT_REQUIRED);
     const photoUrls = dto.photoUrls ?? [];
     if (
       photoUrls.length > QUOTE_LIMITS.MAX_PHOTOS ||
@@ -317,7 +277,6 @@ export class QuoteService {
       unitPrice: dto.unitPrice,
       priceMayVary: !!dto.priceMayVary,
       similarity: dto.similarity,
-      contacts: contacts as unknown as Prisma.InputJsonValue,
       memo: dto.memo?.trim() || null,
       photoUrls,
     };

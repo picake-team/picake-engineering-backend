@@ -5,14 +5,12 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
-  IsIn,
   IsInt,
   IsOptional,
   IsString,
   Max,
   MaxLength,
   Min,
-  ValidateNested,
 } from "class-validator";
 import {
   QuoteDeclineReason,
@@ -26,17 +24,6 @@ import {
 } from "@apps/backend/modules/quote-request/constants/quote.constants";
 
 // ───────────────────────── 입력 ─────────────────────────
-
-export class QuoteContactInputDto {
-  @ApiProperty({ enum: QUOTE_CONTACT_TYPES })
-  @IsIn(QUOTE_CONTACT_TYPES)
-  type!: QuoteContactType;
-
-  @ApiProperty({ description: "카카오톡 채널·네이버 주소, 인스타그램 아이디, 전화번호" })
-  @IsString()
-  @MaxLength(QUOTE_LIMITS.CONTACT_VALUE_MAX_LENGTH)
-  value!: string;
-}
 
 /** 견적 보내기·고치기(견적 링크·판매자 앱·운영자 대신 적기가 같은 칸) */
 export class QuoteInputDto {
@@ -56,12 +43,15 @@ export class QuoteInputDto {
   @IsEnum(QuoteSimilarity)
   similarity!: QuoteSimilarity;
 
-  @ApiProperty({ type: [QuoteContactInputDto] })
+  /**
+   * 쓰지 않음(운영자 2026-11-12: 주문 받는 곳을 묻지 않고 채팅에서 정함).
+   * 바뀌기 전 화면이 보내도 받기만 하고 저장하지 않는다. 화면이 다 바뀐 뒤 지운다
+   */
+  @ApiPropertyOptional({ deprecated: true, description: "쓰지 않음. 보내도 저장하지 않음" })
+  @IsOptional()
   @IsArray()
   @ArrayMaxSize(QUOTE_CONTACT_TYPES.length)
-  @ValidateNested({ each: true })
-  @Type(() => QuoteContactInputDto)
-  contacts!: QuoteContactInputDto[];
+  contacts?: unknown[];
 
   @ApiPropertyOptional({ maxLength: QUOTE_LIMITS.MEMO_MAX_LENGTH })
   @IsOptional()
@@ -114,7 +104,12 @@ export class QuoteDto {
   @ApiProperty({ enum: QuoteSimilarity }) similarity!: QuoteSimilarity;
   @ApiProperty() similarityLabel!: string;
   @ApiProperty() similarityDetail!: string;
-  @ApiProperty({ type: [QuoteContactDto] }) contacts!: QuoteContactDto[];
+  @ApiProperty({
+    type: [QuoteContactDto],
+    deprecated: true,
+    description: "쓰지 않음(늘 빈 목록, 바뀌기 전 화면 호환용 — 주문은 채팅에서)",
+  })
+  contacts!: QuoteContactDto[];
   @ApiProperty({ nullable: true, type: String }) memo!: string | null;
   @ApiProperty({ type: [String] }) photoUrls!: string[];
   @ApiProperty({ description: "처음 보낸 뒤 고침" }) edited!: boolean;
@@ -186,7 +181,11 @@ export class QuoteRequestForShopDto {
   @ApiProperty({ nullable: true, type: QuoteDto }) quote!: QuoteDto | null;
   @ApiProperty({ nullable: true, enum: QuoteDeclineReason })
   declineReason!: QuoteDeclineReason | null;
-  @ApiProperty({ type: [QuoteContactDto], description: "주문 받는 곳 미리 채움" })
+  @ApiProperty({
+    type: [QuoteContactDto],
+    deprecated: true,
+    description: "쓰지 않음(늘 빈 목록, 바뀌기 전 화면 호환용)",
+  })
   prefillContacts!: QuoteContactDto[];
 }
 
