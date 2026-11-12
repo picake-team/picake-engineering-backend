@@ -230,7 +230,11 @@ export class QuoteService {
       requestNote: r.requestNote,
       photoUrls: r.photoUrls,
       state,
-      canEdit: state === "OPEN" || state === "SENT" || state === "DECLINED",
+      // 어려워요로 답한 가게도 마감 전엔 견적으로 바꿀 수 있지만, 그사이 견적이 다 모였으면 보낼 수 없다
+      canEdit:
+        state === "OPEN" ||
+        state === "SENT" ||
+        (state === "DECLINED" && r._count.quotes < QUOTE_LIMITS.MAX_QUOTES),
       quote: this.toQuoteDto(t, r.quantity),
       declineReason: t.quote ? null : t.declineReason,
       prefillContacts: [],
@@ -559,17 +563,17 @@ export class QuoteService {
     const withQuote = r.stores
       .filter((t) => t.quote)
       .sort((a, b) => a.quote!.createdAt.getTime() - b.quote!.createdAt.getTime());
-    const quotes = [];
-    for (const t of withQuote) {
-      const threadId = t.shopId ? await this.chat.threadIdFor(consumerId, t.shopId) : null;
-      quotes.push({
-        ...this.toQuoteDto(t, r.quantity)!,
-        unseen: !t.quote!.consumerSeenAt,
-        chosen: r.chosenTargetId === t.id,
-        canChoose: canChoose(r, t.id, now, stalled),
-        threadId,
-      });
-    }
+    const threadIds = await this.chat.threadIdsFor(
+      consumerId,
+      withQuote.map((t) => t.shopId).filter((v): v is string => !!v),
+    );
+    const quotes = withQuote.map((t) => ({
+      ...this.toQuoteDto(t, r.quantity)!,
+      unseen: !t.quote!.consumerSeenAt,
+      chosen: r.chosenTargetId === t.id,
+      canChoose: canChoose(r, t.id, now, stalled),
+      threadId: (t.shopId && threadIds.get(t.shopId)) ?? null,
+    }));
     if (withQuote.some((t) => !t.quote!.consumerSeenAt)) {
       await this.prisma.quote.updateMany({
         where: { quoteRequestId: r.id, consumerSeenAt: null },

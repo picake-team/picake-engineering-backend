@@ -1412,6 +1412,16 @@ export class ChatService {
   }
 
   /** 이 손님 × 가게 방(없으면 null) */
+  /** 손님 한 명과 여러 가게의 방 번호(한 번에 읽기). 방이 없는 가게는 빠진다 */
+  async threadIdsFor(consumerId: string, shopIds: string[]): Promise<Map<string, string>> {
+    if (shopIds.length === 0) return new Map();
+    const rows = await this.prisma.chatThread.findMany({
+      where: { consumerId, shopId: { in: shopIds } },
+      select: { id: true, shopId: true },
+    });
+    return new Map(rows.map((r) => [r.shopId, r.id]));
+  }
+
   async threadIdFor(consumerId: string, shopId: string): Promise<string | null> {
     const t = await this.prisma.chatThread.findUnique({
       where: { consumerId_shopId: { consumerId, shopId } },

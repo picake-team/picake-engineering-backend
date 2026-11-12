@@ -322,6 +322,29 @@ describe("견적 ② (integration)", () => {
     expect(consumerRoom.messages.some((m) => m.text === "지난 요청")).toBe(true);
   });
 
+  it("어려워요로 답한 가게는 그사이 견적이 다 모이면 견적으로 바꿀 수 없다", async () => {
+    const t = await build();
+    const requestId = await t.createRequest();
+    await t.quotes.sendNewRequestToApps(requestId);
+    await t.quotes.sellerDecline(t.seller.id, t.store.id, requestId, "FULLY_BOOKED");
+    expect(await t.quotes.sellerView(t.seller.id, t.store.id, requestId)).toMatchObject({
+      state: "DECLINED",
+      canEdit: true,
+    });
+    for (let i = 0; i < 5; i += 1) {
+      const kakaoPlaceId = `kp-full-${Date.now()}-${++seq}`;
+      await t.quotes.adminAddTarget(requestId, { kakaoPlaceId, name: `가게${i}` });
+      const target = await t.prisma.quoteRequestStore.findFirstOrThrow({
+        where: { quoteRequestId: requestId, kakaoPlaceId },
+      });
+      await t.quotes.adminSubmit(requestId, target.id, quoteInput(40000 + i));
+    }
+    expect(await t.quotes.sellerView(t.seller.id, t.store.id, requestId)).toMatchObject({
+      state: "DECLINED",
+      canEdit: false,
+    });
+  });
+
   it("어려워요는 손님에게 한 줄로, 보낸 뒤에는 어려워요 대신 고치기", async () => {
     const t = await build();
     const requestId = await t.createRequest();
