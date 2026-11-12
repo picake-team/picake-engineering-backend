@@ -39,12 +39,12 @@ export const CHAT_LIMITS = {
 /** 채팅 이용 규칙 버전. 규칙 글이 바뀌면 올려서 다시 동의받는다 */
 export const CHAT_RULES_VERSION = 1;
 
-/** 알림톡 템플릿 ID — 카카오 검수 승인 뒤 넣는다(운영자 확인 전, 비어 있으면 보내지 않음) */
+/** 알림톡 템플릿 ID — 2026-11-13 카카오 검수 승인(스크립트 alimtalk-templates 확인). 비우면 보내지 않음 */
 export const CHAT_ALIMTALK_TEMPLATE_IDS = {
-  /** 손님: 문의하신 가게에서 답변 메시지가 도착 */
-  CONSUMER_REPLY: "",
-  /** 사장님: 새 문의 */
-  SELLER_NEW_MESSAGE: "",
+  /** 손님 "답변 도착 안내": 문의하신 가게에서 답변 메시지가 도착 */
+  CONSUMER_REPLY: "KA01TP261112021026726lAqt1oRI1b4",
+  /** 사장님 "새 문의 안내": 손님 메시지 도착 */
+  SELLER_NEW_MESSAGE: "KA01TP261112021028663pv2wwJLfAs0",
 } as const;
 
 /** 판매자 앱 휴대폰 알림 제목(주문 알림과 같은 말투). 웹 toast-icon.util이 이 글로 아이콘을 고른다 — 바꾸면 웹도 같이 */
