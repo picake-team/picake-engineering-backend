@@ -62,7 +62,7 @@ export const QUOTE_REQUEST_SELECT = {
   createdAt: true,
   chosenTargetId: true,
   stores: { select: QUOTE_REQUEST_STORE_SELECT, orderBy: { sortOrder: "asc" } },
-  quotes: { select: { consumerSeenAt: true } },
+  quotes: { select: { consumerSeenAt: true, source: true } },
 } satisfies Prisma.QuoteRequestSelect;
 
 export const ADMIN_QUOTE_REQUEST_SELECT = {
@@ -191,6 +191,11 @@ export function toAdminListItem(
     storeCount: row.stores.length,
     photoCount: row.photoUrls.length,
     entry: row.entry,
+    quoteSources: {
+      LINK: row.quotes.filter((q) => q.source === "LINK").length,
+      SELLER: row.quotes.filter((q) => q.source === "SELLER").length,
+      ADMIN: row.quotes.filter((q) => q.source === "ADMIN").length,
+    },
   };
 }
 

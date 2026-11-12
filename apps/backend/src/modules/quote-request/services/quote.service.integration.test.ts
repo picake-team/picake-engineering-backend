@@ -14,6 +14,7 @@ import {
   CHAT_RULES_VERSION,
 } from "@apps/backend/modules/chat/constants/chat.constants";
 import { QuoteService } from "@apps/backend/modules/quote-request/services/quote.service";
+import { QuoteRequestReadService } from "@apps/backend/modules/quote-request/services/quote-request-read.service";
 import { QuoteJobsService } from "@apps/backend/modules/quote-request/services/quote-jobs.service";
 import type { QuoteNotifyService } from "@apps/backend/modules/quote-request/services/quote-notify.service";
 import { QUOTE_ERROR_MESSAGES } from "@apps/backend/modules/quote-request/constants/quote.constants";
@@ -263,6 +264,18 @@ describe("견적 ② (integration)", () => {
     expect(admin).toMatchObject({ chosenIsUnentered: true, chosenNotifiedAt: null });
     await t.quotes.adminMarkChosenNotified(requestId);
     expect((await t.quotes.adminSection(requestId)).chosenNotifiedAt).not.toBeNull();
+
+    // 주간 회의 숫자: 관리자 목록에 견적이 들어온 길별 수와 고름
+    const adminList = await new QuoteRequestReadService(t.prisma).listForAdmin({
+      page: 1,
+      limit: 50,
+    });
+    const row = adminList.data.find((x) => x.id === requestId)!;
+    expect(row).toMatchObject({
+      quoteCount: 2,
+      chosen: true,
+      quoteSources: { LINK: 1, SELLER: 1, ADMIN: 0 },
+    });
 
     // 고른 가게(같은 견적)를 다시 고를 수는 없다
     await expect(
