@@ -25,6 +25,28 @@ export function koreaCalendarDayEndUtc(dateStr: string): Date {
   return new Date(`${dateStr}T23:59:59.999${KOREA_OFFSET}`);
 }
 
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * 주문일(접수 시각) 거르기 범위. YYYY-MM-DD는 한국 달력 하루로 본다
+ * (서버는 UTC라 `new Date("2026-11-12")`가 한국 시간 오전 9시가 되어, 시작일 0~9시 주문이 빠지고
+ * 끝날 다음 날 0~9시 주문이 들어가던 것을 고침 — 2026-11-12 전체 검토). 시각이 붙은 값은 그대로 쓴다.
+ */
+export function createdAtRangeFilter(
+  startDate?: string,
+  endDate?: string,
+): { gte?: Date; lte?: Date } | undefined {
+  if (!startDate && !endDate) return undefined;
+  const range: { gte?: Date; lte?: Date } = {};
+  if (startDate) {
+    range.gte = YMD.test(startDate) ? koreaCalendarDayStartUtc(startDate) : new Date(startDate);
+  }
+  if (endDate) {
+    range.lte = YMD.test(endDate) ? koreaCalendarDayEndUtc(endDate) : new Date(endDate);
+  }
+  return range;
+}
+
 /**
  * 판매자 주문 찾기 검색어 하나로 주문번호·상품명·예약자 이름·예약 연락처를 함께 찾는 조건.
  * 픽업하러 온 손님을 이름이나 전화번호 뒷자리로 바로 찾기 위해서다. 연락처는 숫자만 저장하므로
