@@ -137,7 +137,8 @@ describe("견적 ② (integration)", () => {
     expect(view.state).toBe("OPEN");
     const q = await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(58000));
     expect(q).toMatchObject({ total: 58000, similarityLabel: "거의 똑같이", isPicakeStore: true });
-    expect(q.contacts[0]).toMatchObject({ type: "INSTAGRAM", value: "gureum_bakery" });
+    // 주문 받는 곳은 묻지 않음(11-12): 옛 화면이 보내도 저장하지 않는다
+    expect(q.contacts).toEqual([]);
     expect(t.notify.quoteArrived).toHaveBeenCalledWith(
       expect.objectContaining({ requestId, edited: false, total: 58000 }),
     );
@@ -274,6 +275,8 @@ describe("견적 ② (integration)", () => {
     expect(row).toMatchObject({
       quoteCount: 2,
       chosen: true,
+      // 손님이 넣은 가게만 센다(운영자가 더한 입점 전 가게는 빼고)
+      storeCount: 1,
       quoteSources: { LINK: 1, SELLER: 1, ADMIN: 0 },
     });
 
@@ -281,6 +284,42 @@ describe("견적 ② (integration)", () => {
     await expect(
       t.quotes.choose(t.consumer.id, requestId, unenteredQuote.id),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("같은 손님이 같은 입점 전 가게에 다시 요청하면 새 링크에는 이번 요청이 온 뒤 대화만 보인다", async () => {
+    const t = await build();
+    const kakaoPlaceId = `kp-again-${Date.now()}-${++seq}`;
+    const first = await t.createRequest();
+    await t.quotes.adminAddTarget(first, { kakaoPlaceId, name: "솜사탕케이크" });
+    const target1 = await t.prisma.quoteRequestStore.findFirstOrThrow({
+      where: { quoteRequestId: first, kakaoPlaceId },
+    });
+    const token1 = (await t.quotes.adminCreateLink(first, target1.id)).linkUrl.split("/q/")[1];
+    await t.quotes.linkSubmit(token1, quoteInput(52000));
+    const q1 = (await t.quotes.consumerSection(t.consumer.id, first)).quotes.find(
+      (q) => !q.isPicakeStore,
+    )!;
+    await t.chat.sendForConsumer(t.consumer.id, q1.threadId!, {
+      clientId: cid(),
+      text: "지난 요청",
+    });
+    expect((await t.quotes.linkMessages(token1, {}))?.messages).toHaveLength(2);
+
+    await new Promise((r) => setTimeout(r, 5));
+    const second = await t.createRequest();
+    await t.quotes.adminAddTarget(second, { kakaoPlaceId, name: "솜사탕케이크" });
+    const target2 = await t.prisma.quoteRequestStore.findFirstOrThrow({
+      where: { quoteRequestId: second, kakaoPlaceId },
+    });
+    const token2 = (await t.quotes.adminCreateLink(second, target2.id)).linkUrl.split("/q/")[1];
+    // 같은 방이지만 새 링크에는 지난 요청 대화가 보이지 않는다
+    expect((await t.quotes.linkMessages(token2, {}))?.messages ?? []).toHaveLength(0);
+    await t.quotes.linkSubmit(token2, quoteInput(48000));
+    const room = await t.quotes.linkMessages(token2, {});
+    expect(room?.messages.map((m) => m.kind)).toEqual(["QUOTE"]);
+    // 손님 채팅방에는 지난 대화까지 그대로
+    const consumerRoom = await t.chat.messagesForConsumer(t.consumer.id, q1.threadId!, {});
+    expect(consumerRoom.messages.some((m) => m.text === "지난 요청")).toBe(true);
   });
 
   it("어려워요는 손님에게 한 줄로, 보낸 뒤에는 어려워요 대신 고치기", async () => {
@@ -332,16 +371,33 @@ describe("견적 ② (integration)", () => {
     const expired = await t.createRequest();
     await t.quotes.sendNewRequestToApps(expired);
     const before = await t.chat.unreadForStore(t.seller.id, t.store.id);
-    expect(before.replyNeeded).toBe(1);
+    // 홈은 "견적 요청" 줄로 세고 "답할 채팅"에서는 뺀다
+    expect(before).toMatchObject({ replyNeeded: 1, replyNeededChats: 0, quoteRequests: 1 });
     await t.prisma.quoteRequest.update({
       where: { id: expired },
       data: { deadlineAt: new Date(Date.now() - 1000) },
     });
     await t.jobs.runOnce();
     const after = await t.chat.unreadForStore(t.seller.id, t.store.id);
-    expect(after).toMatchObject({ replyNeeded: 0, unreadThreads: 0 });
+    expect(after).toMatchObject({ replyNeeded: 0, unreadThreads: 0, quoteRequests: 0 });
     const list = await t.chat.listForStore(t.seller.id, t.store.id, {});
     const room = await t.chat.messagesForStore(t.seller.id, t.store.id, list.threads[0].id, {});
     expect(room.messages[0].card?.quoteState).toBe("CLOSED");
+  });
+
+  it("사장님 홈 견적 요청 수: 받은 요청은 세고 견적을 보내면 빠진다", async () => {
+    const t = await build();
+    const requestId = await t.createRequest();
+    await t.quotes.sendNewRequestToApps(requestId);
+    expect(await t.chat.unreadForStore(t.seller.id, t.store.id)).toMatchObject({
+      quoteRequests: 1,
+      replyNeededChats: 0,
+    });
+    await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(58000));
+    expect(await t.chat.unreadForStore(t.seller.id, t.store.id)).toMatchObject({
+      quoteRequests: 0,
+      replyNeeded: 0,
+      replyNeededChats: 0,
+    });
   });
 });

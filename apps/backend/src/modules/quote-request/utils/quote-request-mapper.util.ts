@@ -188,7 +188,8 @@ export function toAdminListItem(
 ): AdminQuoteRequestListItemDto {
   return {
     ...toListItem(row, now),
-    storeCount: row.stores.length,
+    // 손님이 넣은 가게만(운영자가 더한 가게는 빼서 ①과 같은 뜻, 주간 회의 weekAvgStores)
+    storeCount: row.stores.filter((s) => s.addedBy === "CONSUMER").length,
     photoCount: row.photoUrls.length,
     entry: row.entry,
     quoteSources: {

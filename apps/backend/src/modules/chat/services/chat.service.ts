@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
-import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
+import { Prisma, QuoteRequestStatus } from "@apps/backend/infra/database/prisma/generated/client";
 import { isAllowedUploadUrl } from "@apps/backend/modules/upload/utils/upload-url.util";
 import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
 import { EnableStatus } from "@apps/backend/modules/product/constants/product.constants";
@@ -46,7 +46,10 @@ import {
   maskBlockedWords,
 } from "@apps/backend/modules/chat/utils/chat-policy.util";
 import { ChatNotifyService } from "@apps/backend/modules/chat/services/chat-notify.service";
-import { SELLER_QUOTE_PUSH_TITLES } from "@apps/backend/modules/quote-request/constants/quote.constants";
+import {
+  QUOTE_LIMITS,
+  SELLER_QUOTE_PUSH_TITLES,
+} from "@apps/backend/modules/quote-request/constants/quote.constants";
 import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 
 type Side = "CONSUMER" | "SHOP";
@@ -631,8 +634,13 @@ export class ChatService {
     thread: ThreadRow,
     actorId: string,
     query: ChatMessagesQueryDto,
+    since?: Date,
   ): Promise<ChatMessagesDto> {
     const take = CHAT_LIMITS.PAGE_SIZE;
+    const visible: Prisma.ChatMessageWhereInput[] = [
+      { OR: [{ onlyFor: null }, { onlyFor: side }] },
+      ...(since ? [{ createdAt: { gte: since } }] : []),
+    ];
     let rows: MessageRow[];
     let hasMore = false;
     if (query.after) {
@@ -643,7 +651,7 @@ export class ChatService {
       rows = (await this.prisma.chatMessage.findMany({
         where: {
           threadId: thread.id,
-          AND: [{ OR: [{ onlyFor: null }, { onlyFor: side }] }],
+          AND: visible,
           ...(pivot
             ? {
                 OR: [
@@ -667,7 +675,7 @@ export class ChatService {
       const desc = (await this.prisma.chatMessage.findMany({
         where: {
           threadId: thread.id,
-          AND: [{ OR: [{ onlyFor: null }, { onlyFor: side }] }],
+          AND: visible,
           ...(pivot
             ? {
                 OR: [
@@ -965,12 +973,42 @@ export class ChatService {
         shopReadAt: true,
       },
     });
-    const replyNeeded = await this.prisma.chatThread.count({
-      where: { shop: { storeId }, ...this.replyNeededWhere(new Date()) },
-    });
+    const now = new Date();
+    const [replyNeeded, replyNeededChats, quoteTargets] = await Promise.all([
+      this.prisma.chatThread.count({
+        where: { shop: { storeId }, ...this.replyNeededWhere(now) },
+      }),
+      // 홈 "답할 채팅": 마지막 글이 견적 요청 카드인 방은 "견적 요청" 줄이 세므로 뺀다
+      this.prisma.chatThread.count({
+        where: {
+          shop: { storeId },
+          ...this.replyNeededWhere(now),
+          NOT: { lastMessagePreview: CHAT_QUOTE_PREVIEWS.REQUEST },
+        },
+      }),
+      // 홈 "견적 요청": 채팅방으로 받은 요청 중 아직 견적·어려워요로 답하지 않았고 받는 중인 것(판매자 카드 "견적 기다림")
+      this.prisma.quoteRequestStore.findMany({
+        where: {
+          storeId,
+          sentToAppAt: { not: null },
+          declinedAt: null,
+          quote: { is: null },
+          quoteRequest: {
+            status: QuoteRequestStatus.OPEN,
+            chosenTargetId: null,
+            deadlineAt: { gt: now },
+          },
+        },
+        select: { quoteRequest: { select: { _count: { select: { quotes: true } } } } },
+      }),
+    ]);
     return {
       unreadThreads: rows.filter((r) => isUnreadFor("SHOP", r)).length,
       replyNeeded,
+      replyNeededChats,
+      quoteRequests: quoteTargets.filter(
+        (t) => t.quoteRequest._count.quotes < QUOTE_LIMITS.MAX_QUOTES,
+      ).length,
     };
   }
 
@@ -1386,13 +1424,15 @@ export class ChatService {
   async messagesForLink(
     pair: { consumerId: string; shopId: string },
     query: ChatMessagesQueryDto,
+    /** 이 때부터의 글만(견적 링크는 그 요청이 온 뒤 대화만 보인다) */
+    since?: Date,
   ): Promise<ChatMessagesDto | null> {
     const t = await this.prisma.chatThread.findUnique({
       where: { consumerId_shopId: pair },
       select: THREAD_SELECT,
     });
     if (!t) return null;
-    return this.listMessages("SHOP", t, "link", query);
+    return this.listMessages("SHOP", t, "link", query, since);
   }
 
   /** 견적 링크(입점 전 가게) 쪽에서 보내기. 견적을 보내 방이 생긴 뒤에만 */

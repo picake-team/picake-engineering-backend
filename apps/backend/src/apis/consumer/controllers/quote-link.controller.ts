@@ -64,7 +64,7 @@ export class ConsumerQuoteLinkController {
   @ApiOperation({
     summary: "견적 보내기·고치기",
     description:
-      "금액(1개)·비슷한 정도·주문 받는 곳(하나 이상)·사진(3장)·메모. 손님이 고르기 전까지 고칠 수 있고, 고치면 손님에게 '견적이 바뀌었어요'가 갑니다.",
+      "금액(1개)·비슷한 정도·사진(3장)·메모. 주문 받는 곳은 묻지 않고 주문은 대화에서 정한다. 손님이 고르기 전까지 고칠 수 있고, 고치면 손님에게 '견적이 바뀌었어요'가 갑니다.",
   })
   @SwaggerResponse(200, { dataDto: QuoteDto })
   async submit(@Param("token") token: string, @Body() dto: QuoteInputDto) {

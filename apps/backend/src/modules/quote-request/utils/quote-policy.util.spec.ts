@@ -7,7 +7,6 @@ import {
   isReminderDue,
   isStalled,
   linkChatOpenUntil,
-  normalizeContacts,
   rechooseUntil,
   targetState,
 } from "./quote-policy.util";
@@ -126,31 +125,5 @@ describe("견적 ② 규칙(기획 I-46·I-11)", () => {
     });
     expect(targetState({ ...base, request: chosen })).toBe("CHOSEN_ME");
     expect(targetState({ ...base, targetId: "t2", request: chosen })).toBe("CHOSEN_OTHER");
-  });
-
-  it("주문 받는 곳: 카톡·네이버는 https 주소, 인스타는 아이디, 전화는 번호. 같은 종류 두 번·잘못된 값은 거절", () => {
-    expect(
-      normalizeContacts([
-        { type: "KAKAO", value: "pf.kakao.com/_gureum" },
-        { type: "INSTAGRAM", value: "https://www.instagram.com/gureum_bakery/" },
-        { type: "PHONE", value: "010-1234-5678" },
-      ]),
-    ).toEqual([
-      { type: "KAKAO", value: "https://pf.kakao.com/_gureum" },
-      { type: "INSTAGRAM", value: "gureum_bakery" },
-      { type: "PHONE", value: "010-1234-5678" },
-    ]);
-    expect(normalizeContacts([{ type: "INSTAGRAM", value: "@cake.lab" }])).toEqual([
-      { type: "INSTAGRAM", value: "cake.lab" },
-    ]);
-    expect(
-      normalizeContacts([
-        { type: "PHONE", value: "010-1234-5678" },
-        { type: "PHONE", value: "02-123-4567" },
-      ]),
-    ).toBeNull();
-    expect(normalizeContacts([{ type: "KAKAO", value: "javascript:alert(1)" }])).toBeNull();
-    expect(normalizeContacts([{ type: "PHONE", value: "1234" }])).toBeNull();
-    expect(normalizeContacts([{ type: "EMAIL", value: "a@b.c" }])).toBeNull();
   });
 });
