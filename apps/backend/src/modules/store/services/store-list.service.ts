@@ -35,6 +35,14 @@ import { PRODUCT_ERROR_MESSAGES } from "@apps/backend/modules/product/constants/
 import { storeRowMatchesMapPickupFilter } from "@apps/backend/modules/store/utils/store-business-calendar.util";
 import { buildStoreKeywordSearchWhere } from "@apps/backend/modules/product/utils/product-search.util";
 
+/** 지역별 스토어 수를 메모리에 두는 시간 */
+const REGION_COUNTS_CACHE_MS = 60_000;
+
+type RegionCounts = Array<{
+  depth1: { label: string; searchKeywords: readonly string[]; storeCount: number };
+  depth2: Array<{ label: string; searchKeywords: readonly string[]; storeCount: number }>;
+}>;
+
 /**
  * 스토어 목록 조회 서비스
  * 스토어 목록/상세 조회 관련 로직을 담당합니다.
@@ -453,8 +461,8 @@ export class StoreListService {
       Prisma.sql`
         SELECT DISTINCT p.store_id
         FROM products p
-        WHERE p.visibility_status = ${EnableStatus.ENABLE}
-          AND p.sales_status = ${EnableStatus.ENABLE}
+        WHERE p.visibility_status::text = ${EnableStatus.ENABLE}
+          AND p.sales_status::text = ${EnableStatus.ENABLE}
           AND p.cake_size_options IS NOT NULL
           AND EXISTS (
             SELECT 1 FROM jsonb_array_elements(p.cake_size_options::jsonb) AS elem
@@ -569,12 +577,25 @@ export class StoreListService {
    * 선택했을 때 홈 화면이 텅 비어 보입니다(2026-08 App Store 심사 반려의 실제 원인,
    * `ios-app-review` skill 참고).
    */
-  async getRegionCounts(): Promise<
-    Array<{
-      depth1: { label: string; searchKeywords: readonly string[]; storeCount: number };
-      depth2: Array<{ label: string; searchKeywords: readonly string[]; storeCount: number }>;
-    }>
-  > {
+  async getRegionCounts(): Promise<RegionCounts> {
+    // 지역(시·군·구 약 250곳)마다 가게 수를 세는 질의라 상용에서 0.4초쯤 걸린다(2026-11-12 상용 로그).
+    // 손님 앱 홈·지도·위치 고르기에서 매번 부르고 가게 수는 자주 바뀌지 않아 1분 동안 같은 결과를 쓴다.
+    // 서버가 한 대라 메모리에 둔다. 같은 때 들어온 요청은 진행 중인 계산 하나를 같이 기다린다
+    const now = Date.now();
+    if (this.regionCountsCache && now - this.regionCountsCache.at < REGION_COUNTS_CACHE_MS) {
+      return this.regionCountsCache.value;
+    }
+    const value = this.computeRegionCounts();
+    this.regionCountsCache = { at: now, value };
+    value.catch(() => {
+      if (this.regionCountsCache?.value === value) this.regionCountsCache = null;
+    });
+    return value;
+  }
+
+  private regionCountsCache: { at: number; value: Promise<RegionCounts> } | null = null;
+
+  private async computeRegionCounts(): Promise<RegionCounts> {
     const hasVisibleProductFilter: Prisma.StoreWhereInput = {
       products: { some: { visibilityStatus: EnableStatus.ENABLE } },
     };
