@@ -36,6 +36,9 @@ export class ChatCleanupService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit(): void {
+    // 켜질 때도 한 번 돈다. 하루 간격만 두면 하루 안에 다시 배포(재시작)될 때마다 한 번도 돌지 않는다
+    // (주문 자동 처리·링크 방문 정리와 같은 방식, 2026-11-12 전체 검토)
+    void this.purgeExpired();
     this.timer = setInterval(() => void this.purgeExpired(), CHAT_RETENTION.INTERVAL_MS);
   }
 
