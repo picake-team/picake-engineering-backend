@@ -43,11 +43,14 @@ export class StoreMapperUtil {
    * 단일 스토어 또는 여러 스토어를 처리합니다. N+1 쿼리 문제를 방지하기 위해 배치로 처리합니다.
    * @param stores - Prisma Store 엔티티 또는 배열
    * @param prisma - PrismaService 인스턴스 (후기 통계 계산용)
+   * @param options.includeSettlementAccount - 정산 계좌(은행·계좌번호·예금주)를 넣을지. 사장님 본인 화면만 true.
+   *   손님용 가게 정보에는 넣지 않는다 — 로그인 없이 누구나 부를 수 있고, 입금 안내는 주문의 계좌를 쓴다(기획 I-40·P-07)
    * @returns StoreResponseDto 또는 배열
    */
   static async mapToStoreResponse(
     stores: Store | Store[],
     prisma: PrismaService,
+    options: { includeSettlementAccount?: boolean } = {},
   ): Promise<StoreResponseDto | StoreResponseDto[]> {
     const storesArray = Array.isArray(stores) ? stores : [stores];
     const isSingle = !Array.isArray(stores);
@@ -177,10 +180,14 @@ export class StoreMapperUtil {
         zonecode: store.zonecode ?? "",
         latitude: store.latitude ?? 0,
         longitude: store.longitude ?? 0,
-        // 정산 계좌 정보
-        bankAccountNumber: store.bankAccountNumber ?? undefined,
-        bankName: store.bankName ?? undefined,
-        accountHolderName: store.accountHolderName ?? undefined,
+        // 정산 계좌 정보(사장님 본인 화면만)
+        ...(options.includeSettlementAccount
+          ? {
+              bankAccountNumber: store.bankAccountNumber ?? undefined,
+              bankName: store.bankName ?? undefined,
+              accountHolderName: store.accountHolderName ?? undefined,
+            }
+          : {}),
         // 채널 정보
         kakaoChannelId: store.kakaoChannelId ?? undefined,
         instagramId: store.instagramId ?? undefined,
