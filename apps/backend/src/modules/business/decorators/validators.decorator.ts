@@ -178,7 +178,7 @@ export class IsValidStartDateConstraint implements ValidatorConstraintInterface 
       return "1900년 이후 날짜를 입력해주세요.";
     }
     if (this.errorType === "유효하지않은날짜") {
-      return "유효하지 않은 날짜입니다. 다시 확인해주세요.";
+      return "없는 날짜예요. 다시 확인해 주세요.";
     }
     if (this.errorType === "미래날짜") {
       return "개업일은 오늘 이후 날짜로 입력할 수 없어요.";
