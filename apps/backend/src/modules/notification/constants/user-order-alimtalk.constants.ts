@@ -13,6 +13,7 @@
  *  6. 취소완료(입금 마감 초과 자동)        → CANCEL_COMPLETED_PAYMENT_EXPIRED
  *  7. 취소완료(판매자 취소)               → CANCEL_COMPLETED_BY_SELLER
  *  8. 취소환불대기(판매자 환불 진행)       → CANCEL_REFUND_PENDING_BY_SELLER
+ *  8-1. 취소환불대기(운영자가 취소완료를 되돌림, 입금 확인) → CANCEL_REFUND_PENDING_BY_ADMIN
  *  9. 취소환불완료(판매자 환불 완료)       → CANCEL_REFUND_COMPLETED
  * 10. 재입금안내(입금 마감 3시간 전 자동)   → PAYMENT_REMINDER
  */
@@ -21,8 +22,11 @@ export const USER_ORDER_ALIMTALK_TEMPLATE_IDS = {
   RESERVATION_REQUESTED: "KA01TP260709143109474iuidaN5phmj",
   /** 템플릿2 입금대기: 계좌 입금 안내 */
   PAYMENT_PENDING: "KA01TP260709143633540gmoQcfz7sLJ",
-  /** 템플릿3 예약확정 */
-  CONFIRMED: "KA01TP260709145508054YJnDBsfzV72",
+  /**
+   * 템플릿3 예약확정 — 새 판(픽업 안내는 "전날" 간다는 실제대로, 기획 I-37, 2026-11-12 카카오 승인).
+   * 옛 판 KA01TP260709145508054YJnDBsfzV72는 "픽업 당일 안내"라고 잘못 적혀 있어 쓰지 않는다
+   */
+  CONFIRMED: "KA01TP261111014958674xdLL1V3vr3Z",
   /** 템플릿4 픽업대기: 픽업 24시간 전 안내 */
   PICKUP_PENDING: "KA01TP260711094419831qn71D4Ab3vt",
   /** 템플릿5 픽업완료: 후기 유도 */
@@ -33,6 +37,12 @@ export const USER_ORDER_ALIMTALK_TEMPLATE_IDS = {
   CANCEL_COMPLETED_BY_SELLER: "KA01TP260709151146942Qy7LHpaqUCO",
   /** 템플릿8 취소환불대기: 판매자 환불 진행 안내 */
   CANCEL_REFUND_PENDING_BY_SELLER: "KA01TP260709152017983qyEZLcjRAe4",
+  /**
+   * 템플릿8-1 취소환불대기: 운영자가 취소된 주문의 입금을 확인해 되돌림(관리자 환불 누락 관리, F-46).
+   * 템플릿8은 "스토어 사정으로 취소"라 이 경우와 맞지 않아 따로 둔다(기획 I-37, 2026-11-11).
+   * 2026-11-12 카카오 승인(scripts/alimtalk-templates/templates.json의 CANCEL_REFUND_PENDING_BY_ADMIN)
+   */
+  CANCEL_REFUND_PENDING_BY_ADMIN: "KA01TP261111014959727XZerqa1Ztms",
   /** 템플릿9 취소환불완료 */
   CANCEL_REFUND_COMPLETED: "KA01TP260709152105867mWUzCUiR1E8",
   /** 템플릿10 재입금안내: 입금 마감 3시간 전 안내 (30분 전 2차 안내도 동일 템플릿 재사용) */

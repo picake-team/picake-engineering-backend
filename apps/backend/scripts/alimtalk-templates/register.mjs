@@ -102,6 +102,24 @@ for (const t of existing) {
 }
 log("");
 
+// 기존 템플릿 본문·버튼(손님에게 가는 공개 문구). 새 판을 만들 때 원문을 그대로 옮겨 고치려고 보여 준다
+log("### 기존 템플릿 본문");
+for (const t of existing.filter((e) => e.channelId === SOLAPI_PFID)) {
+  log(`<details><summary>${t.templateId} ${t.name} (${t.status})</summary>`);
+  log("");
+  log("```");
+  log(t.content ?? "");
+  log("```");
+  log(
+    `버튼: ${(t.buttons ?? []).map((b) => `[${b.buttonName}] ${b.buttonType} ${b.linkMo ?? ""}`).join(", ") || "없음"}`,
+  );
+  log(
+    `강조: ${t.emphasizeType ?? "-"} / ${t.emphasizeTitle ?? "-"} / ${t.emphasizeSubtitle ?? "-"}, 메시지 유형: ${t.messageType ?? "-"}`,
+  );
+  log("</details>");
+  log("");
+}
+
 let failed = false;
 for (const t of config.templates) {
   const { vars, problems } = checkTemplate(t);
