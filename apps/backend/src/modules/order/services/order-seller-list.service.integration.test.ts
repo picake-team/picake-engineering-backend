@@ -159,4 +159,40 @@ describe("판매자 주문 목록 정렬·지난 주문 거르기 (integration)"
     expect(await find("567")).toEqual([]);
     expect(await find("없는 이름")).toEqual([]);
   });
+
+  it("목록을 열면 입금 마감이 지난 주문은 취소완료로 보이고, 바뀐 것이 없으면 주문마다 다시 읽지 않는다", async () => {
+    const { prisma, refs, store, service, user } = await setup();
+    const expired = await createTestOrder(prisma, refs, {
+      orderStatus: OrderStatus.PAYMENT_PENDING,
+      paymentPendingAt: at(-2),
+      paymentPendingDeadlineAt: at(-1),
+      pickupDate: at(3),
+    });
+    await createTestOrder(prisma, refs, {
+      orderStatus: OrderStatus.RESERVATION_REQUESTED,
+      pickupDate: at(2),
+    });
+    const list = () =>
+      service.getOrdersForSeller(
+        { page: 1, limit: 20, sortBy: OrderSortBy.PICKUP_ASC, storeId: store.id },
+        user,
+      );
+
+    const findMany = vi.spyOn(prisma.order, "findMany");
+    const findUnique = vi.spyOn(prisma.order, "findUnique");
+
+    const first = await list();
+    expect(first.data.find((o) => o.id === expired.id)?.orderStatus).toBe(
+      OrderStatus.CANCEL_COMPLETED,
+    );
+    expect(findMany).toHaveBeenCalledTimes(2); // 상태가 바뀌어 한 번 더 읽음
+    expect(findUnique).not.toHaveBeenCalled();
+
+    findMany.mockClear();
+    await list();
+    expect(findMany).toHaveBeenCalledTimes(1); // 바뀐 것이 없으면 한 번만
+    expect(findUnique).not.toHaveBeenCalled();
+    findMany.mockRestore();
+    findUnique.mockRestore();
+  });
 });

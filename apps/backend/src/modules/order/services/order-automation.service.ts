@@ -1,4 +1,5 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import type { Order } from "@apps/backend/infra/database/prisma/generated/client";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
 import {
@@ -58,6 +59,27 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
     if (!order) {
       return;
     }
+    await this.syncLoadedOrder(order);
+  }
+
+  /**
+   * 목록에서 이미 읽은 주문 줄로 같은 규칙을 적용한다(주문마다 다시 읽지 않음).
+   * 바뀔 수 있는 상태(입금대기·예약확정)만 보고, 상태가 바뀐 주문이 있으면 true → 목록을 다시 읽는다.
+   */
+  async syncLoadedOrders(orders: Order[]): Promise<boolean> {
+    const targets = orders.filter(
+      (o) =>
+        o.orderStatus === OrderStatus.PAYMENT_PENDING ||
+        (o.orderStatus === OrderStatus.CONFIRMED && o.pickupDate),
+    );
+    if (targets.length === 0) return false;
+    const changed = await Promise.all(targets.map((o) => this.syncLoadedOrder(o)));
+    return changed.some(Boolean);
+  }
+
+  /** 주문 줄 하나에 자동화 규칙을 적용하고, 상태를 바꿨으면 true */
+  private async syncLoadedOrder(order: Order): Promise<boolean> {
+    const orderId = order.id;
     const now = new Date();
 
     if (order.orderStatus === OrderStatus.PAYMENT_PENDING) {
@@ -79,6 +101,7 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
             toStatus: OrderStatus.CANCEL_COMPLETED,
             source: ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_SYNC,
           });
+          return true;
         }
       } else if (order.paymentPendingAt && order.paymentPendingDeadlineAt) {
         await this.trySendPaymentFinalReminder({
@@ -96,7 +119,7 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
           now,
         });
       }
-      return;
+      return false;
     }
 
     if (order.orderStatus === OrderStatus.CONFIRMED && order.pickupDate) {
@@ -123,9 +146,11 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
             toStatus: OrderStatus.PICKUP_PENDING,
             source: ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_SYNC,
           });
+          return true;
         }
       }
     }
+    return false;
   }
 
   /**
@@ -298,17 +323,6 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
         source: ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH,
       });
     }
-  }
-
-  /**
-   * 목록 페이지에 포함된 주문에 대해 `syncOrderLifecycleById`를 병렬 적용합니다.
-   * 호출부에서 동일 조건으로 `findMany`를 한 번 더 하면 상세 조회와 같은 시점의 상태를 맞출 수 있습니다.
-   */
-  async syncOrderLifecycleForIds(orderIds: string[]): Promise<void> {
-    if (orderIds.length === 0) {
-      return;
-    }
-    await Promise.all(orderIds.map((id) => this.syncOrderLifecycleById(id)));
   }
 
   /**
