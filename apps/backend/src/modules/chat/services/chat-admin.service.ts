@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
-import { CHAT_ERROR_MESSAGES } from "@apps/backend/modules/chat/constants/chat.constants";
+import {
+  CHAT_ERROR_MESSAGES,
+  CHAT_HIDDEN_PREVIEW,
+} from "@apps/backend/modules/chat/constants/chat.constants";
 import {
   AdminChatReportListQueryDto,
   AdminChatReportResolveDto,
@@ -194,6 +197,20 @@ export class ChatAdminService {
         data: { hiddenAt: new Date() },
       });
       hidden = r.count;
+      // 가린 글이 그 방의 마지막 글이면 목록 미리보기에도 남지 않게 바꾼다(손님·사장님 목록 둘 다)
+      if (hidden > 0) {
+        const latest = await this.prisma.chatMessage.findFirst({
+          where: { threadId: report.threadId },
+          orderBy: { createdAt: "desc" },
+          select: { hiddenAt: true },
+        });
+        if (latest?.hiddenAt) {
+          await this.prisma.chatThread.update({
+            where: { id: report.threadId },
+            data: { lastMessagePreview: CHAT_HIDDEN_PREVIEW },
+          });
+        }
+      }
     }
     await this.prisma.chatReport.update({
       where: { id: report.id },

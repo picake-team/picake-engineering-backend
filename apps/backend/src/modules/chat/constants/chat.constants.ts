@@ -50,6 +50,9 @@ export const CHAT_ALIMTALK_TEMPLATE_IDS = {
 /** 판매자 앱 휴대폰 알림 제목(주문 알림과 같은 말투). 웹 toast-icon.util이 이 글로 아이콘을 고른다 — 바꾸면 웹도 같이 */
 export const SELLER_CHAT_PUSH_TITLE = "새 문의가 왔어요";
 
+/** 운영자가 가린 글: 말풍선(웹)과 목록 미리보기에 같은 말 */
+export const CHAT_HIDDEN_PREVIEW = "운영자가 가린 메시지예요";
+
 export const CHAT_ERROR_MESSAGES = {
   THREAD_NOT_FOUND: "채팅을 찾을 수 없어요.",
   STORE_NOT_FOUND: "스토어를 찾을 수 없어요.",
