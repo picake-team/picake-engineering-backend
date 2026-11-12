@@ -58,6 +58,8 @@ async function bootstrap(): Promise<void> {
 
   // Health check (CORS 제외, global prefix 제외, interceptor/guard 등 미적용)
   const httpAdapter = app.getHttpAdapter();
+  // /health는 helmet보다 먼저 붙어 X-Powered-By가 남는다 → 서버 종류를 알리지 않게 앱 전체에서 끈다
+  httpAdapter.getInstance().disable("x-powered-by");
   httpAdapter.getInstance().get("/health", async (_req: any, res: any) => {
     try {
       // PrismaService 가져오기
