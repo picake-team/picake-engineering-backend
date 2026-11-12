@@ -20,6 +20,12 @@ import { isAlimtalkDue, isSeoulNight } from "@apps/backend/modules/chat/utils/ch
 const INTERVAL_MS = 60 * 1000;
 /** 한 번에 볼 방 수(쪽마다) */
 export const CHAT_ALIMTALK_BATCH = 100;
+/**
+ * 이보다 오래된 글은 보지 않는다. 밤에 미뤄도 11시간이면 충분하고,
+ * ① 처음 배포할 때 며칠 전 안 읽은 방마다 알림톡이 가지 않게 ② 알림을 끈 사람·탈퇴한 사람처럼
+ * 영영 안 보낼 방이 오래된 것부터 고르는 100칸을 채워 새 방이 밀리지 않게.
+ */
+export const CHAT_ALIMTALK_LOOKBACK_HOURS = 24;
 
 type Side = "CONSUMER" | "SHOP";
 
@@ -206,7 +212,7 @@ export class ChatAlimtalkService implements OnModuleInit, OnModuleDestroy {
   // ───────────────────────── 공통 ─────────────────────────
 
   /**
-   * 마지막 글이 상대 것이고, 그 뒤에 읽지도 알림을 보내지도 않았고, 3시간 안에 보내지 않은 방(오래된 것부터).
+   * 마지막 글(24시간 안)이 상대 것이고, 그 뒤에 읽지도 알림을 보내지도 않았고, 3시간 안에 보내지 않은 방(오래된 것부터).
    * 칸끼리 비교라 SQL로 고른다. 상태 값은 SQL 글자로 넣는다(파라미터로 넣으면 enum = text 오류).
    */
   private async candidateIds(side: Side, now: Date): Promise<string[]> {
@@ -214,6 +220,7 @@ export class ChatAlimtalkService implements OnModuleInit, OnModuleDestroy {
       now.getTime() - CHAT_LIMITS.ALIMTALK_AFTER_MINUTES_NO_PUSH * 60 * 1000,
     );
     const gapCutoff = new Date(now.getTime() - CHAT_LIMITS.ALIMTALK_MIN_GAP_HOURS * 3600 * 1000);
+    const oldest = new Date(now.getTime() - CHAT_ALIMTALK_LOOKBACK_HOURS * 3600 * 1000);
     const rows =
       side === "CONSUMER"
         ? await this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
@@ -221,6 +228,7 @@ export class ChatAlimtalkService implements OnModuleInit, OnModuleDestroy {
             WHERE last_message_sender = 'SHOP'
               AND consumer_muted = false
               AND last_message_at <= ${shortestWait}
+              AND last_message_at >= ${oldest}
               AND (consumer_read_at IS NULL OR consumer_read_at < last_message_at)
               AND (consumer_notified_at IS NULL OR (consumer_notified_at < last_message_at AND consumer_notified_at <= ${gapCutoff}))
             ORDER BY last_message_at ASC
@@ -230,6 +238,7 @@ export class ChatAlimtalkService implements OnModuleInit, OnModuleDestroy {
             WHERE last_message_sender = 'CONSUMER'
               AND shop_muted = false
               AND last_message_at <= ${shortestWait}
+              AND last_message_at >= ${oldest}
               AND (shop_read_at IS NULL OR shop_read_at < last_message_at)
               AND (shop_notified_at IS NULL OR (shop_notified_at < last_message_at AND shop_notified_at <= ${gapCutoff}))
             ORDER BY last_message_at ASC

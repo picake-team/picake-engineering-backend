@@ -83,6 +83,12 @@ describe("채팅 알림톡 (integration)", () => {
     expect(night.callsFor()).toHaveLength(0);
   });
 
+  it("하루 넘은 글은 보지 않는다(처음 배포할 때 옛 방에 한꺼번에 가지 않게)", async () => {
+    const t = await setup("SHOP", 25 * 60);
+    await t.service.runOnce(NOON);
+    expect(t.callsFor()).toHaveLength(0);
+  });
+
   it("앱 알림을 받을 기기가 있으면 60분까지는 기다린다", async () => {
     const t = await setup("SHOP");
     await t.prisma.consumerFcmToken.create({
