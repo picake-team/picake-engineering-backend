@@ -453,8 +453,8 @@ export class StoreListService {
       Prisma.sql`
         SELECT DISTINCT p.store_id
         FROM products p
-        WHERE p.visibility_status = ${EnableStatus.ENABLE}
-          AND p.sales_status = ${EnableStatus.ENABLE}
+        WHERE p.visibility_status::text = ${EnableStatus.ENABLE}
+          AND p.sales_status::text = ${EnableStatus.ENABLE}
           AND p.cake_size_options IS NOT NULL
           AND EXISTS (
             SELECT 1 FROM jsonb_array_elements(p.cake_size_options::jsonb) AS elem
