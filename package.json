@@ -38,16 +38,28 @@
     "typescript": "5.5.4"
   },
   "resolutions": {
-    "@grpc/grpc-js": "1.14.4",
+    "@fastify/busboy": "3.2.2",
+    "@grpc/grpc-js": "1.14.5",
     "@types/passport": "1.0.17",
-    "axios": "1.18.1",
+    "axios": "1.20.0",
+    "body-parser": "1.20.9",
+    "engine.io": "6.6.10",
     "fast-xml-builder": "1.2.1",
     "fast-xml-parser": "5.9.3",
+    "follow-redirects": "1.16.2",
     "form-data": "4.0.6",
+    "js-yaml": "4.3.2",
     "lodash": "4.18.1",
-    "multer": "2.2.0",
+    "multer": "2.5.0",
+    "node-forge": "1.4.3",
+    "path-to-regexp@0.1.12": "0.1.13",
     "postcss": "8.5.10",
     "protobufjs": "7.6.5",
-    "socket.io-parser": "4.2.6"
+    "proxy-addr": "2.0.8",
+    "qs": "6.16.1",
+    "socket.io-parser": "4.2.7",
+    "tar": "7.5.21",
+    "websocket-driver": "0.7.5",
+    "ws": "8.21.0"
   }
 }
