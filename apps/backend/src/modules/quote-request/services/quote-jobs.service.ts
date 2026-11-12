@@ -8,6 +8,8 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { QUOTE_LIMITS } from "@apps/backend/modules/quote-request/constants/quote.constants";
 import { QuoteNotifyService } from "@apps/backend/modules/quote-request/services/quote-notify.service";
+import { QuoteService } from "@apps/backend/modules/quote-request/services/quote.service";
+import { CHAT_QUOTE_PREVIEWS } from "@apps/backend/modules/chat/constants/chat.constants";
 import {
   isReminderDue,
   isStalled,
@@ -31,6 +33,7 @@ export class QuoteJobsService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notify: QuoteNotifyService,
+    private readonly quotes: QuoteService,
   ) {}
 
   onModuleInit(): void {
@@ -74,7 +77,10 @@ export class QuoteJobsService implements OnModuleInit, OnModuleDestroy {
           closedAt: r.deadlineAt,
         },
       });
-      if (count === 1 && r._count.quotes === 0) await this.notify.closedWithoutQuote(r.id);
+      if (count === 1) {
+        if (r._count.quotes === 0) await this.notify.closedWithoutQuote(r.id);
+        await this.quotes.retireRequestCards(r.id);
+      }
     }
     return rows.length;
   }
@@ -120,6 +126,8 @@ export class QuoteJobsService implements OnModuleInit, OnModuleDestroy {
       where: {
         shop: { unentered: true, storeId: null },
         lastMessageSender: "CONSUMER",
+        // 고름 카드는 손님 글이 아니다(고르면 바로 "입점 전 가게를 골랐어요" 알림이 따로 감)
+        lastMessagePreview: { not: CHAT_QUOTE_PREVIEWS.CHOSEN },
         lastMessageAt: { lte: before, gte: new Date(now.getTime() - 7 * 24 * MS_HOUR) },
         OR: [
           { opsAlertedAt: null },

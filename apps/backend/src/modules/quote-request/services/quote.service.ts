@@ -704,6 +704,8 @@ export class QuoteService {
       },
     });
     if (!target.storeId) void this.notify.ops("CHOSEN_UNENTERED", r.id, storeName);
+    // 답하지 않은 다른 가게의 요청서 카드는 "답할 것"에서 뺀다
+    await this.retireRequestCards(r.id);
     return { requestId: r.id, targetId: target.id, threadId };
   }
 
@@ -887,5 +889,18 @@ export class QuoteService {
       },
     });
     if (count === 0) throw new BadRequestException(QUOTE_REQUEST_ERROR_MESSAGES.NOT_OPEN);
+    await this.retireRequestCards(requestId);
+  }
+
+  /** 요청이 끝나면(마감·닫힘·고름) 답하지 않은 요청서 카드 방을 사장님 "답할 것"에서 뺀다. 실패해도 던지지 않는다 */
+  async retireRequestCards(requestId: string): Promise<void> {
+    try {
+      await this.chat.retireQuoteRequestCards(requestId);
+    } catch (e) {
+      LoggerUtil.log(
+        `[Quote] 요청서 카드 정리 실패 request=${requestId}: ${e instanceof Error ? e.message : e}`,
+      );
+      SentryUtil.captureException(e, "warning", { module: "quote", operation: "retire-cards" });
+    }
   }
 }
