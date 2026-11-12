@@ -1,5 +1,6 @@
 export const REVIEW_ERROR_MESSAGES = {
   REVIEW_NOT_FOUND: "후기를 찾을 수 없어요.",
+  REVIEW_IMAGE_URL_INVALID: "후기 사진은 업로드한 사진만 넣을 수 있어요.",
   REVIEW_FORBIDDEN: "본인이 작성한 후기만 삭제할 수 있어요.",
   REVIEW_ORDER_NOT_ELIGIBLE: "픽업이 완료된 주문에만 후기를 작성할 수 있어요.",
   REVIEW_ALREADY_WRITTEN: "해당 주문에 대한 후기가 이미 등록되어 있어요.",

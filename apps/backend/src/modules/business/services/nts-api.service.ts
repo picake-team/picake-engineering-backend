@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import axios, { AxiosInstance } from "axios";
 import { BusinessValidationRequestDto } from "@apps/backend/modules/business/dto/business-request.dto";
 import {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 임시로 꺼 둔 확인(재활성화 때 씀)
   B_STT_CD,
   BUSINESS_API_URLS,
   NTS_API_ERROR_MESSAGES,
@@ -88,6 +89,7 @@ export class NtsApiService {
    * 사업자등록번호 진위확인
    * @param validationDto 사업자등록번호 진위확인 요청 데이터
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 임시로 꺼 둔 확인(재활성화 때 씀)
   async verifyBusinessRegistration(validationDto: BusinessValidationRequestDto) {
     try {
       // TODO: 사업자등록번호 진위확인 임시 비활성화 (추후 재활성화 예정)

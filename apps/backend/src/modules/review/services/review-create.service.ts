@@ -1,3 +1,4 @@
+import { isAllowedUploadUrl } from "@apps/backend/modules/upload/utils/upload-url.util";
 import {
   BadRequestException,
   ConflictException,
@@ -72,6 +73,11 @@ export class ReviewCreateService {
         `후기 작성 실패: 삭제 후 재작성 불가 - userId: ${userId}, orderId: ${dto.orderId}`,
       );
       throw new BadRequestException(REVIEW_ERROR_MESSAGES.REVIEW_REVOKED_CANNOT_REWRITE);
+    }
+
+    // 후기 사진은 우리 저장소에 올린 사진만(다른 사이트 주소는 손님 화면에서 깨진 칸이 됨)
+    if ((dto.imageUrls ?? []).some((url) => !isAllowedUploadUrl(url))) {
+      throw new BadRequestException(REVIEW_ERROR_MESSAGES.REVIEW_IMAGE_URL_INVALID);
     }
 
     const review = await this.prisma.productReview.create({
