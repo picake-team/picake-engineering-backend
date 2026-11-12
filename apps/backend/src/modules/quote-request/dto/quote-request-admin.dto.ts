@@ -63,6 +63,12 @@ export class AdminQuoteRequestListItemDto extends QuoteRequestListItemDto {
 
   @ApiProperty({ enum: QuoteRequestEntry, nullable: true })
   entry: QuoteRequestEntry | null;
+
+  @ApiProperty({
+    description: "견적이 들어온 길별 수(견적 링크·판매자 앱·운영자 대신 적기, 주간 회의 숫자)",
+    example: { LINK: 1, SELLER: 1, ADMIN: 0 },
+  })
+  quoteSources: { LINK: number; SELLER: number; ADMIN: number };
 }
 
 export class AdminQuoteRequestStoreResponseDto extends QuoteRequestStoreResponseDto {
