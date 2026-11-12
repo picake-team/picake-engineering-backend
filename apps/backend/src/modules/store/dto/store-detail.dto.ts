@@ -141,20 +141,20 @@ export class StoreResponseDto extends StoreAddressDto {
   permissionManagementNumber: string | null;
 
   @ApiPropertyOptional({
-    description: "정산 계좌번호",
+    description: "정산 계좌번호(사장님 본인 가게 조회에만, 손님용 가게 정보에는 없음)",
     example: SWAGGER_EXAMPLES.BANK_ACCOUNT_NUMBER,
   })
   bankAccountNumber?: string | null;
 
   @ApiPropertyOptional({
-    description: "정산 계좌 은행 코드",
+    description: "정산 계좌 은행 코드(사장님 본인 가게 조회에만)",
     enum: StoreBankName,
     example: SWAGGER_EXAMPLES.BANK_NAME,
   })
   bankName?: StoreBankName | null;
 
   @ApiPropertyOptional({
-    description: "정산 계좌 예금주명",
+    description: "정산 계좌 예금주명(사장님 본인 가게 조회에만)",
     example: SWAGGER_EXAMPLES.ACCOUNT_HOLDER_NAME,
   })
   accountHolderName?: string | null;

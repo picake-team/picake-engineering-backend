@@ -276,10 +276,9 @@ export class StoreListService {
       });
     }
 
-    const storeResponses = (await StoreMapperUtil.mapToStoreResponse(
-      stores,
-      this.prisma,
-    )) as StoreResponseDto[];
+    const storeResponses = (await StoreMapperUtil.mapToStoreResponse(stores, this.prisma, {
+      includeSettlementAccount: true,
+    })) as StoreResponseDto[];
 
     const likedStoreIds = await this.getLikedStoreIds(
       userId,
@@ -319,10 +318,9 @@ export class StoreListService {
       isLiked = null;
     }
 
-    const storeResponse = (await StoreMapperUtil.mapToStoreResponse(
-      store,
-      this.prisma,
-    )) as StoreResponseDto;
+    const storeResponse = (await StoreMapperUtil.mapToStoreResponse(store, this.prisma, {
+      includeSettlementAccount: true,
+    })) as StoreResponseDto;
     storeResponse.isLiked = isLiked;
     storeResponse.naverPlace = toStoreNaverPlace(store);
 
