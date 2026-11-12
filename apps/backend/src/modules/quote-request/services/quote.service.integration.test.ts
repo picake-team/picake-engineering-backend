@@ -408,6 +408,38 @@ describe("견적 ② (integration)", () => {
     expect(room.messages[0].card?.quoteState).toBe("CLOSED");
   });
 
+  it("같은 손님의 요청 두 개 중 하나가 끝나도, 남은 요청은 사장님 답할 것에 그대로", async () => {
+    const t = await build();
+    const first = await t.createRequest();
+    const second = await t.createRequest();
+    await t.quotes.sendNewRequestToApps(second);
+    await t.quotes.sendNewRequestToApps(first);
+    expect(await t.chat.unreadForStore(t.seller.id, t.store.id)).toMatchObject({
+      replyNeeded: 1,
+      quoteRequests: 2,
+    });
+    // 나중 카드(first)가 끝나도 앞 카드(second)는 아직 답을 기다린다
+    await t.prisma.quoteRequest.update({
+      where: { id: first },
+      data: { status: QuoteRequestStatus.CLOSED, closedAt: new Date() },
+    });
+    await t.quotes.retireRequestCards(first);
+    expect(await t.chat.unreadForStore(t.seller.id, t.store.id)).toMatchObject({
+      replyNeeded: 1,
+      quoteRequests: 1,
+    });
+    // 남은 요청까지 끝나면 그때 답할 것에서 빠진다
+    await t.prisma.quoteRequest.update({
+      where: { id: second },
+      data: { status: QuoteRequestStatus.CLOSED, closedAt: new Date() },
+    });
+    await t.quotes.retireRequestCards(second);
+    expect(await t.chat.unreadForStore(t.seller.id, t.store.id)).toMatchObject({
+      replyNeeded: 0,
+      quoteRequests: 0,
+    });
+  });
+
   it("사장님 홈 견적 요청 수: 받은 요청은 세고 견적을 보내면 빠진다", async () => {
     const t = await build();
     const requestId = await t.createRequest();

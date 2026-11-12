@@ -68,7 +68,6 @@ const QUOTE_SELECT = {
   unitPrice: true,
   priceMayVary: true,
   similarity: true,
-  contacts: true,
   memo: true,
   photoUrls: true,
   editedAt: true,
@@ -83,10 +82,6 @@ const TARGET_SELECT = {
   storeId: true,
   kakaoPlaceId: true,
   name: true,
-  phone: true,
-  placeUrl: true,
-  addedBy: true,
-  sortOrder: true,
   shopId: true,
   linkToken: true,
   linkCreatedAt: true,
@@ -100,9 +95,6 @@ const TARGET_SELECT = {
       name: true,
       sellerId: true,
       logoImageUrl: true,
-      phoneNumber: true,
-      kakaoChannelId: true,
-      instagramId: true,
     },
   },
   quote: { select: QUOTE_SELECT },
@@ -144,7 +136,8 @@ type TargetWithRequest = TargetRow & { quoteRequest: RequestRow };
 /**
  * 가게 견적(기획 I-46 ②, 운영자 결정 2026-11-12).
  * 견적이 들어오는 길: 견적 링크(입점 전 가게, 가입 없이) · 판매자 앱 채팅의 요청서 카드(입점 가게) · 운영자 대신 적기.
- * 셋 다 같은 칸(금액·비슷한 정도·주문 받는 곳·사진·메모)이고, 손님 화면에는 같은 견적 카드로 보인다.
+ * 셋 다 같은 칸(금액·비슷한 정도·사진·메모)이고, 손님 화면에는 같은 견적 카드로 보인다.
+ * 주문 받는 곳은 묻지 않는다(운영자 2026-11-12) — 손님이 고르면 채팅(입점 전 가게는 견적 링크 대화)에서 주문을 정한다.
  * 손님이 고르면 그 가게와의 채팅으로 이어진다(입점 전 가게는 견적 링크 안에서 대화).
  */
 @Injectable()

@@ -1393,25 +1393,59 @@ export class ChatService {
    * @returns 바꾼 방 수
    */
   async retireQuoteRequestCards(requestId: string): Promise<number> {
+    const now = new Date();
     const threads = await this.prisma.chatThread.findMany({
       where: {
         lastMessageSender: "CONSUMER",
         lastMessagePreview: CHAT_QUOTE_PREVIEWS.REQUEST,
         messages: { some: { kind: "QUOTE_REQUEST", refQuoteRequestId: requestId } },
       },
-      select: { id: true, lastMessageAt: true },
+      select: { id: true, shopId: true, lastMessageAt: true },
     });
+    let retired = 0;
     for (const t of threads) {
+      // 같은 손님이 이 가게에 보낸 다른 요청이 아직 답을 기다리면 "답할 것"에 남긴다
+      // (전에는 끝난 요청 하나 때문에 열려 있는 요청까지 사장님 할 일에서 사라졌다)
+      if (await this.hasOtherOpenRequestCard(t.id, t.shopId, requestId, now)) continue;
       await this.prisma.chatThread.update({
         where: { id: t.id },
-        data: { lastMessageSender: "SYSTEM", shopReadAt: t.lastMessageAt ?? new Date() },
+        data: { lastMessageSender: "SYSTEM", shopReadAt: t.lastMessageAt ?? now },
       });
       await this.notify.afterQuoteEvent({ threadId: t.id });
+      retired += 1;
     }
-    return threads.length;
+    return retired;
   }
 
-  /** 이 손님 × 가게 방(없으면 null) */
+  /** 이 방에 다른 요청서 카드가 있고, 그 요청이 아직 받는 중인데 이 가게가 답하지 않았나 */
+  private async hasOtherOpenRequestCard(
+    threadId: string,
+    shopId: string,
+    requestId: string,
+    now: Date,
+  ): Promise<boolean> {
+    const cards = await this.prisma.chatMessage.findMany({
+      where: { threadId, kind: "QUOTE_REQUEST", refQuoteRequestId: { not: requestId } },
+      select: { refQuoteRequestId: true },
+    });
+    const ids = cards.map((c) => c.refQuoteRequestId).filter((v): v is string => !!v);
+    if (ids.length === 0) return false;
+    const waiting = await this.prisma.quoteRequestStore.count({
+      where: {
+        quoteRequestId: { in: ids },
+        shopId,
+        declinedAt: null,
+        quote: { is: null },
+        quoteRequest: {
+          status: QuoteRequestStatus.OPEN,
+          chosenTargetId: null,
+          deadlineAt: { gt: now },
+        },
+      },
+    });
+    return waiting > 0;
+  }
+
   /** 손님 한 명과 여러 가게의 방 번호(한 번에 읽기). 방이 없는 가게는 빠진다 */
   async threadIdsFor(consumerId: string, shopIds: string[]): Promise<Map<string, string>> {
     if (shopIds.length === 0) return new Map();
@@ -1422,6 +1456,7 @@ export class ChatService {
     return new Map(rows.map((r) => [r.shopId, r.id]));
   }
 
+  /** 이 손님 × 가게 방(없으면 null) */
   async threadIdFor(consumerId: string, shopId: string): Promise<string | null> {
     const t = await this.prisma.chatThread.findUnique({
       where: { consumerId_shopId: { consumerId, shopId } },
