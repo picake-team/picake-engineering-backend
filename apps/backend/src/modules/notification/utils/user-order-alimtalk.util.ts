@@ -4,6 +4,7 @@ import type { OrderStatusTransitionPayload } from "@apps/backend/modules/order/t
 import { USER_ORDER_ALIMTALK_TEMPLATE_IDS } from "@apps/backend/modules/notification/constants/user-order-alimtalk.constants";
 import { buildUserOrderAlimtalkLinkVariables } from "@apps/backend/modules/notification/utils/user-order-alimtalk-link.util";
 import {
+  isAdminStatusUpdate,
   isPaymentExpiredCancelSource,
   isReservationRequestedOnCreate,
   isSellerStatusUpdate,
@@ -223,7 +224,11 @@ export function buildUserOrderAlimtalkPayload(
     }
 
     // 템플릿8 취소환불대기 (판매자 환불 진행 — 사용자 요청은 본인 액션이라 발송하지 않음)
+    // 템플릿8-1 운영자가 취소완료를 되돌림(입금 확인): 손님이 모르는 변화라 알리고 환불 계좌를 받는다
     case OrderStatus.CANCEL_REFUND_PENDING: {
+      if (isAdminStatusUpdate(payload)) {
+        return emit(T.CANCEL_REFUND_PENDING_BY_ADMIN, { ...base, "#{결제금액}": 결제금액 });
+      }
       if (!isSellerStatusUpdate(payload)) return null;
       return emit(T.CANCEL_REFUND_PENDING_BY_SELLER, {
         ...base,
