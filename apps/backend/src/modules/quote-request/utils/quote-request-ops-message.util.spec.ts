@@ -31,6 +31,8 @@ const row: QuoteRequestRow = {
   requestNote: "견과류 알레르기",
   entry: "HOME",
   createdAt: kst("2026-12-20T10:00:00"),
+  chosenTargetId: null,
+  quotes: [],
   stores: [
     {
       id: "s1",

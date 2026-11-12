@@ -1,0 +1,188 @@
+import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import {
+  QuoteRequestCloseReason,
+  QuoteRequestStatus,
+} from "@apps/backend/infra/database/prisma/generated/client";
+import { PrismaService } from "@apps/backend/infra/database/prisma.service";
+import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
+import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
+import { QUOTE_LIMITS } from "@apps/backend/modules/quote-request/constants/quote.constants";
+import { QuoteNotifyService } from "@apps/backend/modules/quote-request/services/quote-notify.service";
+import {
+  isReminderDue,
+  isStalled,
+} from "@apps/backend/modules/quote-request/utils/quote-policy.util";
+
+const MS_HOUR = 60 * 60 * 1000;
+const BATCH = 100;
+
+/**
+ * 견적 요청 시간 일(기획 I-46 ②) — 5분마다, 켜질 때도 한 번(하루에 여러 번 배포해도 놓치지 않게).
+ * ① 마감 시각이 지난 요청을 마감으로 바꾸고, 견적이 하나도 없었으면 손님에게 알린다
+ * ② 마감 3시간 전까지 고르지 않았으면 견적 도착 알림톡을 한 번 더
+ * ③ 입점 전 가게가 손님 글에 1시간 답이 없으면 운영자 디스코드(방마다 하루 한 번)
+ * ④ 고른 가게가 손님 글에 24시간 답이 없으면 운영자 디스코드(한 번, 손님은 다시 고를 수 있음)
+ * 한 번에 많이 붙잡지 않게 100건씩. 실패해도 던지지 않는다.
+ */
+@Injectable()
+export class QuoteJobsService implements OnModuleInit, OnModuleDestroy {
+  private timer?: ReturnType<typeof setInterval>;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notify: QuoteNotifyService,
+  ) {}
+
+  onModuleInit(): void {
+    void this.runOnce();
+    this.timer = setInterval(() => void this.runOnce(), QUOTE_LIMITS.JOB_INTERVAL_MS);
+  }
+
+  onModuleDestroy(): void {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  async runOnce(now: Date = new Date()): Promise<void> {
+    for (const [name, job] of [
+      ["expire", () => this.expire(now)],
+      ["reminder", () => this.reminders(now)],
+      ["unentered-no-reply", () => this.unenteredNoReply(now)],
+      ["chosen-no-reply", () => this.chosenNoReply(now)],
+    ] as const) {
+      try {
+        await job();
+      } catch (e) {
+        LoggerUtil.log(`[QuoteJobs] ${name} 실패: ${e instanceof Error ? e.message : String(e)}`);
+        SentryUtil.captureException(e, "warning", { module: "quote", operation: `job-${name}` });
+      }
+    }
+  }
+
+  /** ① 마감 */
+  async expire(now: Date): Promise<number> {
+    const rows = await this.prisma.quoteRequest.findMany({
+      where: { status: QuoteRequestStatus.OPEN, deadlineAt: { lte: now } },
+      select: { id: true, deadlineAt: true, _count: { select: { quotes: true } } },
+      take: BATCH,
+    });
+    for (const r of rows) {
+      const { count } = await this.prisma.quoteRequest.updateMany({
+        where: { id: r.id, status: QuoteRequestStatus.OPEN },
+        data: {
+          status: QuoteRequestStatus.CLOSED,
+          closeReason: QuoteRequestCloseReason.EXPIRED,
+          closedAt: r.deadlineAt,
+        },
+      });
+      if (count === 1 && r._count.quotes === 0) await this.notify.closedWithoutQuote(r.id);
+    }
+    return rows.length;
+  }
+
+  /** ② 마감 3시간 전 알림톡 */
+  async reminders(now: Date): Promise<number> {
+    const rows = await this.prisma.quoteRequest.findMany({
+      where: {
+        status: QuoteRequestStatus.OPEN,
+        chosenTargetId: null,
+        arrivalAlimtalkAt: { not: null },
+        reminderAlimtalkAt: null,
+        deadlineAt: {
+          gt: now,
+          lte: new Date(now.getTime() + QUOTE_LIMITS.REMINDER_BEFORE_DEADLINE_HOURS * MS_HOUR),
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+        deadlineAt: true,
+        closedAt: true,
+        chosenTargetId: true,
+        chosenAt: true,
+        arrivalAlimtalkAt: true,
+        reminderAlimtalkAt: true,
+      },
+      take: BATCH,
+    });
+    let sent = 0;
+    for (const r of rows) {
+      if (!isReminderDue(r, now)) continue;
+      await this.notify.reminder(r.id);
+      sent += 1;
+    }
+    return sent;
+  }
+
+  /** ③ 입점 전 가게가 1시간 답이 없음 */
+  async unenteredNoReply(now: Date): Promise<number> {
+    const before = new Date(now.getTime() - QUOTE_LIMITS.UNENTERED_NO_REPLY_MINUTES * 60 * 1000);
+    const threads = await this.prisma.chatThread.findMany({
+      where: {
+        shop: { unentered: true, storeId: null },
+        lastMessageSender: "CONSUMER",
+        lastMessageAt: { lte: before, gte: new Date(now.getTime() - 7 * 24 * MS_HOUR) },
+        OR: [
+          { opsAlertedAt: null },
+          { opsAlertedAt: { lte: new Date(now.getTime() - 24 * MS_HOUR) } },
+        ],
+      },
+      select: {
+        id: true,
+        consumerId: true,
+        shopId: true,
+        lastMessageAt: true,
+        opsAlertedAt: true,
+        shop: { select: { name: true } },
+      },
+      take: BATCH,
+    });
+    let alerted = 0;
+    for (const th of threads) {
+      // 알린 뒤 새 글이 없으면 다시 알리지 않는다
+      if (th.opsAlertedAt && th.lastMessageAt && th.opsAlertedAt >= th.lastMessageAt) continue;
+      const target = await this.prisma.quoteRequestStore.findFirst({
+        where: { shopId: th.shopId, quoteRequest: { consumerId: th.consumerId } },
+        orderBy: { createdAt: "desc" },
+        select: { quoteRequestId: true },
+      });
+      await this.prisma.chatThread.update({ where: { id: th.id }, data: { opsAlertedAt: now } });
+      if (target) {
+        await this.notify.ops("UNENTERED_NO_REPLY", target.quoteRequestId, th.shop.name);
+        alerted += 1;
+      }
+    }
+    return alerted;
+  }
+
+  /** ④ 고른 가게가 24시간 답이 없음 */
+  async chosenNoReply(now: Date): Promise<number> {
+    const rows = await this.prisma.quoteRequest.findMany({
+      where: {
+        status: QuoteRequestStatus.CONNECTED,
+        stallAlertedAt: null,
+        chosenAt: { lte: new Date(now.getTime() - QUOTE_LIMITS.STALL_HOURS * MS_HOUR) },
+        deadlineAt: { gt: now },
+      },
+      select: { id: true, consumerId: true, chosenTargetId: true },
+      take: BATCH,
+    });
+    let alerted = 0;
+    for (const r of rows) {
+      if (!r.chosenTargetId) continue;
+      const target = await this.prisma.quoteRequestStore.findUnique({
+        where: { id: r.chosenTargetId },
+        select: { shopId: true, name: true, store: { select: { name: true } } },
+      });
+      if (!target?.shopId) continue;
+      const thread = await this.prisma.chatThread.findUnique({
+        where: { consumerId_shopId: { consumerId: r.consumerId, shopId: target.shopId } },
+        select: { lastMessageSender: true, lastConsumerMessageAt: true },
+      });
+      if (!isStalled(thread, now)) continue;
+      await this.prisma.quoteRequest.update({ where: { id: r.id }, data: { stallAlertedAt: now } });
+      await this.notify.ops("CHOSEN_NO_REPLY", r.id, target.store?.name ?? target.name);
+      alerted += 1;
+    }
+    return alerted;
+  }
+}

@@ -1,3 +1,5 @@
+import { QuoteRequestModule } from "@apps/backend/modules/quote-request/quote-request.module";
+import { SellerQuoteController } from "@apps/backend/apis/seller/controllers/quote.controller";
 import { ChatModule } from "@apps/backend/modules/chat/chat.module";
 import { SellerChatController } from "@apps/backend/apis/seller/controllers/chat.controller";
 import { Module } from "@nestjs/common";
@@ -38,6 +40,7 @@ import { SellerFcmTokenController } from "@apps/backend/apis/seller/controllers/
  */
 @Module({
   imports: [
+    QuoteRequestModule,
     UploadModule,
     AuthModule,
     BusinessModule,
@@ -55,6 +58,7 @@ import { SellerFcmTokenController } from "@apps/backend/apis/seller/controllers/
     ChatModule,
   ],
   controllers: [
+    SellerQuoteController,
     SellerFcmTokenController,
     SellerUploadController,
     SellerAuthController,

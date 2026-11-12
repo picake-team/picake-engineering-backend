@@ -60,7 +60,9 @@ export const QUOTE_REQUEST_SELECT = {
   requestNote: true,
   entry: true,
   createdAt: true,
+  chosenTargetId: true,
   stores: { select: QUOTE_REQUEST_STORE_SELECT, orderBy: { sortOrder: "asc" } },
+  quotes: { select: { consumerSeenAt: true } },
 } satisfies Prisma.QuoteRequestSelect;
 
 export const ADMIN_QUOTE_REQUEST_SELECT = {
@@ -86,9 +88,22 @@ export function effectiveStatus(
   return { status: row.status, closeReason: row.closeReason };
 }
 
-/** 진행 중 탭(손님): 견적 받는 중이고 마감 전 */
+/** 견적 받는 중이고 마감 전(동시에 열어 둘 수 있는 요청 수를 셀 때) */
 export function ongoingWhere(now: Date): Prisma.QuoteRequestWhereInput {
   return { status: QuoteRequestStatus.OPEN, deadlineAt: { gt: now } };
+}
+
+/** 손님 "진행 중" 탭: 받는 중이거나, 가게를 고른 뒤 픽업 다음 날까지(기획 I-46 ②) */
+export function consumerInProgressWhere(now: Date): Prisma.QuoteRequestWhereInput {
+  return {
+    OR: [
+      ongoingWhere(now),
+      {
+        status: QuoteRequestStatus.CONNECTED,
+        pickupStartAt: { gt: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+      },
+    ],
+  };
 }
 
 /** 관리자 상태 필터(마감이 지난 OPEN은 CLOSED로) */
@@ -133,8 +148,9 @@ export function toListItem(row: QuoteRequestRow, now: Date): QuoteRequestListIte
     size: row.size,
     quantity: row.quantity,
     thumbnailUrl: row.photoUrls[0] ?? null,
-    // 견적(1단계 ②)이 생기면 금액을 보낸 견적 수를 센다
-    quoteCount: 0,
+    quoteCount: row.quotes.length,
+    unseenQuoteCount: row.quotes.filter((q) => !q.consumerSeenAt).length,
+    chosen: !!row.chosenTargetId,
     summary: buildSummary(row),
     createdAt: row.createdAt,
   };

@@ -10,6 +10,8 @@ export const FCM_PUSH_TYPE = {
   CHAT_MESSAGE: "CHAT_MESSAGE",
   /** 판매자 앱 채팅 알림. data에 storeId·threadId·path가 들어간다 */
   SELLER_CHAT: "SELLER_CHAT",
+  /** 손님 견적 알림(기획 I-46 ②). data에 quoteRequestId·path(/quote/:id)가 들어간다 */
+  QUOTE: "QUOTE",
 } as const;
 
 export const FCM_ANDROID_CHANNEL_ID = {
