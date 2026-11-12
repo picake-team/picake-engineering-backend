@@ -1,3 +1,4 @@
+import { Throttle } from "@nestjs/throttler";
 import {
   Controller,
   Post,
@@ -70,6 +71,8 @@ export class ConsumerOrderController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  // 예약 신청마다 손님 알림톡·사장님 알림이 나가므로 한 사람이 몰아서 만들지 못하게(2026-11-12 전체 검토)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
     summary: "(로그인 필요) 주문 생성",
     description:
