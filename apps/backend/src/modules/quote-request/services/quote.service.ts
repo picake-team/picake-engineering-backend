@@ -332,7 +332,8 @@ export class QuoteService {
         snapshot: {
           title: `${quote.storeName} 견적`,
           subtitle: `${quote.total.toLocaleString("ko-KR")}원 · ${quote.similarityLabel}`,
-          imageUrl: quote.photoUrls[0] ?? null,
+          // 가게 사진이 없으면 손님 요청서 사진(어느 요청의 견적인지 알아보게, 고름 카드와 같게)
+          imageUrl: quote.photoUrls[0] ?? r.photoUrls[0] ?? null,
         },
       });
     } catch (e) {
