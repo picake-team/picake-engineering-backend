@@ -9,6 +9,7 @@ import { OrderMapperUtil } from "@apps/backend/modules/order/utils/order-mapper.
 import {
   buildOrderOrderBy,
   mergeOrderPickupDateConditions,
+  createdAtRangeFilter,
 } from "@apps/backend/modules/order/utils/order-list-query.util";
 import { calculatePaginationMeta } from "@apps/backend/common/utils/pagination.util";
 import { OrderResponseDto } from "@apps/backend/modules/order/dto/order-detail.dto";
@@ -64,16 +65,10 @@ export class OrderUserListService {
     if (orderStatus) {
       where.orderStatus = orderStatus;
     }
-    if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) {
-        where.createdAt.gte = new Date(startDate);
-      }
-      if (endDate) {
-        const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999);
-        where.createdAt.lte = endDateTime;
-      }
+    // 날짜 필터(주문일, 한국 달력 하루)
+    const createdAtRange = createdAtRangeFilter(startDate, endDate);
+    if (createdAtRange) {
+      where.createdAt = createdAtRange;
     }
     if (orderNumber) {
       where.orderNumber = { contains: orderNumber };
