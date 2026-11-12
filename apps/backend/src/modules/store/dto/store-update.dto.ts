@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import { IsEnum, IsOptional, IsString, ValidateNested } from "class-validator";
 import {
   IsValidStoreName,
@@ -33,6 +33,7 @@ export class UpdateStoreRequestDto extends StoreAddressDto {
     description: "스토어 이름",
     example: SWAGGER_EXAMPLES.NAME,
   })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value)) // 검사처럼 저장도 앞뒤 공백 없이
   @IsValidStoreName()
   name: string;
 
