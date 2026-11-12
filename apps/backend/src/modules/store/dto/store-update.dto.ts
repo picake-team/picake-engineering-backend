@@ -26,6 +26,7 @@ export class UpdateStoreRequestDto extends StoreAddressDto {
     example: UPLOAD_SWAGGER_EXAMPLES.FILE_URL,
     required: false,
   })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsValidLogoImageUrl()
   logoImageUrl?: string;
 
@@ -49,6 +50,7 @@ export class UpdateStoreRequestDto extends StoreAddressDto {
     description: "스토어 연락처 (전화/휴대폰)",
     example: SWAGGER_EXAMPLES.PHONE_NUMBER,
   })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsValidStorePhoneNumber()
   phoneNumber: string;
 
@@ -72,6 +74,7 @@ export class UpdateStoreRequestDto extends StoreAddressDto {
     description: "정산 계좌번호 (숫자, 하이픈, 공백)",
     example: SWAGGER_EXAMPLES.BANK_ACCOUNT_NUMBER,
   })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsValidBankAccountNumber()
   bankAccountNumber: string;
 
@@ -87,6 +90,7 @@ export class UpdateStoreRequestDto extends StoreAddressDto {
     description: "예금주명",
     example: SWAGGER_EXAMPLES.ACCOUNT_HOLDER_NAME,
   })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsValidAccountHolderName()
   accountHolderName: string;
 
