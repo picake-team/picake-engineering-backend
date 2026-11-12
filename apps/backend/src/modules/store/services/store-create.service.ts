@@ -1,3 +1,4 @@
+import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import { Injectable, BadRequestException } from "@nestjs/common";
 import { BusinessService } from "@apps/backend/modules/business/business.service";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
@@ -19,6 +20,7 @@ export class StoreCreateService {
   constructor(
     private readonly businessService: BusinessService,
     private readonly prisma: PrismaService,
+    private readonly opsAlert: OpsAlertService,
   ) {}
 
   /**
@@ -55,7 +57,7 @@ export class StoreCreateService {
     // DB에 스토어 저장 및 사용자 role 업데이트 - 트랜잭션으로 원자성 보장
     // 사업자등록번호는 정규화(하이픈 제거)하여 저장하여 일관성 유지
     try {
-      return await this.prisma.$transaction(
+      const created = await this.prisma.$transaction(
         async (tx) => {
           // 같은 사업자등록번호로 동시에 들어온 요청(등록 버튼 두 번 누름 등)을 한 줄로 세운 뒤 다시 확인한다.
           // 통신판매업 신고번호를 받지 않으면(null) DB 유니크 제약이 중복을 막지 못해서 여기서 막는다
@@ -130,6 +132,16 @@ export class StoreCreateService {
           timeout: 10000, // 타임아웃 (10초)
         },
       );
+
+      // 새 스토어 등록을 운영자에게 바로 알린다(기획 I-56). 실패해도 등록은 그대로
+      void this.opsAlert.notifyNewStore({
+        id: created.id,
+        name: createStoreDto.name,
+        roadAddress: createStoreDto.roadAddress,
+        address: createStoreDto.address,
+        createdAt: new Date(),
+      });
+      return created;
     } catch (error: unknown) {
       // 동시 요청 경합으로 DB unique 제약(P2002)에 걸리는 경우를 도메인 에러로 변환
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

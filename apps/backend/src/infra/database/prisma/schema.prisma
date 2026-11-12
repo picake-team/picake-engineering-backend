@@ -39,19 +39,19 @@ model Admin {
 /// 관리자 API 키 (사람 로그인 없이 자동화/AI가 관리자 API를 호출하기 위한 전용 토큰)
 /// 발급·폐기는 항상 사람 관리자(JWT) 로그인으로만 가능 — API 키 스스로 다른 API 키를 발급/폐기할 수 없음
 model AdminApiKey {
-  id        String    @id @default(cuid())
+  id               String    @id @default(cuid())
   /// 용도 식별용 이름 (예: "일일 데이터 리포트 자동화")
-  label     String
+  label            String
   /// 원문 키는 저장하지 않음 — SHA-256 해시만 저장 (키 자체가 고엔트로피 랜덤값이라 별도 salt 불필요)
-  keyHash   String    @unique @map("key_hash")
+  keyHash          String    @unique @map("key_hash")
   /// 목록에서 키를 식별하기 위한 앞부분 일부 (원문 노출 없이 어떤 키인지 구분하는 용도)
-  keyPrefix String    @map("key_prefix")
-  isActive  Boolean   @default(true) @map("is_active")
+  keyPrefix        String    @map("key_prefix")
+  isActive         Boolean   @default(true) @map("is_active")
   /// 발급한 관리자 계정 id — Admin 삭제 이력과 무관하게 감사 로그로 남기기 위해 FK 관계 없이 값만 저장
-  createdByAdminId String? @map("created_by_admin_id")
-  lastUsedAt DateTime? @map("last_used_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  revokedAt DateTime? @map("revoked_at")
+  createdByAdminId String?   @map("created_by_admin_id")
+  lastUsedAt       DateTime? @map("last_used_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  revokedAt        DateTime? @map("revoked_at")
 
   @@index([isActive])
   @@map("admin_api_keys")
@@ -59,10 +59,10 @@ model AdminApiKey {
 
 /// 관리자 전역 설정 (싱글톤 — id = "default")
 model AdminConfig {
-  id              String   @id @default("default")
+  id              String    @id @default("default")
   /// true: 가입 신청 후 기존 관리자가 승인해야 로그인 가능 / false: 가입 즉시 승인(APPROVED) 처리
-  requireApproval Boolean  @default(false) @map("require_approval")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  requireApproval Boolean   @default(false) @map("require_approval")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   @@map("admin_configs")
 }
@@ -103,19 +103,19 @@ model Qna {
 
 /// 구매자 앱(web-user) 홈 화면 슬라이드 배너
 model HomeBanner {
-  id        String    @id @default(cuid())
-  imageUrl  String    @map("image_url")
+  id         String               @id @default(cuid())
+  imageUrl   String               @map("image_url")
   /// 이미지 가로 정렬 (구매자 화면 폭이 좁을 때 잘리는 방향 제어)
   imageAlign HomeBannerImageAlign @default(CENTER) @map("image_align")
-  linkUrl   String?   @map("link_url")
+  linkUrl    String?              @map("link_url")
   /// 노출 시작 시각 (null이면 즉시 노출)
-  startsAt  DateTime? @map("starts_at")
+  startsAt   DateTime?            @map("starts_at")
   /// 노출 종료 시각 (null이면 종료 없음)
-  endsAt    DateTime? @map("ends_at")
-  sortOrder Int       @default(0) @map("sort_order")
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  endsAt     DateTime?            @map("ends_at")
+  sortOrder  Int                  @default(0) @map("sort_order")
+  isActive   Boolean              @default(true) @map("is_active")
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
 
   @@index([isActive, sortOrder])
   @@index([startsAt, endsAt])
@@ -126,39 +126,39 @@ model HomeBanner {
 model Consumer {
   id String @id @default(cuid())
 
-  phone           String  @unique
+  phone           String    @unique
   name            String?
   nickname        String?
-  profileImageUrl String? @map("profile_image_url")
-  isPhoneVerified Boolean @default(false) @map("is_phone_verified")
-  isActive        Boolean @default(true) @map("is_active")
-  withdrawReason  String? @map("withdraw_reason")
+  profileImageUrl String?   @map("profile_image_url")
+  isPhoneVerified Boolean   @default(false) @map("is_phone_verified")
+  isActive        Boolean   @default(true) @map("is_active")
+  withdrawReason  String?   @map("withdraw_reason")
   withdrawnAt     DateTime? @map("withdrawn_at")
 
-  googleId    String? @unique @map("google_id")
-  googleEmail String? @map("google_email")
-  kakaoId     String? @unique @map("kakao_id")
-  kakaoEmail  String? @map("kakao_email")
-  appleId     String? @unique @map("apple_id")
-  appleEmail  String? @map("apple_email")
+  googleId          String? @unique @map("google_id")
+  googleEmail       String? @map("google_email")
+  kakaoId           String? @unique @map("kakao_id")
+  kakaoEmail        String? @map("kakao_email")
+  appleId           String? @unique @map("apple_id")
+  appleEmail        String? @map("apple_email")
   /// Apple `refresh_token` (AES-256-GCM 암호화, `TokenEncryptionUtil`) — 탈퇴 시 `/auth/revoke` 호출용으로만 사용
   appleRefreshToken String? @map("apple_refresh_token")
 
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
   lastLoginAt DateTime? @map("last_login_at")
 
-  productLikes       ProductLike[]
-  storeLikes         StoreLike[]
-  productRecentViews ProductRecentView[]
-  reviews            ProductReview[]
-  chatRooms          ChatRoom[]
-  orders             Order[]
-  consumerNotifications UserNotification[]
-  fcmTokens          ConsumerFcmToken[]
+  productLikes            ProductLike[]
+  storeLikes              StoreLike[]
+  productRecentViews      ProductRecentView[]
+  reviews                 ProductReview[]
+  chatThreads             ChatThread[]
+  orders                  Order[]
+  consumerNotifications   UserNotification[]
+  fcmTokens               ConsumerFcmToken[]
   notificationPreferences ConsumerNotificationPreference[]
-  termsAgreements    ConsumerTermsAgreement[]
-  storeEntryRequests StoreEntryRequest[]
-  quoteRequests      QuoteRequest[]
+  termsAgreements         ConsumerTermsAgreement[]
+  storeEntryRequests      StoreEntryRequest[]
+  quoteRequests           QuoteRequest[]
 
   @@index([phone])
   @@index([googleId])
@@ -293,7 +293,7 @@ model QuoteRequest {
   /// 요청 사항(알레르기·초·토퍼 등, 200자까지)
   requestNote String?       @map("request_note") @db.VarChar(200)
 
-  entry       QuoteRequestEntry?
+  entry QuoteRequestEntry?
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -341,13 +341,13 @@ model QuoteRequestStore {
 model Seller {
   id String @id @default(cuid())
 
-  phone           String  @unique
+  phone           String    @unique
   name            String?
   nickname        String?
-  profileImageUrl String? @map("profile_image_url")
-  isPhoneVerified Boolean @default(false) @map("is_phone_verified")
-  isActive        Boolean @default(true) @map("is_active")
-  withdrawReason  String? @map("withdraw_reason")
+  profileImageUrl String?   @map("profile_image_url")
+  isPhoneVerified Boolean   @default(false) @map("is_phone_verified")
+  isActive        Boolean   @default(true) @map("is_active")
+  withdrawReason  String?   @map("withdraw_reason")
   withdrawnAt     DateTime? @map("withdrawn_at")
 
   googleId    String? @unique @map("google_id")
@@ -358,7 +358,7 @@ model Seller {
   /// 판매자 온보딩·검증 단계 (스토어 생성 후 갱신)
   sellerVerificationStatus SellerVerificationStatus @default(REGISTERED) @map("seller_verification_status")
 
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
   lastLoginAt DateTime? @map("last_login_at")
 
   stores                  Store[]
@@ -423,10 +423,10 @@ model PhoneVerification {
 
   // 비즈니스 필드
   phone            String // 휴대폰 번호
-  verificationCode String @map("verification_code") // 인증 코드
+  verificationCode String   @map("verification_code") // 인증 코드
   expiresAt        DateTime @map("expires_at") // 만료 시간
-  isVerified       Boolean @default(false) @map("is_verified") // 인증 여부
-  purpose          String @default("registration") // 목적 (registration 등)
+  isVerified       Boolean  @default(false) @map("is_verified") // 인증 여부
+  purpose          String   @default("registration") // 목적 (registration 등)
 
   // 시스템 필드
   createdAt DateTime @default(now()) @map("created_at")
@@ -444,40 +444,38 @@ model Product {
   storeId String @map("store_id") // 스토어 ID
 
   // 비즈니스 필드 - 기본 정보
-  name              String // 상품명 (필수)
-  images            String[] @default([]) // 상품 이미지 목록 (첫 번째 요소가 대표 이미지)
-  originalPrice     Int @map("original_price") // 정가
-  salePrice         Int @map("sale_price") // 판매 가격
-  salesStatus       EnableStatus @map("sales_status") // 판매 상태
-  visibilityStatus  EnableStatus @map("visibility_status") // 노출 상태
-  productType           ProductType @default(BASIC_CAKE) @map("product_type") // 상품 타입 (기본/커스텀)
-  productCategoryTypes  ProductCategoryType[] @default([]) @map("product_category_types") // 상품 카테고리 타입 (없거나 여러 개)
-  searchTags            String[] @default([]) @map("search_tags") // 검색 태그 (없거나 여러 개)
-  detailDescription     String? @map("detail_description") // 상세 설명
+  name                 String // 상품명 (필수)
+  images               String[]              @default([]) // 상품 이미지 목록 (첫 번째 요소가 대표 이미지)
+  originalPrice        Int                   @map("original_price") // 정가
+  salePrice            Int                   @map("sale_price") // 판매 가격
+  salesStatus          EnableStatus          @map("sales_status") // 판매 상태
+  visibilityStatus     EnableStatus          @map("visibility_status") // 노출 상태
+  productType          ProductType           @default(BASIC_CAKE) @map("product_type") // 상품 타입 (기본/커스텀)
+  productCategoryTypes ProductCategoryType[] @default([]) @map("product_category_types") // 상품 카테고리 타입 (없거나 여러 개)
+  searchTags           String[]              @default([]) @map("search_tags") // 검색 태그 (없거나 여러 개)
+  detailDescription    String?               @map("detail_description") // 상세 설명
 
   // 네이버 예약 상품 연결 (가져오기·다시 불러오기용). 연결은 판매자가 정하고, 같은 스토어 안에서 한 상품에만 연결한다
-  naverBizItemId    String?   @map("naver_biz_item_id") // 네이버 예약 상품 ID
-  naverLinkedAt     DateTime? @map("naver_linked_at") // 네이버 상품을 연결한 시각
+  naverBizItemId String?   @map("naver_biz_item_id") // 네이버 예약 상품 ID
+  naverLinkedAt  DateTime? @map("naver_linked_at") // 네이버 상품을 연결한 시각
 
   // 비즈니스 필드 - 케이크 옵션
-  cakeSizeOptions   Json? @map("cake_size_options") // 케이크 사이즈 옵션
-  // 레거시: 맛은 추가 옵션 '맛'(하나 고르기)으로 옮김(20261105150000). 코드에서 쓰지 않고 정리 단계에서 삭제
-  cakeFlavorOptions  Json? @map("cake_flavor_options")
+  cakeSizeOptions    Json?        @map("cake_size_options") // 케이크 사이즈 옵션
   // 추가 옵션(선택형·다중선택형·직접입력형·사진첨부형) 목록. 배열 순서가 구매자 화면 노출 순서
-  customOptions      Json @default("[]") @map("custom_options")
+  customOptions      Json         @default("[]") @map("custom_options")
   // 사이즈·추가 옵션이 바뀔 때마다 +1. 주문 시 클라이언트가 본 옵션과 다르면 거절하는 기준
-  optionsVersion     Int @default(0) @map("options_version")
+  optionsVersion     Int          @default(0) @map("options_version")
   // 아래 3개는 customOptions로 이전된 레거시 필드. customOptions에서 계산해 저장하며 정리 단계에서 삭제
   letteringVisible   EnableStatus @map("lettering_visible") // 레터링 표시 여부
-  letteringMaxLength Int @map("lettering_max_length") // 레터링 최대 길이
+  letteringMaxLength Int          @map("lettering_max_length") // 레터링 최대 길이
   imageUploadEnabled EnableStatus @map("image_upload_enabled") // 이미지 업로드 가능 여부
 
   // 비즈니스 필드 - 고시정보 (식품 판매 시 법적 필수 항목)
-  productNumber              String @map("product_number") // 상품번호 (백엔드 자동 생성)
-  productNoticeFoodType      String @map("product_notice_food_type") // 식품의 유형
-  productNoticeProducer      String @map("product_notice_producer") // 제조사
-  productNoticeOrigin        String @map("product_notice_origin") // 원산지
-  productNoticeAddress       String @map("product_notice_address") // 소재지
+  productNumber                String @map("product_number") // 상품번호 (백엔드 자동 생성)
+  productNoticeFoodType        String @map("product_notice_food_type") // 식품의 유형
+  productNoticeProducer        String @map("product_notice_producer") // 제조사
+  productNoticeOrigin          String @map("product_notice_origin") // 원산지
+  productNoticeAddress         String @map("product_notice_address") // 소재지
   productNoticeManufactureDate String @map("product_notice_manufacture_date") // 제조연월일
   productNoticeExpirationDate  String @map("product_notice_expiration_date") // 소비기한 또는 품질유지기한
   productNoticePackageCapacity String @map("product_notice_package_capacity") // 포장단위별 용량/수량
@@ -486,7 +484,7 @@ model Product {
   productNoticeCalories        String @map("product_notice_calories") // 영양성분
   productNoticeSafetyNotice    String @map("product_notice_safety_notice") // 소비자안전을 위한 주의사항
   productNoticeGmoNotice       String @map("product_notice_gmo_notice") // 유전자변형식품에 해당하는 경우의 표시
-  productNoticeImportNotice     String @map("product_notice_import_notice") // 수입식품의 경우
+  productNoticeImportNotice    String @map("product_notice_import_notice") // 수입식품의 경우
   productNoticeCustomerService String @map("product_notice_customer_service") // 고객센터
 
   // 시스템 필드
@@ -495,19 +493,19 @@ model Product {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  store       Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store       Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
   likes       ProductLike[]
   recentViews ProductRecentView[]
   reviews     ProductReview[]
   orders      Order[]
 
+  @@unique([storeId, naverBizItemId]) // 네이버 상품 하나는 스토어 안에서 한 상품에만 연결
   // 인덱스 최적화
   @@index([storeId]) // 스토어별 상품 조회
   @@index([visibilityStatus, salesStatus, createdAt(sort: Desc)]) // 노출된 상품 목록 조회 최적화 (정렬: 최신순)
   @@index([visibilityStatus, salesStatus, salePrice]) // 노출된 상품 목록 조회 최적화 (정렬: 가격순)
   @@index([visibilityStatus, salesStatus, likeCount(sort: Desc)]) // 노출된 상품 목록 조회 최적화 (정렬: 인기순)
   @@index([name]) // 상품명 검색 최적화
-  @@unique([storeId, naverBizItemId]) // 네이버 상품 하나는 스토어 안에서 한 상품에만 연결
   @@map("products")
 }
 
@@ -548,29 +546,29 @@ model Store {
   phoneNumber  String? @map("phone_number") // 스토어 연락처 (전화/휴대폰)
 
   // 비즈니스 필드 - 주소/위치 정보 (카카오지도 활용용)
-  address      String? // 지번 주소 (예: "서울특별시 강남구 역삼동 456-789")
-  roadAddress  String? // 도로명 주소 (예: "서울특별시 강남구 테헤란로 123")
+  address       String? // 지번 주소 (예: "서울특별시 강남구 역삼동 456-789")
+  roadAddress   String? // 도로명 주소 (예: "서울특별시 강남구 테헤란로 123")
   detailAddress String? // 상세주소 (예: "101호", "지하 1층")
-  zonecode     String? // 우편번호
-  latitude     Float? // 위도 (카카오지도 마커 표시 및 거리 계산용)
-  longitude    Float? // 경도 (카카오지도 마커 표시 및 거리 계산용)
+  zonecode      String? // 우편번호
+  latitude      Float? // 위도 (카카오지도 마커 표시 및 거리 계산용)
+  longitude     Float? // 경도 (카카오지도 마커 표시 및 거리 계산용)
 
   // 비즈니스 필드 - 사업자 정보 (1단계 - 사용자 입력값만 저장)
-  businessNo        String @map("business_no") // 사업자등록번호
+  businessNo         String @map("business_no") // 사업자등록번호
   representativeName String @map("representative_name") // 대표자명
-  openingDate       String @map("opening_date") // 개업일자
-  businessName      String @map("business_name") // 사업자명
-  businessSector    String @map("business_sector") // 업종
-  businessType      String @map("business_type") // 업태
+  openingDate        String @map("opening_date") // 개업일자
+  businessName       String @map("business_name") // 사업자명
+  businessSector     String @map("business_sector") // 업종
+  businessType       String @map("business_type") // 업태
 
   // 비즈니스 필드 - 통신판매사업자 정보 (2단계 - 사용자 입력값만 저장)
   // 인허가관리번호 (통신판매사업자 신고번호). 동네 음식료 판매는 신고 의무가 없어(전자상거래법 제3조 ④) 선택, 없으면 null
   permissionManagementNumber String? @map("permission_management_number")
 
   // 비즈니스 필드 - 정산 계좌
-  bankAccountNumber String?         @map("bank_account_number") // 계좌번호
+  bankAccountNumber String?        @map("bank_account_number") // 계좌번호
   bankName          StoreBankName? @map("bank_name") // 은행 코드
-  accountHolderName String?         @map("account_holder_name") // 예금주명
+  accountHolderName String?        @map("account_holder_name") // 예금주명
 
   // 비즈니스 필드 - 채널 정보
   kakaoChannelId String? @map("kakao_channel_id") // 카카오채널 ID
@@ -581,14 +579,23 @@ model Store {
   naverPlaceConnectedAt DateTime? @map("naver_place_connected_at") // 연결한 시각
 
   // 비즈니스 필드 - 영업 캘린더 (판매자 설정, Asia/Seoul 기준)
-  /** 정기 휴무 요일 (0=일 … 6=토, 프론트 Date.getDay()와 동일) */
-  weeklyClosedWeekdays Int[] @default([]) @map("weekly_closed_weekdays")
-  /** 표준 영업 시작 HH:mm (30분 단위). 00:00+00:00이면 하루 전체 영업 */
-  standardOpenTime  String @default("00:00") @map("standard_open_time") @db.VarChar(5)
-  /** 표준 영업 종료 HH:mm. 00:00+00:00이면 하루 전체, 그 외는 픽업 [시작, 종료) */
-  standardCloseTime String @default("00:00") @map("standard_close_time") @db.VarChar(5)
-  /** 날짜별 예외 [{ date: "YYYY-MM-DD", isOpen, openTime?, closeTime? }] */
-  businessCalendarOverrides Json @default("[]") @map("business_calendar_overrides")
+  /**
+   * /**
+   * /** 정기 휴무 요일 (0=일 … 6=토, 프론트 Date.getDay()와 동일)
+   */
+  weeklyClosedWeekdays      Int[]  @default([]) @map("weekly_closed_weekdays")
+  /**
+   * 표준 영업 시작 HH:mm (30분 단위). 00:00+00:00이면 하루 전체 영업
+   */
+  standardOpenTime          String @default("00:00") @map("standard_open_time") @db.VarChar(5)
+  /**
+   * 표준 영업 종료 HH:mm. 00:00+00:00이면 하루 전체, 그 외는 픽업 [시작, 종료)
+   */
+  standardCloseTime         String @default("00:00") @map("standard_close_time") @db.VarChar(5)
+  /**
+   * 날짜별 예외 [{ date: "YYYY-MM-DD", isOpen, openTime?, closeTime? }]
+   */
+  businessCalendarOverrides Json   @default("[]") @map("business_calendar_overrides")
 
   // 환불·취소 규정 (JSON). { rules: [{ daysBeforePickup, refundDescription }, ...] } (N=0이면 픽업 당일)
   refundCancellationPolicy Json @default("{\"rules\":[{\"daysBeforePickup\":0,\"refundDescription\":\"\"}]}") @map("refund_cancellation_policy")
@@ -599,14 +606,15 @@ model Store {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  seller    Seller       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  products  Product[]
-  likes     StoreLike[]
-  chatRooms ChatRoom[]
-  feeds     StoreFeed[]
-  orders    Order[]
+  seller                  Seller                       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  products                Product[]
+  likes                   StoreLike[]
+  shop                    Shop?
+  feeds                   StoreFeed[]
+  orders                  Order[]
   notificationPreferences UserNotificationPreference[]
-  quoteRequestStores QuoteRequestStore[]
+  quoteRequestStores      QuoteRequestStore[]
+  linkVisits              StoreLinkVisit[]
 
   @@unique([sellerId, businessNo, permissionManagementNumber])
   @@index([sellerId])
@@ -614,6 +622,22 @@ model Store {
   @@index([likeCount])
   @@index([latitude, longitude]) // 위치 기반 검색을 위한 인덱스
   @@map("stores")
+}
+
+/// 사장님이 보낸 가게·상품 링크로 들어온 손님 기기(기획 I-45 링크 효과).
+/// 기기에서 만든 임의 값만 저장하고 계정·이름과 잇지 않는다. 한 기기는 가게마다 한 줄(마지막 방문 시각만 바꾼다).
+model StoreLinkVisit {
+  id             String   @id @default(cuid())
+  storeId        String   @map("store_id")
+  visitorKey     String   @map("visitor_key") // 손님 기기에서 만든 임의 값(UUID)
+  firstVisitedAt DateTime @default(now()) @map("first_visited_at")
+  lastVisitedAt  DateTime @default(now()) @map("last_visited_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, visitorKey])
+  @@index([storeId, lastVisitedAt]) // 최근 30일 방문 기기 수
+  @@map("store_link_visits")
 }
 
 // Product recent view model
@@ -667,9 +691,11 @@ model ProductReview {
   id String @id @default(cuid())
 
   // 관계 필드
-  productId  String @map("product_id")
-  consumerId String @map("consumer_id")
-  /** 마이페이지에서 주문 기준으로 작성한 후기인 경우 연결 (주문당 최대 1건) */
+  productId  String  @map("product_id")
+  consumerId String  @map("consumer_id")
+  /**
+   * 마이페이지에서 주문 기준으로 작성한 후기인 경우 연결 (주문당 최대 1건)
+   */
   orderId    String? @unique @map("order_id")
 
   // 비즈니스 필드
@@ -677,7 +703,9 @@ model ProductReview {
   content   String // 후기 내용
   imageUrls String[] @default([]) @map("image_urls") // 후기 이미지 URL 목록
 
-  /** 사용자 삭제 시각. null이면 노출 대상(주문 재작성 불가는 이 행이 orderId를 유지한 채로 남는 것으로 표현) */
+  /**
+   * 사용자 삭제 시각. null이면 노출 대상(주문 재작성 불가는 이 행이 orderId를 유지한 채로 남는 것으로 표현)
+   */
   deletedAt DateTime? @map("deleted_at")
 
   // 시스템 필드
@@ -697,60 +725,138 @@ model ProductReview {
   @@map("product_reviews")
 }
 
-// ChatRoom model for user-store chat
-model ChatRoom {
-  // Primary Key
-  id String @id @default(cuid())
+/// 가게 명부(기획 I-11). 입점 가게(storeId)와 입점 전 가게(kakaoPlaceId)를 같은 줄로 본다.
+/// 스토어가 지워져도(사장님 탈퇴) 줄은 남겨 손님 쪽 채팅이 사라지지 않게 storeId만 비운다.
+model Shop {
+  id           String   @id @default(cuid())
+  storeId      String?  @unique @map("store_id")
+  kakaoPlaceId String?  @unique @map("kakao_place_id")
+  /// 마지막으로 알던 가게 이름(스토어가 지워져도 손님 목록에 보이게)
+  name         String   @db.VarChar(100)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  // 관계 필드
+  store   Store?       @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  threads ChatThread[]
+
+  @@map("shops")
+}
+
+/// 채팅방(기획 I-11): 손님 1명 × 명부의 가게 1곳 = 하나. 옛 chat_rooms(쓰지 않음)와 따로 둔다.
+model ChatThread {
+  id         String @id @default(cuid())
   consumerId String @map("consumer_id")
-  storeId    String @map("store_id")
+  shopId     String @map("shop_id")
 
-  // 비즈니스 필드
-  lastMessage   String? @map("last_message") @db.VarChar(1000) // 마지막 메시지 미리보기용 (최대 1000자)
-  lastMessageAt DateTime? @map("last_message_at") // 마지막 메시지 시간
-  userUnread    Int @default(0) @map("user_unread") // 사용자 읽지 않은 메시지 개수
-  storeUnread   Int @default(0) @map("store_unread") // 스토어 읽지 않은 메시지 개수
+  lastMessageAt         DateTime?   @map("last_message_at")
+  lastMessageSender     ChatSender? @map("last_message_sender")
+  /// 목록 미리보기(거른 글 앞 40자, 사진이면 "사진")
+  lastMessagePreview    String?     @map("last_message_preview") @db.VarChar(80)
+  /// 손님이 마지막으로 쓴 때 — 가게 쓰기 30일 규칙
+  lastConsumerMessageAt DateTime?   @map("last_consumer_message_at")
 
-  // 시스템 필드
+  consumerReadAt      DateTime? @map("consumer_read_at")
+  shopReadAt          DateTime? @map("shop_read_at")
+  /// 방을 보고 있던 마지막 때(20초 안이면 휴대폰 알림을 보내지 않음)
+  consumerSeenAt      DateTime? @map("consumer_seen_at")
+  shopSeenAt          DateTime? @map("shop_seen_at")
+  consumerMuted       Boolean   @default(false) @map("consumer_muted")
+  shopMuted           Boolean   @default(false) @map("shop_muted")
+  blockedByConsumerAt DateTime? @map("blocked_by_consumer_at")
+  blockedByShopAt     DateTime? @map("blocked_by_shop_at")
+  /// 알림톡을 마지막으로 보낸 때(방마다 3시간에 한 번)
+  consumerNotifiedAt  DateTime? @map("consumer_notified_at")
+  shopNotifiedAt      DateTime? @map("shop_notified_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Relations
-  consumer Consumer @relation(fields: [consumerId], references: [id], onDelete: Cascade)
-  store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  messages Message[]
+  consumer Consumer      @relation(fields: [consumerId], references: [id], onDelete: Cascade)
+  shop     Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+  reports  ChatReport[]
 
-  @@unique([consumerId, storeId]) // 1대1 채팅방 보장
-  @@index([consumerId, lastMessageAt(sort: Desc)]) // 사용자 채팅방 목록 조회 최적화
-  @@index([storeId, lastMessageAt(sort: Desc)]) // 판매자 채팅방 목록 조회 최적화
-  @@index([consumerId]) // 기존 인덱스 유지
-  @@index([storeId]) // 기존 인덱스 유지
-  @@map("chat_rooms")
+  @@unique([consumerId, shopId])
+  @@index([consumerId, lastMessageAt(sort: Desc)])
+  @@index([shopId, lastMessageAt(sort: Desc)])
+  @@index([lastMessageAt])
+  @@map("chat_threads")
 }
 
-// Message model for chat messages
-model Message {
-  // Primary Key
-  id String @id @default(cuid())
+/// 채팅 글(기획 I-11). clientId로 다시 보내기를 한 번만 저장한다.
+model ChatMessage {
+  id             String          @id @default(cuid())
+  threadId       String          @map("thread_id")
+  clientId       String          @map("client_id") @db.VarChar(64)
+  sender         ChatSender
+  /// 가게 쪽에서 보낸 사장님(직원 계정 I-52 때 사람을 구분)
+  senderSellerId String?         @map("sender_seller_id")
+  kind           ChatMessageKind
+  /// 원문(신고 확인용). 화면에는 maskedText가 있으면 그것을 보여 준다
+  text           String?         @db.Text
+  maskedText     String?         @map("masked_text") @db.Text
+  imageUrls      String[]        @default([]) @map("image_urls")
+  refOrderId     String?         @map("ref_order_id")
+  refProductId   String?         @map("ref_product_id")
+  /// 카드가 가리키던 것의 그때 값(상품 이름·사진·가격 등)
+  cardSnapshot   Json?           @map("card_snapshot")
+  /// 운영자가 신고 처리로 가린 때
+  hiddenAt       DateTime?       @map("hidden_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
 
-  // 관계 필드
-  roomId String @map("room_id") // 채팅방 ID
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
-  // 비즈니스 필드
-  text       String @db.Text // 메시지 내용
-  senderId   String @map("sender_id") // 발신자 ID
-  senderType MessageSenderType @map("sender_type") // 발신자 타입 (USER, STORE)
+  @@unique([threadId, clientId])
+  @@index([threadId, createdAt])
+  @@map("chat_messages")
+}
 
-  // 시스템 필드
+/// 채팅 신고(애플 1.2, 24시간 안 처리)
+model ChatReport {
+  id                String           @id @default(cuid())
+  threadId          String           @map("thread_id")
+  messageId         String?          @map("message_id")
+  reporter          ChatSender
+  reporterId        String           @map("reporter_id")
+  reason            ChatReportReason
+  detail            String?          @db.VarChar(500)
+  status            ChatReportStatus @default(OPEN)
+  /// 처리 결과(가림·막음·그대로 등) 한 줄
+  resolution        String?          @db.VarChar(200)
+  resolvedByAdminId String?          @map("resolved_by_admin_id")
+  resolvedAt        DateTime?        @map("resolved_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([threadId])
+  @@map("chat_reports")
+}
+
+/// 채팅 이용 규칙 동의(처음 보낼 때 한 번, 규칙이 바뀌면 다시)
+model ChatRuleAgreement {
+  id        String   @id @default(cuid())
+  /// CONSUMER | SELLER
+  actorType String   @map("actor_type") @db.VarChar(20)
+  actorId   String   @map("actor_id")
+  version   Int
+  agreedAt  DateTime @default(now()) @map("agreed_at")
+
+  @@unique([actorType, actorId, version])
+  @@map("chat_rule_agreements")
+}
+
+/// 운영자가 신고된 채팅을 연 기록(처리방침: 신고된 경우에만 열람, 기록을 남김)
+model ChatAccessLog {
+  id        String   @id @default(cuid())
+  adminId   String   @map("admin_id")
+  threadId  String   @map("thread_id")
+  reportId  String?  @map("report_id")
   createdAt DateTime @default(now()) @map("created_at")
 
-  // Relations
-  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-
-  @@index([roomId, createdAt(sort: Desc)]) // 메시지 목록 조회 최적화
-  @@index([roomId]) // 기존 인덱스 유지 (다른 쿼리에서 사용 가능)
-  @@map("messages")
+  @@index([threadId])
+  @@map("chat_access_logs")
 }
 
 // Store feed model for store feed posts
@@ -787,85 +893,111 @@ model Order {
   id String @id @default(cuid())
 
   // 관계 필드
-  consumerId String @map("consumer_id")
-  productId  String @map("product_id")
-  storeId    String @map("store_id")
-  storeName String? @map("store_name") // 스토어명 (주문 시점의 스토어명 보존)
-  productName  String? @map("product_name") // 상품명 (주문 시점의 상품명 보존)
+  consumerId    String   @map("consumer_id")
+  productId     String   @map("product_id")
+  storeId       String   @map("store_id")
+  storeName     String?  @map("store_name") // 스토어명 (주문 시점의 스토어명 보존)
+  productName   String?  @map("product_name") // 상품명 (주문 시점의 상품명 보존)
   productImages String[] @default([]) @map("product_images") // 상품 이미지 (주문 시점의 상품 이미지 보존)
 
   // 비즈니스 필드 - 주문 기본 정보
   orderNumber   String @unique @map("order_number") // 주문 번호 (사용자에게 보여줄 번호, 예: ORD-20240101-001)
-  totalQuantity Int @map("total_quantity") // 총 수량
-  totalPrice     Int @map("total_price") // 총 금액
+  totalQuantity Int    @map("total_quantity") // 총 수량
+  totalPrice    Int    @map("total_price") // 총 금액
 
   // 비즈니스 필드 - 픽업 정보
-  pickupDate         DateTime? @map("pickup_date") // 픽업 날짜 및 시간 (주문 전체에 대해 하나로 고정)
-  pickupAddress      String? @map("pickup_address") // 픽업 주소 (지번 주소, 예: "서울특별시 강남구 역삼동 456-789")
-  pickupRoadAddress  String? @map("pickup_road_address") // 픽업 주소 (도로명 주소, 예: "서울특별시 강남구 테헤란로 123")
-  pickupDetailAddress String? @map("pickup_detail_address") // 픽업 상세주소 (예: "101호", "지하 1층")
-  pickupZonecode     String? @map("pickup_zonecode") // 픽업 장소 우편번호
-  pickupLatitude     Float? @map("pickup_latitude") // 픽업 장소 위도
-  pickupLongitude    Float? @map("pickup_longitude") // 픽업 장소 경도
+  pickupDate          DateTime? @map("pickup_date") // 픽업 날짜 및 시간 (주문 전체에 대해 하나로 고정)
+  pickupAddress       String?   @map("pickup_address") // 픽업 주소 (지번 주소, 예: "서울특별시 강남구 역삼동 456-789")
+  pickupRoadAddress   String?   @map("pickup_road_address") // 픽업 주소 (도로명 주소, 예: "서울특별시 강남구 테헤란로 123")
+  pickupDetailAddress String?   @map("pickup_detail_address") // 픽업 상세주소 (예: "101호", "지하 1층")
+  pickupZonecode      String?   @map("pickup_zonecode") // 픽업 장소 우편번호
+  pickupLatitude      Float?    @map("pickup_latitude") // 픽업 장소 위도
+  pickupLongitude     Float?    @map("pickup_longitude") // 픽업 장소 경도
 
   // 주문 시 선택 입력한 예약자명
-  reservationContactName String? @map("reservation_contact_name")
+  reservationContactName String?           @map("reservation_contact_name")
   // 주문 시 선택 입력한 예약 연락처(휴대폰, 숫자만 저장)
-  reservationPhone       String? @map("reservation_phone")
+  reservationPhone       String?           @map("reservation_phone")
+  // 손님이 들어온 길. 사장님이 보낸 가게·상품 링크로 들어와 예약하면 STORE_LINK(기획 I-45). 그 밖은 null
+  entrySource            OrderEntrySource? @map("entry_source")
 
   // 비즈니스 필드 - 주문 상태
-  orderStatus OrderStatus @default(RESERVATION_REQUESTED) @map("order_status") // 주문 상태
-  /** 입금대기로 전환된 시각(입금 유효 기준 시작). 예약신청만 있을 때는 null */
-  paymentPendingAt DateTime? @map("payment_pending_at")
-  /** 입금 마감 시각(픽업까지 남은 시간에 따라 12h/6h/1h 티어 및 픽업 시각과의 min). 입금대기가 아니면 null */
-  paymentPendingDeadlineAt DateTime? @map("payment_pending_deadline_at")
+  orderStatus                     OrderStatus    @default(RESERVATION_REQUESTED) @map("order_status") // 주문 상태
+  /**
+   * 입금대기로 전환된 시각(입금 유효 기준 시작). 예약신청만 있을 때는 null
+   */
+  paymentPendingAt                DateTime?      @map("payment_pending_at")
+  /**
+   * 입금 마감 시각(픽업까지 남은 시간에 따라 12h/6h/1h 티어 및 픽업 시각과의 min). 입금대기가 아니면 null
+   */
+  paymentPendingDeadlineAt        DateTime?      @map("payment_pending_deadline_at")
   /**
    * 입금 기한 만료로 "자동" 취소된 시각. 값이 있으면 사용자·판매자가 의도한 취소가 아니라
    * 시스템이 취소한 건입니다(사유 필드가 모두 null이라 레코드만으로는 구분되지 않아 별도 표시).
    * 실제로 입금했으나 완료 처리를 못 한 손님을 찾아 환불 처리할 때의 조회 기준입니다.
    */
-  paymentPendingExpiredAt DateTime? @map("payment_pending_expired_at")
-  /** 사용자가 입금완료 처리 시 입력한 입금자명 */
-  depositorName String? @map("depositor_name")
-  /** 입금 전 사용자 취소 시 입력한 사유 (자동 만료 취소 등은 null) */
-  userCancelReason String? @map("user_cancel_reason") @db.Text
-  /** 판매자가 입금대기에서 예약 취소(취소완료) 시 입력한 사유 */
-  sellerCancelReason String? @map("seller_cancel_reason") @db.Text
-  /** 판매자가 픽업대기에서 노쇼 처리 시 입력한 사유 */
-  sellerNoShowReason String? @map("seller_no_show_reason") @db.Text
-  /** 판매자가 취소환불대기로 전환할 때 입력한 사유 (사용자 요청 사유 `refundRequestReason`과 별도) */
-  sellerCancelRefundPendingReason String? @map("seller_cancel_refund_pending_reason") @db.Text
+  paymentPendingExpiredAt         DateTime?      @map("payment_pending_expired_at")
+  /**
+   * 사용자가 입금완료 처리 시 입력한 입금자명
+   */
+  depositorName                   String?        @map("depositor_name")
+  /**
+   * 입금 전 사용자 취소 시 입력한 사유 (자동 만료 취소 등은 null)
+   */
+  userCancelReason                String?        @map("user_cancel_reason") @db.Text
+  /**
+   * 판매자가 입금대기에서 예약 취소(취소완료) 시 입력한 사유
+   */
+  sellerCancelReason              String?        @map("seller_cancel_reason") @db.Text
+  /**
+   * 판매자가 픽업대기에서 노쇼 처리 시 입력한 사유
+   */
+  sellerNoShowReason              String?        @map("seller_no_show_reason") @db.Text
+  /**
+   * 판매자가 취소환불대기로 전환할 때 입력한 사유 (사용자 요청 사유 `refundRequestReason`과 별도)
+   */
+  sellerCancelRefundPendingReason String?        @map("seller_cancel_refund_pending_reason") @db.Text
   /**
    * 관리자가 취소완료 주문을 취소환불대기로 되돌릴 때 입력한 사유.
    * 종착 상태를 예외적으로 되돌리는 조치라 감사 기록용으로 남깁니다.
    */
-  adminRefundRevertReason String? @map("admin_refund_revert_reason") @db.Text
-  /** 관리자가 되돌린 시각 (값이 있으면 예외 구제된 주문) */
-  adminRefundRevertedAt DateTime? @map("admin_refund_reverted_at")
-  /** 입금 이후 사용자 취소·환불 요청 시 사유 */
-  refundRequestReason String? @map("refund_request_reason") @db.Text
-  /** 환불 받을 은행 (스토어 정산 계좌와 동일 `StoreBankName`) */
-  refundBankName StoreBankName? @map("refund_bank_name")
-  refundBankAccountNumber String? @map("refund_bank_account_number")
-  refundAccountHolderName String? @map("refund_account_holder_name")
-  /** 픽업 24시간 전 안내(알림톡·푸시) 발송 시각. 미발송이면 null */
-  pickupReminderSentAt DateTime? @map("pickup_reminder_sent_at")
-  /** 재입금 안내(알림톡·푸시) 발송 시각. 미발송이면 null */
-  paymentReminderSentAt DateTime? @map("payment_reminder_sent_at")
+  adminRefundRevertReason         String?        @map("admin_refund_revert_reason") @db.Text
+  /**
+   * 관리자가 되돌린 시각 (값이 있으면 예외 구제된 주문)
+   */
+  adminRefundRevertedAt           DateTime?      @map("admin_refund_reverted_at")
+  /**
+   * 입금 이후 사용자 취소·환불 요청 시 사유
+   */
+  refundRequestReason             String?        @map("refund_request_reason") @db.Text
+  /**
+   * 환불 받을 은행 (스토어 정산 계좌와 동일 `StoreBankName`)
+   */
+  refundBankName                  StoreBankName? @map("refund_bank_name")
+  refundBankAccountNumber         String?        @map("refund_bank_account_number")
+  refundAccountHolderName         String?        @map("refund_account_holder_name")
+  /**
+   * 픽업 24시간 전 안내(알림톡·푸시) 발송 시각. 미발송이면 null
+   */
+  pickupReminderSentAt            DateTime?      @map("pickup_reminder_sent_at")
+  /**
+   * 재입금 안내(알림톡·푸시) 발송 시각. 미발송이면 null
+   */
+  paymentReminderSentAt           DateTime?      @map("payment_reminder_sent_at")
   /**
    * 입금 마감 30분 전 2차(최종) 안내 발송 시각. 미발송이면 null.
    * 3시간 전 1차 안내(`paymentReminderSentAt`)와 별도로 1회만 발송하기 위한 중복 방지 플래그입니다.
    */
-  paymentFinalReminderSentAt DateTime? @map("payment_final_reminder_sent_at")
+  paymentFinalReminderSentAt      DateTime?      @map("payment_final_reminder_sent_at")
 
   // 시스템 필드
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  consumer Consumer @relation(fields: [consumerId], references: [id], onDelete: Cascade)
-  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  store    Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  consumer   Consumer       @relation(fields: [consumerId], references: [id], onDelete: Cascade)
+  product    Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  store      Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
   review     ProductReview?
 
@@ -879,6 +1011,7 @@ model Order {
   @@index([orderStatus, paymentPendingDeadlineAt, paymentFinalReminderSentAt]) // 재입금 2차 안내 배치
   @@index([orderStatus, pickupDate, pickupReminderSentAt]) // 픽업 24시간 전 안내 배치
   @@index([orderNumber]) // 주문 번호로 조회
+  @@index([storeId, entrySource, createdAt]) // 링크로 온 예약 수(기획 I-45)
   @@index([pickupDate]) // 픽업 예정/지난 예약 필터
   @@index([pickupLatitude, pickupLongitude]) // 위치 기반 검색을 위한 인덱스
   @@map("orders")
@@ -910,17 +1043,21 @@ model UserNotification {
 
 /// 알림 설정 (판매자 웹: 판매자·스토어·표면 조합별)
 model UserNotificationPreference {
-  id                             String                 @id @default(cuid())
-  sellerId                       String                 @map("seller_id")
-  storeId                        String                 @map("store_id")
-  appSurface                     NotificationAppSurface @map("app_surface")
-  orderNotificationsEnabled     Boolean @default(true) @map("order_notifications_enabled")
-  orderNotificationSoundEnabled Boolean @default(true) @map("order_notification_sound_enabled")
+  id                            String                 @id @default(cuid())
+  sellerId                      String                 @map("seller_id")
+  storeId                       String                 @map("store_id")
+  appSurface                    NotificationAppSurface @map("app_surface")
+  orderNotificationsEnabled     Boolean                @default(true) @map("order_notifications_enabled")
+  orderNotificationSoundEnabled Boolean                @default(true) @map("order_notification_sound_enabled")
   /// 판매자 앱 아침 요약 휴대폰 알림(매일 8시, 그날 픽업이 있을 때만, 기획 I-48). 스토어마다 켜고 끔
-  morningSummaryEnabled          Boolean @default(true) @map("morning_summary_enabled")
+  morningSummaryEnabled         Boolean                @default(true) @map("morning_summary_enabled")
   /// 아침 요약을 마지막으로 보낸 날(Asia/Seoul YYYY-MM-DD). 하루에 한 번만 보내려고 둠
-  morningSummarySentOn           String? @map("morning_summary_sent_on")
-  updatedAt                      DateTime               @updatedAt @map("updated_at")
+  morningSummarySentOn          String?                @map("morning_summary_sent_on")
+  /// 채팅 알림(판매자 앱 알림·알림톡, 기획 I-11). 끄면 탭 숫자만 남는다
+  chatNotificationsEnabled      Boolean                @default(true) @map("chat_notifications_enabled")
+  /// 밤 9시~아침 8시(서울)에는 채팅 휴대폰 알림을 보내지 않음
+  chatQuietNight                Boolean                @default(false) @map("chat_quiet_night")
+  updatedAt                     DateTime               @updatedAt @map("updated_at")
 
   seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   store  Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -936,6 +1073,8 @@ model ConsumerNotificationPreference {
   consumerId       String                 @map("consumer_id")
   appSurface       NotificationAppSurface @map("app_surface")
   orderPushEnabled Boolean                @default(true) @map("order_push_enabled")
+  /// 채팅 알림(앱 알림·알림톡, 기획 I-11). 끄면 MY 점·숫자만 남는다
+  chatPushEnabled  Boolean                @default(true) @map("chat_push_enabled")
   updatedAt        DateTime               @updatedAt @map("updated_at")
 
   consumer Consumer @relation(fields: [consumerId], references: [id], onDelete: Cascade)
@@ -955,8 +1094,8 @@ model SellerFcmToken {
 
   seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
-  @@index([sellerId])
   @@unique([sellerId, deviceId])
+  @@index([sellerId])
   @@map("seller_fcm_tokens")
 }
 
@@ -971,8 +1110,8 @@ model ConsumerFcmToken {
 
   consumer Consumer @relation(fields: [consumerId], references: [id], onDelete: Cascade)
 
-  @@index([consumerId])
   @@unique([consumerId, deviceId])
+  @@index([consumerId])
   @@map("consumer_fcm_tokens")
 }
 
@@ -989,23 +1128,19 @@ model OrderItem {
   // 비즈니스 필드 - 주문 항목 정보
   // 각 OrderItem은 독립적인 옵션 조합을 가집니다
   // 사이즈 옵션 정보
-  sizeId          String? @map("size_id") // 선택한 사이즈 옵션 ID
-  sizeDisplayName String? @map("size_display_name") // 선택한 사이즈 표시명 (예: "도시락", "미니", "1호")
-  sizeLengthCm    Int? @map("size_length_cm") // 선택한 사이즈 길이 (cm 단위)
-  sizeDescription String? @map("size_description") // 선택한 사이즈 설명
-  sizePrice       Int? @map("size_price") // 사이즈 추가 가격
-  // 레거시: 고른 맛은 selected_options의 '맛'으로 옮김(20261105150000). 코드에서 쓰지 않고 정리 단계에서 삭제
-  flavorId        String? @map("flavor_id")
-  flavorDisplayName String? @map("flavor_display_name")
-  flavorPrice     Int? @map("flavor_price")
+  sizeId           String?  @map("size_id") // 선택한 사이즈 옵션 ID
+  sizeDisplayName  String?  @map("size_display_name") // 선택한 사이즈 표시명 (예: "도시락", "미니", "1호")
+  sizeLengthCm     Int?     @map("size_length_cm") // 선택한 사이즈 길이 (cm 단위)
+  sizeDescription  String?  @map("size_description") // 선택한 사이즈 설명
+  sizePrice        Int?     @map("size_price") // 사이즈 추가 가격
   // 추가 옵션 선택 내역 (주문 시점 옵션명·선택지·가격 스냅샷)
-  selectedOptions  Json @default("[]") @map("selected_options")
-  optionsPrice     Int @default(0) @map("options_price") // 추가 옵션 금액 합계 (1개 기준)
+  selectedOptions  Json     @default("[]") @map("selected_options")
+  optionsPrice     Int      @default(0) @map("options_price") // 추가 옵션 금액 합계 (1개 기준)
   // 레거시: selectedOptions의 첫 직접입력형·사진첨부형 값을 함께 기록 (정리 단계에서 삭제)
-  letteringMessage String? @map("lettering_message") @db.VarChar(500) // 레터링 메시지 (최대 500자)
-  requestMessage   String? @map("request_message") @db.Text // 요청 사항
+  letteringMessage String?  @map("lettering_message") @db.VarChar(500) // 레터링 메시지 (최대 500자)
+  requestMessage   String?  @map("request_message") @db.Text // 요청 사항
   quantity         Int // 수량
-  itemPrice        Int @map("item_price") // 개별 항목 가격 (기본 가격 + 사이즈 + 추가 옵션 금액)
+  itemPrice        Int      @map("item_price") // 개별 항목 가격 (기본 가격 + 사이즈 + 추가 옵션 금액)
   imageUrls        String[] @default([]) @map("image_urls") // 업로드한 이미지 URL 목록 (커스텀 케이크용)
 
   // 시스템 필드
@@ -1027,9 +1162,9 @@ model TermsDocument {
 
   // 비즈니스 필드
   type        TermsType // 약관 유형
-  version     String    // 버전 (예: "1.0", "1.1", "2.0")
-  title       String    // 약관 제목
-  content     String    @db.Text  // HTML 형식 약관 본문
+  version     String // 버전 (예: "1.0", "1.1", "2.0")
+  title       String // 약관 제목
+  content     String    @db.Text // HTML 형식 약관 본문
   /// 현재 사용자에게 노출되는 활성 버전 여부 (동일 type에서 1개만 true)
   isActive    Boolean   @default(false) @map("is_active")
   /// 약관 시행일 (이 날부터 법적 효력 발생)
@@ -1097,51 +1232,51 @@ model SellerTermsAgreement {
 
 /// 약관 유형 (구매자/판매자 앱별 약관 종류)
 enum TermsType {
-  CONSUMER_TERMS_OF_SERVICE    // 구매자 서비스 이용약관
-  CONSUMER_PRIVACY_POLICY      // 구매자 개인정보 처리방침
+  CONSUMER_TERMS_OF_SERVICE // 구매자 서비스 이용약관
+  CONSUMER_PRIVACY_POLICY // 구매자 개인정보 처리방침
   CONSUMER_THIRD_PARTY_CONSENT // 구매자 개인정보 제3자 제공 동의
-  CONSUMER_LOCATION_TERMS      // 구매자 위치기반서비스 이용약관
-  SELLER_TERMS_OF_SERVICE      // 판매자 서비스 이용약관
-  SELLER_PRIVACY_POLICY        // 판매자 개인정보 처리방침
+  CONSUMER_LOCATION_TERMS // 구매자 위치기반서비스 이용약관
+  SELLER_TERMS_OF_SERVICE // 판매자 서비스 이용약관
+  SELLER_PRIVACY_POLICY // 판매자 개인정보 처리방침
 }
 
 /// 관리자 가입 승인 상태
 enum AdminApprovalStatus {
-  PENDING  // 승인 대기
+  PENDING // 승인 대기
   APPROVED // 승인 완료
   REJECTED // 거절
 }
 
 /// 홈 배너 이미지 가로 정렬
 enum HomeBannerImageAlign {
-  LEFT   // 왼쪽 정렬 (오른쪽부터 잘림)
+  LEFT // 왼쪽 정렬 (오른쪽부터 잘림)
   CENTER // 가운데 정렬 (양쪽 균등하게 잘림)
-  RIGHT  // 오른쪽 정렬 (왼쪽부터 잘림)
+  RIGHT // 오른쪽 정렬 (왼쪽부터 잘림)
 }
 
 enum EnableStatus {
-  ENABLE  // 사용
+  ENABLE // 사용
   DISABLE // 미사용
 }
 
 enum ProductType {
-  BASIC_CAKE  // 기본 케이크
+  BASIC_CAKE // 기본 케이크
   CUSTOM_CAKE // 커스텀 케이크
 }
 
 // 상품 카테고리 타입
 enum ProductCategoryType {
-  BIRTHDAY       // 생일
-  LOVER          // 연인
-  FRIEND         // 친구
-  FAMILY         // 가족
-  ANNIVERSARY    // 기념일
+  BIRTHDAY // 생일
+  LOVER // 연인
+  FRIEND // 친구
+  FAMILY // 가족
+  ANNIVERSARY // 기념일
   SAME_DAY_PICKUP // 당일픽업
-  LETTERING      // 커스텀
-  CHARACTER      // 캐릭터
-  SIMPLE         // 심플
-  FLOWER         // 꽃
-  PHOTO          // 사진
+  LETTERING // 커스텀
+  CHARACTER // 캐릭터
+  SIMPLE // 심플
+  FLOWER // 꽃
+  PHOTO // 사진
 }
 
 /// 미입점 스토어 입점 요청 처리 상태
@@ -1168,11 +1303,6 @@ enum NotificationCategory {
   ORDER
 }
 
-enum MessageSenderType {
-  CONSUMER
-  STORE
-}
-
 enum OrderStatus {
   RESERVATION_REQUESTED // 예약신청
   PAYMENT_PENDING // 입금대기
@@ -1184,6 +1314,11 @@ enum OrderStatus {
   CANCEL_REFUND_PENDING // 취소환불대기
   CANCEL_REFUND_COMPLETED // 취소환불완료
   NO_SHOW // 노쇼
+}
+
+/// 손님이 예약에 들어온 길(기획 I-45)
+enum OrderEntrySource {
+  STORE_LINK // 사장님이 보낸 가게·상품 링크
 }
 
 /// 정산 계좌 은행 (API·DB 공통 코드값)
@@ -1211,4 +1346,35 @@ enum StoreBankName {
   JEJU // 제주
   CITI // 씨티
   KDB // KDB산업
+}
+
+/// 채팅에서 누가 보냈나(기획 I-11)
+enum ChatSender {
+  CONSUMER
+  SHOP
+  SYSTEM
+}
+
+/// 채팅 글 종류
+enum ChatMessageKind {
+  TEXT
+  IMAGE
+  /// 주문 카드(주문 상세·사장님 주문 상세에서 열 때)
+  ORDER
+  /// 상품 카드
+  PRODUCT
+}
+
+/// 채팅 신고 사유
+enum ChatReportReason {
+  ABUSE
+  SEXUAL
+  SPAM
+  FRAUD
+  OTHER
+}
+
+enum ChatReportStatus {
+  OPEN
+  RESOLVED
 }

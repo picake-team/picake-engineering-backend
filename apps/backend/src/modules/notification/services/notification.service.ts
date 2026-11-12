@@ -40,11 +40,17 @@ export interface NotificationPreferenceDto {
   orderNotificationSoundEnabled: boolean;
   /** 판매자 앱 아침 요약 휴대폰 알림 */
   morningSummaryEnabled: boolean;
+  /** 채팅 알림(판매자 앱 알림·알림톡, 기획 I-11) */
+  chatNotificationsEnabled: boolean;
+  /** 밤 9시~아침 8시에는 채팅 알림을 보내지 않음 */
+  chatQuietNight: boolean;
 }
 
 /** 구매자 웹 알림 설정 API 응답 (계정 단위) */
 export interface UserNotificationPreferenceDto {
   pushNotificationsEnabled: boolean;
+  /** 채팅 알림(앱 알림·알림톡, 기획 I-11) */
+  chatPushEnabled: boolean;
 }
 
 /**
@@ -257,6 +263,8 @@ export class NotificationService {
       orderNotificationsEnabled?: boolean;
       orderNotificationSoundEnabled?: boolean;
       morningSummaryEnabled?: boolean;
+      chatNotificationsEnabled?: boolean;
+      chatQuietNight?: boolean;
     },
   ): Promise<NotificationPreferenceDto> {
     const existing = await this.getOrCreatePreferenceSellerWeb(userId, storeId);
@@ -266,6 +274,8 @@ export class NotificationService {
       orderNotificationSoundEnabled:
         patch.orderNotificationSoundEnabled ?? existing.orderNotificationSoundEnabled,
       morningSummaryEnabled: patch.morningSummaryEnabled ?? existing.morningSummaryEnabled,
+      chatNotificationsEnabled: patch.chatNotificationsEnabled ?? existing.chatNotificationsEnabled,
+      chatQuietNight: patch.chatQuietNight ?? existing.chatQuietNight,
     };
     const row = await this.prisma.userNotificationPreference.update({
       where: {
@@ -279,6 +289,8 @@ export class NotificationService {
         orderNotificationsEnabled: next.orderNotificationsEnabled,
         orderNotificationSoundEnabled: next.orderNotificationSoundEnabled,
         morningSummaryEnabled: next.morningSummaryEnabled,
+        chatNotificationsEnabled: next.chatNotificationsEnabled,
+        chatQuietNight: next.chatQuietNight,
       },
     });
     return this.toPreferenceDto(row);
@@ -458,11 +470,13 @@ export class NotificationService {
     userId: string,
     patch: {
       pushNotificationsEnabled?: boolean;
+      chatPushEnabled?: boolean;
     },
   ): Promise<UserNotificationPreferenceDto> {
     const existing = await this.getOrCreatePreferenceUserWeb(userId);
     const next = {
       pushNotificationsEnabled: patch.pushNotificationsEnabled ?? existing.pushNotificationsEnabled,
+      chatPushEnabled: patch.chatPushEnabled ?? existing.chatPushEnabled,
     };
     const row = await this.prisma.consumerNotificationPreference.update({
       where: {
@@ -473,6 +487,7 @@ export class NotificationService {
       },
       data: {
         orderPushEnabled: next.pushNotificationsEnabled,
+        chatPushEnabled: next.chatPushEnabled,
       },
     });
     return this.toUserPreferenceDto(row);
@@ -502,21 +517,29 @@ export class NotificationService {
     orderNotificationsEnabled: boolean;
     orderNotificationSoundEnabled: boolean;
     morningSummaryEnabled: boolean;
+    chatNotificationsEnabled: boolean;
+    chatQuietNight: boolean;
   }): NotificationPreferenceDto {
     return {
       appSurface: "SELLER_WEB",
       orderNotificationsEnabled: row.orderNotificationsEnabled,
       orderNotificationSoundEnabled: row.orderNotificationSoundEnabled,
       morningSummaryEnabled: row.morningSummaryEnabled,
+      chatNotificationsEnabled: row.chatNotificationsEnabled,
+      chatQuietNight: row.chatQuietNight,
     };
   }
 
   /**
    * Prisma 구매자 설정 행을 API 응답 DTO 형태로 맞춥니다.
    */
-  private toUserPreferenceDto(row: { orderPushEnabled: boolean }): UserNotificationPreferenceDto {
+  private toUserPreferenceDto(row: {
+    orderPushEnabled: boolean;
+    chatPushEnabled: boolean;
+  }): UserNotificationPreferenceDto {
     return {
       pushNotificationsEnabled: row.orderPushEnabled,
+      chatPushEnabled: row.chatPushEnabled,
     };
   }
 }

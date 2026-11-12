@@ -11,7 +11,9 @@ import {
   MaxLength,
   ArrayMaxSize,
   IsInt,
+  IsEnum,
 } from "class-validator";
+import { OrderEntrySource } from "@apps/backend/infra/database/prisma/generated/client";
 import { Transform, Type } from "class-transformer";
 import { SWAGGER_EXAMPLES } from "@apps/backend/modules/order/constants/order.constants";
 import { CUSTOM_OPTION_LIMITS } from "@apps/backend/modules/product/constants/product.constants";
@@ -266,6 +268,16 @@ export class CreateOrderRequestDto extends PickupAddressDto {
   @IsString()
   @IsValidKoreanPhone()
   reservationPhone?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "손님이 들어온 길(선택). 사장님이 보낸 가게·상품 링크(?from=link)로 들어와 그 가게에 예약하면 STORE_LINK(기획 I-45 링크 효과)",
+    enum: OrderEntrySource,
+    example: OrderEntrySource.STORE_LINK,
+  })
+  @IsOptional()
+  @IsEnum(OrderEntrySource)
+  entrySource?: OrderEntrySource;
 
   // 픽업장소 정보는 PickupAddressDto 상속
 

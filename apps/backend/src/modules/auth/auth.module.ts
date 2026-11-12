@@ -1,3 +1,4 @@
+import { OpsAlertModule } from "@apps/backend/modules/ops-alert/ops-alert.module";
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
@@ -30,13 +31,16 @@ import { TokenEncryptionUtil } from "@apps/backend/common/utils/token-encryption
  * 사용자·판매자·관리자 인증, JWT, 휴대폰·OAuth 등을 제공합니다.
  */
 import { QuoteRequestModule } from "@apps/backend/modules/quote-request/quote-request.module";
+import { ChatModule } from "@apps/backend/modules/chat/chat.module";
 @Module({
   imports: [
+    OpsAlertModule,
     AdminManagementModule,
     AdminApiKeyModule,
     TermsModule,
     SolapiModule,
     QuoteRequestModule,
+    ChatModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService) => ({

@@ -1,3 +1,4 @@
+import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import {
   Injectable,
   ConflictException,
@@ -47,6 +48,7 @@ export class AuthKakaoOauthService {
     private readonly configService: ConfigService,
     private readonly authPhoneService: AuthPhoneService,
     private readonly termsService: TermsService,
+    private readonly opsAlert: OpsAlertService,
   ) {
     this.kakaoClientId = configService.get<string>("KAKAO_CLIENT_ID")!;
     this.kakaoClientSecret = configService.get<string>("KAKAO_CLIENT_SECRET") ?? "";
@@ -411,7 +413,7 @@ export class AuthKakaoOauthService {
       });
     }
 
-    return await this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const row = await tx.seller.create({
         data: {
@@ -437,7 +439,20 @@ export class AuthKakaoOauthService {
         sub: row.id,
         aud: AUDIENCE.SELLER,
       });
-      return { accessToken: tokenPair.accessToken, refreshToken: tokenPair.refreshToken };
+      return {
+        accessToken: tokenPair.accessToken,
+        refreshToken: tokenPair.refreshToken,
+        sellerId: row.id,
+        createdAt: row.createdAt,
+      };
     });
+
+    // 새 사장님 가입을 운영자에게 바로 알린다(기획 I-56). 실패해도 가입은 그대로
+    void this.opsAlert.notifyNewSeller({
+      id: result.sellerId,
+      method: "KAKAO",
+      createdAt: result.createdAt,
+    });
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken };
   }
 }

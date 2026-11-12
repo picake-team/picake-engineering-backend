@@ -40,6 +40,44 @@
       ]
     },
     {
+      "key": "CHAT_REPLY_ARRIVED",
+      "name": "채팅답변도착(가게 답을 손님이 앱 알림으로 못 봤을 때)",
+      "categoryCode": "002003",
+      "messageType": "BA",
+      "emphasizeType": "TEXT",
+      "emphasizeTitle": "답변 도착 안내",
+      "emphasizeSubtitle": "picake",
+      "content": "안녕하세요 #{고객명}님,\n문의하신 #{스토어명}에서 답변 메시지가 도착했습니다.\n\n아래 버튼에서 확인하실 수 있습니다.",
+      "buttons": [
+        {
+          "buttonType": "WL",
+          "buttonName": "채팅 보기",
+          "linkMo": "https://#{도메인}/chat/#{채팅ID}",
+          "linkPc": "https://#{도메인}/chat/#{채팅ID}",
+          "targetOut": true
+        }
+      ]
+    },
+    {
+      "key": "CHAT_NEW_INQUIRY",
+      "name": "채팅새문의(손님 문의를 사장님이 앱 알림으로 못 봤을 때)",
+      "categoryCode": "002003",
+      "messageType": "BA",
+      "emphasizeType": "TEXT",
+      "emphasizeTitle": "새 문의 안내",
+      "emphasizeSubtitle": "picake",
+      "content": "안녕하세요 #{스토어명} 사장님,\nPicake에서 손님 메시지가 도착했습니다.\n\n아래 버튼에서 확인하고 답해 주세요.",
+      "buttons": [
+        {
+          "buttonType": "WL",
+          "buttonName": "채팅 보기",
+          "linkMo": "https://#{도메인}/stores/#{스토어ID}/chats/#{채팅ID}",
+          "linkPc": "https://#{도메인}/stores/#{스토어ID}/chats/#{채팅ID}",
+          "targetOut": true
+        }
+      ]
+    },
+    {
       "key": "CONFIRMED_V2",
       "name": "예약확정(판매자가 변경한 상태, 픽업 전날 안내 문구)",
       "categoryCode": "002003",
@@ -78,5 +116,5 @@
       ]
     }
   ],
-  "inspectionComment": "손님이 Picake에서 직접 보낸 케이크 견적 요청에 대해, 가게 견적이 도착했거나 견적 없이 마감되었을 때 요청한 손님 본인에게만 보내는 안내입니다. 광고 내용은 없습니다."
+  "inspectionComment": "손님이 Picake에서 직접 보낸 케이크 견적 요청·채팅 문의에 대한 안내입니다. 견적이 도착하거나 견적 없이 마감되었을 때 요청한 손님 본인에게, 손님 문의에 가게가 답했을 때 그 손님에게, 손님이 가게에 문의했을 때 그 가게 사장님에게만 보냅니다. 앱 알림을 받지 못하거나 읽지 않은 경우에만 보내며 광고 내용은 없습니다."
 }

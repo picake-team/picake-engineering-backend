@@ -30,12 +30,14 @@ import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-
  *   배치로 파기 필요 — 현재 미구현, 후속 작업).
  */
 import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
+import { ChatCleanupService } from "@apps/backend/modules/chat/services/chat-cleanup.service";
 @Injectable()
 export class AuthWithdrawService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authAppleOauthService: AuthAppleOauthService,
     private readonly quoteRequestCleanup: QuoteRequestCleanupService,
+    private readonly chatCleanup: ChatCleanupService,
   ) {}
 
   async withdraw(audience: AudienceConst, accountId: string, reason: string): Promise<void> {
@@ -60,6 +62,8 @@ export class AuthWithdrawService {
 
       // 견적 요청은 주문(계약)이 아니라 보관 의무가 없어 탈퇴하면 사진과 함께 지운다(기획 I-46)
       await this.quoteRequestCleanup.deleteAllForConsumer(accountId);
+      // 채팅 글·사진도 바로 지운다(기획 I-11, 운영자 결정 11-11). 방은 가게 쪽에 "탈퇴한 손님"으로 남는다
+      await this.chatCleanup.deleteAllForConsumer(accountId);
 
       // Apple 가이드라인 5.1.1(v) — 계정 삭제 시 Sign in with Apple 인가를 revoke. 실패해도 탈퇴는 계속 진행.
       if (row.appleRefreshToken) {
