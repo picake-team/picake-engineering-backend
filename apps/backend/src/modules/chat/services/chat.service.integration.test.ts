@@ -241,7 +241,7 @@ describe("채팅 (integration)", () => {
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
     const detail = await chat.threadForStore(seller.id, store.id, r.threadId);
-    expect(detail.write).toEqual({ ok: false, message: "손님이 먼저 말하면 다시 보낼 수 있어요." });
+    expect(detail.write).toEqual({ ok: false, message: CHAT_ERROR_MESSAGES.SHOP_LOCKED });
 
     await chat.sendForConsumer(consumer.id, r.threadId, { clientId: cid(), text: "다시 문의" });
     await expect(
