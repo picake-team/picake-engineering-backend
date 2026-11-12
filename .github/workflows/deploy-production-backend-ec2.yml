@@ -56,7 +56,7 @@ jobs:
           name: backend-release
 
       - name: Copy deployment package to EC2
-        uses: appleboy/scp-action@v1.0.0
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0 (서버 접속 키가 넘어가는 바깥 도구라 커밋으로 고정)
         with:
           host: ${{ secrets.PRODUCTION_EC2_HOST }}
           username: ec2-user
@@ -65,7 +65,7 @@ jobs:
           target: "~/"
 
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5 (커밋으로 고정)
         with:
           host: ${{ secrets.PRODUCTION_EC2_HOST }}
           username: ec2-user
