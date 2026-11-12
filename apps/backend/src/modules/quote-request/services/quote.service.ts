@@ -133,6 +133,7 @@ const REQUEST_SELECT = {
   budgetMin: true,
   budgetMax: true,
   requestNote: true,
+  createdAt: true,
   _count: { select: { quotes: true } },
 } satisfies Prisma.QuoteRequestSelect;
 
@@ -431,9 +432,11 @@ export class QuoteService {
   async linkMessages(token: string, query: ChatMessagesQueryDto): Promise<ChatMessagesDto | null> {
     const t = await this.targetByToken(token);
     if (!t.shopId || t.storeId) return null;
+    // 링크는 요청 하나에 대한 것이라, 같은 손님이 이 가게에 다시 요청해도 이번 요청이 온 뒤 대화만 보인다(운영자 11-12)
     return this.chat.messagesForLink(
       { consumerId: t.quoteRequest.consumerId, shopId: t.shopId },
       query,
+      t.quoteRequest.createdAt,
     );
   }
 

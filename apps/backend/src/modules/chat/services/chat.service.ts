@@ -634,8 +634,13 @@ export class ChatService {
     thread: ThreadRow,
     actorId: string,
     query: ChatMessagesQueryDto,
+    since?: Date,
   ): Promise<ChatMessagesDto> {
     const take = CHAT_LIMITS.PAGE_SIZE;
+    const visible: Prisma.ChatMessageWhereInput[] = [
+      { OR: [{ onlyFor: null }, { onlyFor: side }] },
+      ...(since ? [{ createdAt: { gte: since } }] : []),
+    ];
     let rows: MessageRow[];
     let hasMore = false;
     if (query.after) {
@@ -646,7 +651,7 @@ export class ChatService {
       rows = (await this.prisma.chatMessage.findMany({
         where: {
           threadId: thread.id,
-          AND: [{ OR: [{ onlyFor: null }, { onlyFor: side }] }],
+          AND: visible,
           ...(pivot
             ? {
                 OR: [
@@ -670,7 +675,7 @@ export class ChatService {
       const desc = (await this.prisma.chatMessage.findMany({
         where: {
           threadId: thread.id,
-          AND: [{ OR: [{ onlyFor: null }, { onlyFor: side }] }],
+          AND: visible,
           ...(pivot
             ? {
                 OR: [
@@ -1419,13 +1424,15 @@ export class ChatService {
   async messagesForLink(
     pair: { consumerId: string; shopId: string },
     query: ChatMessagesQueryDto,
+    /** 이 때부터의 글만(견적 링크는 그 요청이 온 뒤 대화만 보인다) */
+    since?: Date,
   ): Promise<ChatMessagesDto | null> {
     const t = await this.prisma.chatThread.findUnique({
       where: { consumerId_shopId: pair },
       select: THREAD_SELECT,
     });
     if (!t) return null;
-    return this.listMessages("SHOP", t, "link", query);
+    return this.listMessages("SHOP", t, "link", query, since);
   }
 
   /** 견적 링크(입점 전 가게) 쪽에서 보내기. 견적을 보내 방이 생긴 뒤에만 */

@@ -286,6 +286,42 @@ describe("견적 ② (integration)", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it("같은 손님이 같은 입점 전 가게에 다시 요청하면 새 링크에는 이번 요청이 온 뒤 대화만 보인다", async () => {
+    const t = await build();
+    const kakaoPlaceId = `kp-again-${Date.now()}-${++seq}`;
+    const first = await t.createRequest();
+    await t.quotes.adminAddTarget(first, { kakaoPlaceId, name: "솜사탕케이크" });
+    const target1 = await t.prisma.quoteRequestStore.findFirstOrThrow({
+      where: { quoteRequestId: first, kakaoPlaceId },
+    });
+    const token1 = (await t.quotes.adminCreateLink(first, target1.id)).linkUrl.split("/q/")[1];
+    await t.quotes.linkSubmit(token1, quoteInput(52000));
+    const q1 = (await t.quotes.consumerSection(t.consumer.id, first)).quotes.find(
+      (q) => !q.isPicakeStore,
+    )!;
+    await t.chat.sendForConsumer(t.consumer.id, q1.threadId!, {
+      clientId: cid(),
+      text: "지난 요청",
+    });
+    expect((await t.quotes.linkMessages(token1, {}))?.messages).toHaveLength(2);
+
+    await new Promise((r) => setTimeout(r, 5));
+    const second = await t.createRequest();
+    await t.quotes.adminAddTarget(second, { kakaoPlaceId, name: "솜사탕케이크" });
+    const target2 = await t.prisma.quoteRequestStore.findFirstOrThrow({
+      where: { quoteRequestId: second, kakaoPlaceId },
+    });
+    const token2 = (await t.quotes.adminCreateLink(second, target2.id)).linkUrl.split("/q/")[1];
+    // 같은 방이지만 새 링크에는 지난 요청 대화가 보이지 않는다
+    expect((await t.quotes.linkMessages(token2, {}))?.messages ?? []).toHaveLength(0);
+    await t.quotes.linkSubmit(token2, quoteInput(48000));
+    const room = await t.quotes.linkMessages(token2, {});
+    expect(room?.messages.map((m) => m.kind)).toEqual(["QUOTE"]);
+    // 손님 채팅방에는 지난 대화까지 그대로
+    const consumerRoom = await t.chat.messagesForConsumer(t.consumer.id, q1.threadId!, {});
+    expect(consumerRoom.messages.some((m) => m.text === "지난 요청")).toBe(true);
+  });
+
   it("어려워요는 손님에게 한 줄로, 보낸 뒤에는 어려워요 대신 고치기", async () => {
     const t = await build();
     const requestId = await t.createRequest();
