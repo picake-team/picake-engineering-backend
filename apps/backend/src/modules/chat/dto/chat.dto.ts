@@ -265,6 +265,14 @@ export class ChatUnreadDto {
   unreadThreads: number;
   @ApiPropertyOptional({ description: "사장님: 답할 방 수" })
   replyNeeded?: number;
+  @ApiPropertyOptional({
+    description: "사장님 홈 '답할 채팅': 답할 방 중 마지막 글이 견적 요청 카드인 방을 뺀 수",
+  })
+  replyNeededChats?: number;
+  @ApiPropertyOptional({
+    description: "사장님 홈 '견적 요청': 아직 견적·어려워요로 답하지 않은 받는 중 요청 수",
+  })
+  quoteRequests?: number;
 }
 
 export class ChatExistingThreadDto {

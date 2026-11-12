@@ -274,6 +274,8 @@ describe("견적 ② (integration)", () => {
     expect(row).toMatchObject({
       quoteCount: 2,
       chosen: true,
+      // 손님이 넣은 가게만 센다(운영자가 더한 입점 전 가게는 빼고)
+      storeCount: 1,
       quoteSources: { LINK: 1, SELLER: 1, ADMIN: 0 },
     });
 
@@ -332,16 +334,33 @@ describe("견적 ② (integration)", () => {
     const expired = await t.createRequest();
     await t.quotes.sendNewRequestToApps(expired);
     const before = await t.chat.unreadForStore(t.seller.id, t.store.id);
-    expect(before.replyNeeded).toBe(1);
+    // 홈은 "견적 요청" 줄로 세고 "답할 채팅"에서는 뺀다
+    expect(before).toMatchObject({ replyNeeded: 1, replyNeededChats: 0, quoteRequests: 1 });
     await t.prisma.quoteRequest.update({
       where: { id: expired },
       data: { deadlineAt: new Date(Date.now() - 1000) },
     });
     await t.jobs.runOnce();
     const after = await t.chat.unreadForStore(t.seller.id, t.store.id);
-    expect(after).toMatchObject({ replyNeeded: 0, unreadThreads: 0 });
+    expect(after).toMatchObject({ replyNeeded: 0, unreadThreads: 0, quoteRequests: 0 });
     const list = await t.chat.listForStore(t.seller.id, t.store.id, {});
     const room = await t.chat.messagesForStore(t.seller.id, t.store.id, list.threads[0].id, {});
     expect(room.messages[0].card?.quoteState).toBe("CLOSED");
+  });
+
+  it("사장님 홈 견적 요청 수: 받은 요청은 세고 견적을 보내면 빠진다", async () => {
+    const t = await build();
+    const requestId = await t.createRequest();
+    await t.quotes.sendNewRequestToApps(requestId);
+    expect(await t.chat.unreadForStore(t.seller.id, t.store.id)).toMatchObject({
+      quoteRequests: 1,
+      replyNeededChats: 0,
+    });
+    await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(58000));
+    expect(await t.chat.unreadForStore(t.seller.id, t.store.id)).toMatchObject({
+      quoteRequests: 0,
+      replyNeeded: 0,
+      replyNeededChats: 0,
+    });
   });
 });

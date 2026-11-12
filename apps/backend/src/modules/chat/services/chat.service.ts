@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
-import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
+import { Prisma, QuoteRequestStatus } from "@apps/backend/infra/database/prisma/generated/client";
 import { isAllowedUploadUrl } from "@apps/backend/modules/upload/utils/upload-url.util";
 import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
 import { EnableStatus } from "@apps/backend/modules/product/constants/product.constants";
@@ -46,7 +46,10 @@ import {
   maskBlockedWords,
 } from "@apps/backend/modules/chat/utils/chat-policy.util";
 import { ChatNotifyService } from "@apps/backend/modules/chat/services/chat-notify.service";
-import { SELLER_QUOTE_PUSH_TITLES } from "@apps/backend/modules/quote-request/constants/quote.constants";
+import {
+  QUOTE_LIMITS,
+  SELLER_QUOTE_PUSH_TITLES,
+} from "@apps/backend/modules/quote-request/constants/quote.constants";
 import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 
 type Side = "CONSUMER" | "SHOP";
@@ -965,12 +968,42 @@ export class ChatService {
         shopReadAt: true,
       },
     });
-    const replyNeeded = await this.prisma.chatThread.count({
-      where: { shop: { storeId }, ...this.replyNeededWhere(new Date()) },
-    });
+    const now = new Date();
+    const [replyNeeded, replyNeededChats, quoteTargets] = await Promise.all([
+      this.prisma.chatThread.count({
+        where: { shop: { storeId }, ...this.replyNeededWhere(now) },
+      }),
+      // 홈 "답할 채팅": 마지막 글이 견적 요청 카드인 방은 "견적 요청" 줄이 세므로 뺀다
+      this.prisma.chatThread.count({
+        where: {
+          shop: { storeId },
+          ...this.replyNeededWhere(now),
+          NOT: { lastMessagePreview: CHAT_QUOTE_PREVIEWS.REQUEST },
+        },
+      }),
+      // 홈 "견적 요청": 채팅방으로 받은 요청 중 아직 견적·어려워요로 답하지 않았고 받는 중인 것(판매자 카드 "견적 기다림")
+      this.prisma.quoteRequestStore.findMany({
+        where: {
+          storeId,
+          sentToAppAt: { not: null },
+          declinedAt: null,
+          quote: { is: null },
+          quoteRequest: {
+            status: QuoteRequestStatus.OPEN,
+            chosenTargetId: null,
+            deadlineAt: { gt: now },
+          },
+        },
+        select: { quoteRequest: { select: { _count: { select: { quotes: true } } } } },
+      }),
+    ]);
     return {
       unreadThreads: rows.filter((r) => isUnreadFor("SHOP", r)).length,
       replyNeeded,
+      replyNeededChats,
+      quoteRequests: quoteTargets.filter(
+        (t) => t.quoteRequest._count.quotes < QUOTE_LIMITS.MAX_QUOTES,
+      ).length,
     };
   }
 
