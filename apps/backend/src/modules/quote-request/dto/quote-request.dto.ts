@@ -28,7 +28,6 @@ import { IsYmdDateString } from "@apps/backend/common/decorators/date-query.deco
 import { PaginationMetaResponseDto } from "@apps/backend/common/dto/pagination-response.dto";
 import {
   QUOTE_REQUEST_DISTANCE_KM,
-  QUOTE_REQUEST_ERROR_MESSAGES,
   QUOTE_REQUEST_LIMITS,
   QUOTE_REQUEST_LIST_TABS,
   type QuoteRequestListTab,
