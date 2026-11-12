@@ -10,6 +10,7 @@ import {
   buildOrderOrderBy,
   buildOrderKeywordCondition,
   mergeOrderPickupDateConditions,
+  createdAtRangeFilter,
 } from "@apps/backend/modules/order/utils/order-list-query.util";
 import { calculatePaginationMeta } from "@apps/backend/common/utils/pagination.util";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -95,18 +96,10 @@ export class OrderSellerListService {
       where.orderStatus = orderStatus;
     }
 
-    // 날짜 필터
-    if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) {
-        where.createdAt.gte = new Date(startDate);
-      }
-      if (endDate) {
-        // endDate의 하루 끝까지 포함하도록 설정
-        const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999);
-        where.createdAt.lte = endDateTime;
-      }
+    // 날짜 필터(주문일, 한국 달력 하루)
+    const createdAtRange = createdAtRangeFilter(startDate, endDate);
+    if (createdAtRange) {
+      where.createdAt = createdAtRange;
     }
 
     // 주문 번호 검색

@@ -6,6 +6,9 @@ import {
   AUTH_ERROR_MESSAGES,
   AudienceConst,
   PHONE_VERIFICATION_CODE_EXPIRY_MINUTES,
+  PHONE_VERIFICATION_DAILY_MAX,
+  PHONE_VERIFICATION_MAX_ATTEMPTS,
+  PHONE_VERIFICATION_RESEND_COOLDOWN_MS,
   PhoneVerificationPurpose,
 } from "@apps/backend/modules/auth/constants/auth.constants";
 import {
@@ -17,6 +20,10 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 
 /** 인증 완료 후 다음 단계(구글 가입·계정 찾기 등)에 사용할 수 있는 유효 시간 */
 const VERIFIED_PURPOSE_VALID_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** 로그에는 휴대폰 번호를 가려 남긴다(010****1234) */
+const maskPhone = (phone: string) => phone.replace(/^(\d{3})\d+(\d{4})$/, "$1****$2");
 
 /**
  * 휴대폰 인증 (발송·확인·상태 조회)
@@ -32,6 +39,17 @@ export class AuthPhoneService {
   /** 개발 환경 여부 */
   private get isDevelopment(): boolean {
     return this.configService.get<string>("NODE_ENV") === "development";
+  }
+
+  /**
+   * 인증번호 기록별 틀린 횟수. 번호는 5분 뒤 만료되므로 서버 메모리에 둔다(서버 한 대).
+   * 서버를 다시 켜면 비워지지만 그때도 번호마다 최대 5번이라 충분하다
+   */
+  private readonly failedAttempts = new Map<string, number>();
+
+  private recordFailedAttempt(verificationId: string, count: number) {
+    if (this.failedAttempts.size > 5000) this.failedAttempts.clear();
+    this.failedAttempts.set(verificationId, count);
   }
 
   /**
@@ -51,16 +69,42 @@ export class AuthPhoneService {
     const verificationCode = PhoneUtil.generateVerificationCode();
     const expiresAt = PhoneUtil.getExpirationTime(PHONE_VERIFICATION_CODE_EXPIRY_MINUTES);
 
-    // 2. 트랜잭션으로 인증 정보 저장 - PhoneVerification 테이블
+    // 2. 남용 막기: 같은 번호·목적은 30초 뒤에, 한 번호에 24시간 동안 10번까지
+    const now = new Date();
+    const dayAgo = new Date(now.getTime() - DAY_MS);
+    const recentSends = await this.prisma.phoneVerification.findMany({
+      where: { phone: normalizedPhone, createdAt: { gte: dayAgo } },
+      select: { createdAt: true, purpose: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const lastSamePurpose = recentSends.find((r) => r.purpose === storedPurpose);
+    if (
+      lastSamePurpose &&
+      now.getTime() - lastSamePurpose.createdAt.getTime() < PHONE_VERIFICATION_RESEND_COOLDOWN_MS
+    ) {
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_RESEND_TOO_SOON);
+    }
+    if (recentSends.length >= PHONE_VERIFICATION_DAILY_MAX) {
+      LoggerUtil.log(`휴대폰 인증번호 하루 한도 - phone: ${maskPhone(normalizedPhone)}`);
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_DAILY_LIMIT);
+    }
+
+    // 3. 트랜잭션으로 인증 정보 저장 - PhoneVerification 테이블
     await this.prisma.$transaction(
       async (tx) => {
-        // 기존 미인증 레코드 삭제 (같은 목적의 인증코드만 삭제하여 다른 목적의 인증코드는 유지)
-        await tx.phoneVerification.deleteMany({
+        // 같은 목적의 이전 미인증 번호는 지우지 않고 만료시킨다(하루 보낸 횟수를 세려고). 확인은 가장 최근 것만 본다
+        await tx.phoneVerification.updateMany({
           where: {
             phone: normalizedPhone,
             purpose: storedPurpose,
             isVerified: false,
+            expiresAt: { gt: now },
           },
+          data: { expiresAt: now },
+        });
+        // 하루 지난 미인증 기록은 지운다
+        await tx.phoneVerification.deleteMany({
+          where: { phone: normalizedPhone, isVerified: false, createdAt: { lt: dayAgo } },
         });
 
         // 새 인증 정보 생성
@@ -79,7 +123,7 @@ export class AuthPhoneService {
       },
     );
 
-    // 3. SMS 발송 (SOLAPI) — 개발 환경에서는 비용 때문에 발송하지 않음
+    // 4. SMS 발송 (SOLAPI) — 개발 환경에서는 비용 때문에 발송하지 않음
     if (!this.isDevelopment) {
       await this.authSmsService.sendVerificationCode(normalizedPhone, verificationCode);
     }
@@ -112,7 +156,7 @@ export class AuthPhoneService {
       // 인증 정보가 존재하지 않는 경우
       if (!existingVerification) {
         LoggerUtil.log(
-          `휴대폰 인증 실패: 인증 정보 없음 - phone: ${normalizedPhone}, purpose: ${storedPurpose}`,
+          `휴대폰 인증 실패: 인증 정보 없음 - phone: ${maskPhone(normalizedPhone)}, purpose: ${storedPurpose}`,
         );
         throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_FAILED);
       }
@@ -120,7 +164,7 @@ export class AuthPhoneService {
       // 2. 만료 시간 확인 - 5분 후 자동 만료
       if (existingVerification.expiresAt < new Date()) {
         LoggerUtil.log(
-          `휴대폰 인증 실패: 인증번호 만료 - phone: ${normalizedPhone}, purpose: ${storedPurpose}, expiresAt: ${existingVerification.expiresAt}`,
+          `휴대폰 인증 실패: 인증번호 만료 - phone: ${maskPhone(normalizedPhone)}, purpose: ${storedPurpose}, expiresAt: ${existingVerification.expiresAt}`,
         );
         throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_EXPIRED);
       }
@@ -142,12 +186,10 @@ export class AuthPhoneService {
       return;
     }
 
-    // 1. 휴대폰 번호, 인증번호, 목적으로 검증 정보 조회 - PhoneVerification 테이블
-    // 인증되지 않은 레코드 중에서 가장 최근 것을 찾음
+    // 1. 이 번호·목적의 가장 최근 미인증 기록 하나와만 비교한다(틀린 횟수를 세려고 번호로 찾지 않음)
     const phoneVerification = await this.prisma.phoneVerification.findFirst({
       where: {
         phone: normalizedPhone,
-        verificationCode,
         purpose: storedPurpose,
         isVerified: false, // 인증되지 않은 레코드만 조회
       },
@@ -157,20 +199,41 @@ export class AuthPhoneService {
     // 인증 정보가 존재하지 않는 경우
     if (!phoneVerification) {
       LoggerUtil.log(
-        `휴대폰 인증 실패: 인증 정보 없음 - phone: ${normalizedPhone}, purpose: ${storedPurpose}, verificationCode: ${verificationCode}`,
+        `휴대폰 인증 실패: 인증 정보 없음 - phone: ${maskPhone(normalizedPhone)}, purpose: ${storedPurpose}`,
       );
       throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_FAILED);
     }
 
-    // 2. 만료 시간 확인 - 5분 후 자동 만료
+    // 2. 만료 시간 확인 - 5분 후 자동 만료(다시 받으면 이전 번호는 바로 만료)
     if (phoneVerification.expiresAt < new Date()) {
       LoggerUtil.log(
-        `휴대폰 인증 실패: 인증번호 만료 - phone: ${normalizedPhone}, purpose: ${storedPurpose}, expiresAt: ${phoneVerification.expiresAt}`,
+        `휴대폰 인증 실패: 인증번호 만료 - phone: ${maskPhone(normalizedPhone)}, purpose: ${storedPurpose}`,
       );
       throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_EXPIRED);
     }
 
-    // 3. 인증 성공 처리 - 트랜잭션으로 안전하게 처리
+    // 3. 틀린 횟수: 5번 틀리면 이 번호를 만료시키고 다시 받게 한다
+    const failed = this.failedAttempts.get(phoneVerification.id) ?? 0;
+    if (failed >= PHONE_VERIFICATION_MAX_ATTEMPTS) {
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_TOO_MANY_ATTEMPTS);
+    }
+    if (phoneVerification.verificationCode !== verificationCode) {
+      this.recordFailedAttempt(phoneVerification.id, failed + 1);
+      if (failed + 1 >= PHONE_VERIFICATION_MAX_ATTEMPTS) {
+        await this.prisma.phoneVerification.update({
+          where: { id: phoneVerification.id },
+          data: { expiresAt: new Date() },
+        });
+        LoggerUtil.log(
+          `휴대폰 인증 실패: 여러 번 틀림 - phone: ${maskPhone(normalizedPhone)}, purpose: ${storedPurpose}`,
+        );
+        throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_TOO_MANY_ATTEMPTS);
+      }
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_FAILED);
+    }
+    this.failedAttempts.delete(phoneVerification.id);
+
+    // 4. 인증 성공 처리 - 트랜잭션으로 안전하게 처리
     await this.prisma.$transaction(
       async (tx) => {
         // 현재 인증을 완료 상태로 업데이트

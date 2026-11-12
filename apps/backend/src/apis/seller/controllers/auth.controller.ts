@@ -208,6 +208,8 @@ export class SellerAuthController {
 
   @Post("verify-phone-code")
   @HttpCode(HttpStatus.OK)
+  // 인증번호 맞히기를 막는다(번호마다 5번 틀리면 다시 받기는 서비스에서)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({
     summary: "휴대폰 인증번호 확인",
     description: "요청의 `audience`는 이 경로에서 `seller`로 고정됩니다.",
