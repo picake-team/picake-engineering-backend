@@ -211,3 +211,34 @@ describe("isUnreadFor", () => {
     ).toBe(false);
   });
 });
+
+describe("decideShopWrite 견적(기획 I-46 ②·I-11)", () => {
+  const base = {
+    now: new Date("2026-12-01T00:00:00Z"),
+    shopHasStore: true,
+    blockedByConsumer: false,
+    blockedByShop: false,
+    consumerWithdrawn: false,
+    lastConsumerMessageAt: null,
+    hasActiveOrder: false,
+  };
+  it("견적을 보낸 가게는 손님이 먼저 말하지 않아도 쓸 수 있다", () => {
+    expect(decideShopWrite({ ...base, liveQuote: true })).toEqual({ ok: true });
+    expect(decideShopWrite(base)).toEqual({ ok: false, reason: "LOCKED" });
+  });
+  it("손님이 다른 가게를 고르면 잠기고, 손님이 다시 말하면 풀린다", () => {
+    const lockedAt = new Date("2026-11-30T00:00:00Z");
+    expect(decideShopWrite({ ...base, liveQuote: true, otherChosenAt: lockedAt })).toEqual({
+      ok: false,
+      reason: "OTHER_CHOSEN",
+    });
+    expect(
+      decideShopWrite({
+        ...base,
+        liveQuote: true,
+        otherChosenAt: lockedAt,
+        lastConsumerMessageAt: new Date("2026-11-30T01:00:00Z"),
+      }),
+    ).toEqual({ ok: true });
+  });
+});

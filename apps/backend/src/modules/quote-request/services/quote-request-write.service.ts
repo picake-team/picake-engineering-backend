@@ -28,6 +28,7 @@ import {
   ongoingWhere,
 } from "@apps/backend/modules/quote-request/utils/quote-request-mapper.util";
 import { QuoteRequestOpsAlertService } from "@apps/backend/modules/quote-request/services/quote-request-ops-alert.service";
+import { QuoteService } from "@apps/backend/modules/quote-request/services/quote.service";
 
 type StoreSnapshot = Omit<Prisma.QuoteRequestStoreCreateManyQuoteRequestInput, "id" | "createdAt">;
 
@@ -39,6 +40,7 @@ export class QuoteRequestWriteService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly opsAlert: QuoteRequestOpsAlertService,
+    private readonly quoteService: QuoteService,
   ) {}
 
   async createForConsumer(
@@ -98,8 +100,10 @@ export class QuoteRequestWriteService {
       select: QUOTE_REQUEST_SELECT,
     });
 
-    // 운영자 알림은 기다리지 않는다(실패해도 요청은 저장됨)
+    // 운영자 알림·판매자 앱으로 보내기는 기다리지 않는다(실패해도 요청은 저장됨)
     void this.opsAlert.notifyNewRequest(created);
+    // 손님이 지정한 입점 가게에는 판매자 앱 채팅으로 요청서가 바로 간다(운영자 결정 2026-11-12)
+    void this.quoteService.sendNewRequestToApps(created.id);
 
     return { id: created.id, pickupStartAt: created.pickupStartAt, deadlineAt: created.deadlineAt };
   }

@@ -138,8 +138,8 @@ export class ChatRulesAgreeDto {
 /** --- 응답 --- */
 
 export class ChatCardDto {
-  @ApiProperty({ enum: ["ORDER", "PRODUCT"] })
-  type: "ORDER" | "PRODUCT";
+  @ApiProperty({ enum: ["ORDER", "PRODUCT", "QUOTE_REQUEST", "QUOTE", "QUOTE_CHOSEN"] })
+  type: "ORDER" | "PRODUCT" | "QUOTE_REQUEST" | "QUOTE" | "QUOTE_CHOSEN";
   @ApiProperty()
   refId: string;
   @ApiProperty({ description: "카드 제목(상품 이름)" })
@@ -152,6 +152,13 @@ export class ChatCardDto {
   orderStatus?: string | null;
   @ApiPropertyOptional({ description: "상품 카드: 지금 팔고 있지 않으면 false" })
   available?: boolean;
+  @ApiPropertyOptional({
+    enum: ["OPEN", "SENT", "DECLINED", "CHOSEN_ME", "CHOSEN_OTHER", "CLOSED", "FULL"],
+    description: "견적 카드: 이 가게 쪽 지금 상태(열 때마다 새로 읽음)",
+  })
+  quoteState?: string | null;
+  @ApiPropertyOptional({ description: "고름 카드: 손님이 다른 가게를 골랐어요(가게에만 보임)" })
+  otherChosen?: boolean;
 }
 
 export class ChatMessageDto {
@@ -163,8 +170,10 @@ export class ChatMessageDto {
   sender: "CONSUMER" | "SHOP" | "SYSTEM";
   @ApiProperty({ description: "내가 보낸 글인가(보는 사람 기준)" })
   mine: boolean;
-  @ApiProperty({ enum: ["TEXT", "IMAGE", "ORDER", "PRODUCT"] })
-  kind: "TEXT" | "IMAGE" | "ORDER" | "PRODUCT";
+  @ApiProperty({
+    enum: ["TEXT", "IMAGE", "ORDER", "PRODUCT", "QUOTE_REQUEST", "QUOTE", "QUOTE_CHOSEN"],
+  })
+  kind: "TEXT" | "IMAGE" | "ORDER" | "PRODUCT" | "QUOTE_REQUEST" | "QUOTE" | "QUOTE_CHOSEN";
   @ApiPropertyOptional({ description: "보이는 글(거른 글). 가려졌으면 null" })
   text: string | null;
   @ApiProperty({ type: [String] })
@@ -207,6 +216,8 @@ export class ChatThreadDto {
   muted: boolean;
   @ApiProperty({ description: "내가 차단함" })
   blockedByMe: boolean;
+  @ApiProperty({ description: '사장님 목록: 마지막 글이 견적 요청서("견적 요청" 표시)' })
+  quoteRequest: boolean;
 }
 
 export class ChatThreadDetailDto extends ChatThreadDto {
@@ -218,7 +229,7 @@ export class ChatThreadDetailDto extends ChatThreadDto {
   rulesAgreed: boolean;
   @ApiProperty({ description: "규칙 버전" })
   rulesVersion: number;
-  @ApiProperty({ description: "입점 전 가게 방인가(1단계에서는 항상 false)" })
+  @ApiProperty({ description: "입점 전 가게 방인가(견적 링크 안에서 대화, 기획 I-11)" })
   unenteredShop: boolean;
 }
 

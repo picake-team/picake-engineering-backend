@@ -5,6 +5,8 @@ import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { isProduction } from "@apps/backend/common/utils/environment.util";
 import {
   buildChatReportMessage,
+  buildQuoteOpsMessage,
+  type QuoteOpsAlert,
   buildNewSellerMessage,
   buildNewStoreEntryRequestMessage,
   buildNewStoreMessage,
@@ -40,6 +42,10 @@ export class OpsAlertService {
 
   notifyChatReport(report: ChatReportAlert): Promise<void> {
     return this.send("chat-report", (ctx) => buildChatReportMessage(report, ctx));
+  }
+
+  notifyQuote(alert: QuoteOpsAlert): Promise<void> {
+    return this.send(`quote-${alert.kind}`, (ctx) => buildQuoteOpsMessage(alert, ctx));
   }
 
   private async send(kind: string, build: (ctx: OpsAlertContext) => object): Promise<void> {
