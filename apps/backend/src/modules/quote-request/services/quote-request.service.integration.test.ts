@@ -33,6 +33,7 @@ describe("견적 요청 (integration)", () => {
       prisma,
       write: new QuoteRequestWriteService(prisma, opsAlert, {
         sendNewRequestToApps: vi.fn().mockResolvedValue(undefined),
+        retireRequestCards: vi.fn().mockResolvedValue(undefined),
       } as unknown as QuoteService),
       read: new QuoteRequestReadService(prisma),
       notifyNewRequest,

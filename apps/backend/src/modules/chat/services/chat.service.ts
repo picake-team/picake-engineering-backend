@@ -305,6 +305,18 @@ export class ChatService {
     return { ok: false, message };
   }
 
+  /** 견적 카드 미리보기는 보는 쪽 말투로(서버에는 한 줄만 저장) */
+  private previewFor(side: Side, preview: string | null): string | null {
+    if (side === "CONSUMER") {
+      if (preview === CHAT_QUOTE_PREVIEWS.REQUEST) return "견적 요청을 보냈어요";
+      if (preview === CHAT_QUOTE_PREVIEWS.QUOTE) return "견적이 도착했어요";
+      if (preview === CHAT_QUOTE_PREVIEWS.QUOTE_EDITED) return "견적이 바뀌었어요";
+    } else if (preview === CHAT_QUOTE_PREVIEWS.CHOSEN) {
+      return "손님이 견적을 골랐어요";
+    }
+    return preview;
+  }
+
   private toThreadDto(side: Side, t: ThreadRow): ChatThreadDto {
     const title =
       side === "CONSUMER"
@@ -318,7 +330,7 @@ export class ChatService {
       title,
       imageUrl: side === "CONSUMER" ? (t.shop.store?.logoImageUrl ?? null) : null,
       lastMessageAt: t.lastMessageAt?.toISOString() ?? null,
-      lastMessagePreview: t.lastMessagePreview,
+      lastMessagePreview: this.previewFor(side, t.lastMessagePreview),
       unread: isUnreadFor(side, t),
       needsReply: side === "SHOP" && t.lastMessageSender === "CONSUMER" && !t.shopLockedAt,
       muted: side === "CONSUMER" ? t.consumerMuted : t.shopMuted,
@@ -1335,6 +1347,30 @@ export class ChatService {
       await this.notify.afterQuoteEvent({ threadId: other.id });
     }
     return thread.id;
+  }
+
+  /**
+   * 견적 요청이 마감·닫힘·다른 가게 고름으로 끝나면, 요청서 카드만 있고 사장님이 아직 답하지 않은 방을
+   * "답할 것"·안 읽음에서 뺀다(30일 동안 답할 것으로 남지 않게). 방과 카드는 그대로 두고 카드에 "마감"이 보인다.
+   * @returns 바꾼 방 수
+   */
+  async retireQuoteRequestCards(requestId: string): Promise<number> {
+    const threads = await this.prisma.chatThread.findMany({
+      where: {
+        lastMessageSender: "CONSUMER",
+        lastMessagePreview: CHAT_QUOTE_PREVIEWS.REQUEST,
+        messages: { some: { kind: "QUOTE_REQUEST", refQuoteRequestId: requestId } },
+      },
+      select: { id: true, lastMessageAt: true },
+    });
+    for (const t of threads) {
+      await this.prisma.chatThread.update({
+        where: { id: t.id },
+        data: { lastMessageSender: "SYSTEM", shopReadAt: t.lastMessageAt ?? new Date() },
+      });
+      await this.notify.afterQuoteEvent({ threadId: t.id });
+    }
+    return threads.length;
   }
 
   /** 이 손님 × 가게 방(없으면 null) */

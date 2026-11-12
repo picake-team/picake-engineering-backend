@@ -137,6 +137,7 @@ export class QuoteRequestWriteService {
     if (count === 0) {
       throw new BadRequestException(QUOTE_REQUEST_ERROR_MESSAGES.NOT_OPEN);
     }
+    await this.quoteService.retireRequestCards(requestId);
   }
 
   /** 예산: 1만원~10만원, 1만원 단위. 최대가 없거나 10만원이면 "10만원 이상" */

@@ -55,7 +55,7 @@ describe("견적 ② (integration)", () => {
     };
     const config = { get: () => "https://picakes.test" } as unknown as ConfigService;
     const quotes = new QuoteService(prisma, config, chat, notify as unknown as QuoteNotifyService);
-    const jobs = new QuoteJobsService(prisma, notify as unknown as QuoteNotifyService);
+    const jobs = new QuoteJobsService(prisma, notify as unknown as QuoteNotifyService, quotes);
     const seller = await createTestSeller(prisma);
     const store = await createTestStore(prisma, seller.id, { name: "구름베이커리" });
     const consumer = await createTestConsumer(prisma, { nickname: "케이크손님" });
@@ -143,6 +143,8 @@ describe("견적 ② (integration)", () => {
     const consumerList = await t.chat.listForConsumer(t.consumer.id, {});
     expect(consumerList.threads).toHaveLength(1);
     expect(consumerList.threads[0].unread).toBe(false);
+    // 미리보기는 보는 쪽 말투로
+    expect(consumerList.threads[0].lastMessagePreview).toBe("견적이 도착했어요");
     const afterQuote = await t.chat.listForStore(t.seller.id, t.store.id, {});
     expect(afterQuote.threads[0]).toMatchObject({ needsReply: false, quoteRequest: false });
 
@@ -303,5 +305,23 @@ describe("견적 ② (integration)", () => {
     expect(closed).toMatchObject({ status: QuoteRequestStatus.CLOSED, closeReason: "EXPIRED" });
     expect(t.notify.closedWithoutQuote).toHaveBeenCalledWith(empty);
     expect(t.notify.reminder).toHaveBeenCalledWith(withQuote);
+  });
+
+  it("요청이 끝나면 답하지 않은 요청서 카드 방은 사장님 답할 것에서 빠진다(마감·손님이 닫음)", async () => {
+    const t = await build();
+    const expired = await t.createRequest();
+    await t.quotes.sendNewRequestToApps(expired);
+    const before = await t.chat.unreadForStore(t.seller.id, t.store.id);
+    expect(before.replyNeeded).toBe(1);
+    await t.prisma.quoteRequest.update({
+      where: { id: expired },
+      data: { deadlineAt: new Date(Date.now() - 1000) },
+    });
+    await t.jobs.runOnce();
+    const after = await t.chat.unreadForStore(t.seller.id, t.store.id);
+    expect(after).toMatchObject({ replyNeeded: 0, unreadThreads: 0 });
+    const list = await t.chat.listForStore(t.seller.id, t.store.id, {});
+    const room = await t.chat.messagesForStore(t.seller.id, t.store.id, list.threads[0].id, {});
+    expect(room.messages[0].card?.quoteState).toBe("CLOSED");
   });
 });
