@@ -8,7 +8,9 @@ import {
   isStalled,
   linkChatOpenUntil,
   rechooseUntil,
+  formatPhone,
   shopCanSeeRequestContent,
+  shopVisibleCustomer,
   targetState,
 } from "./quote-policy.util";
 
@@ -142,5 +144,42 @@ describe("견적 ② 규칙(기획 I-46·I-11)", () => {
       true,
     );
     expect(shopCanSeeRequestContent("CHOSEN_ME", pickup, dayAfter)).toBe(false);
+  });
+});
+
+describe("가게 쪽 손님 이름·휴대폰(11-13)", () => {
+  const consumer = {
+    name: "김민지",
+    nickname: "케이크손님",
+    phone: "01012345678",
+    withdrawnAt: null,
+  };
+  it("보낼 때 안내를 보고 보낸 요청에만 보인다", () => {
+    expect(shopVisibleCustomer({ shareContact: true, consumer })).toEqual({
+      name: "김민지",
+      phone: "010-1234-5678",
+    });
+    expect(shopVisibleCustomer({ shareContact: false, consumer })).toBeNull();
+  });
+  it("이름이 없으면 닉네임, 탈퇴했거나 휴대폰이 아니면 없음", () => {
+    expect(
+      shopVisibleCustomer({ shareContact: true, consumer: { ...consumer, name: " " } })?.name,
+    ).toBe("케이크손님");
+    expect(
+      shopVisibleCustomer({
+        shareContact: true,
+        consumer: { ...consumer, withdrawnAt: new Date() },
+      }),
+    ).toBeNull();
+    expect(
+      shopVisibleCustomer({
+        shareContact: true,
+        consumer: { ...consumer, phone: "review-account" },
+      }),
+    ).toBeNull();
+  });
+  it("번호 모양", () => {
+    expect(formatPhone("0101234567")).toBe("010-123-4567");
+    expect(formatPhone("010-1234-5678")).toBe("010-1234-5678");
   });
 });

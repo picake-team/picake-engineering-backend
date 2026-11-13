@@ -116,6 +116,15 @@ export class CreateQuoteRequestDto {
   @IsBoolean()
   onlyDesignatedStores?: boolean;
 
+  @ApiPropertyOptional({
+    description:
+      "보내기 화면의 '받는 가게에 이름·휴대폰 번호가 전달돼요' 안내를 보고 보냈는지. true여야 가게 쪽에 손님 이름·휴대폰이 보인다(바뀌기 전 화면은 보내지 않아 false)",
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  shareContact?: boolean;
+
   @ApiPropertyOptional({ description: "받을 동네 이름", example: "연남동" })
   @IsOptional()
   @IsString()

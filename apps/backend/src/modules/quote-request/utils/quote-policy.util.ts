@@ -100,6 +100,37 @@ export function shopCanSeeRequestContent(
   return state !== "CLOSED" && state !== "CHOSEN_OTHER";
 }
 
+/** 휴대폰 번호를 010-1234-5678 모양으로(숫자가 아니면 그대로) */
+export function formatPhone(phone: string): string {
+  const d = phone.replace(/[^0-9]/g, "");
+  if (/^01[016789]\d{7,8}$/.test(d)) {
+    return d.length === 11
+      ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`
+      : `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  }
+  return phone;
+}
+
+/**
+ * 가게 쪽에 보일 손님 이름·휴대폰. 보낼 때 안내를 보고 보낸 요청에만, 탈퇴한 손님은 없음.
+ * 이름이 없으면 닉네임. 보이는 기간은 손님 글과 같다(부르는 곳에서 shopCanSeeRequestContent로 거른다).
+ */
+export function shopVisibleCustomer(r: {
+  shareContact: boolean;
+  consumer: {
+    name: string | null;
+    nickname: string | null;
+    phone: string;
+    withdrawnAt: Date | null;
+  };
+}): { name: string; phone: string } | null {
+  if (!r.shareContact || r.consumer.withdrawnAt) return null;
+  const phone = r.consumer.phone.replace(/[^0-9]/g, "");
+  if (!/^01[016789]\d{7,8}$/.test(phone)) return null;
+  const name = r.consumer.name?.trim() || r.consumer.nickname?.trim() || "손님";
+  return { name, phone: formatPhone(phone) };
+}
+
 /** 손님 화면에 보일 합계(개수가 2개 이상이면 1개 금액 × 개수) */
 export function quoteTotal(unitPrice: number, quantity: number): number {
   return unitPrice * Math.max(1, quantity);

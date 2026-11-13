@@ -162,6 +162,12 @@ export const QUOTE_TARGET_STATES = [
 ] as const;
 export type QuoteTargetState = (typeof QUOTE_TARGET_STATES)[number];
 
+/** 가게 쪽에 보이는 손님 이름·휴대폰 */
+export class QuoteShopCustomerDto {
+  @ApiProperty({ description: "이름(없으면 닉네임)" }) name!: string;
+  @ApiProperty({ example: "010-1234-5678" }) phone!: string;
+}
+
 export class QuoteRequestForShopDto {
   @ApiProperty() requestId!: string;
   @ApiProperty() targetId!: string;
@@ -181,6 +187,13 @@ export class QuoteRequestForShopDto {
       "끝난 요청이라 손님이 쓴 설명·요청 사항·사진을 보내지 않았는지(처리방침 보유 기간, 고른 가게는 픽업 24시간 뒤까지 보임)",
   })
   contentHidden!: boolean;
+  @ApiProperty({
+    nullable: true,
+    type: QuoteShopCustomerDto,
+    description:
+      "손님 이름·휴대폰(보낼 때 '받는 가게에 전달돼요' 안내를 보고 보낸 요청에만, 손님 글과 같은 기간). 없으면 null",
+  })
+  customer!: QuoteShopCustomerDto | null;
   @ApiProperty({ enum: QUOTE_TARGET_STATES }) state!: QuoteTargetState;
   @ApiProperty() canEdit!: boolean;
   @ApiProperty({ nullable: true, type: QuoteDto }) quote!: QuoteDto | null;

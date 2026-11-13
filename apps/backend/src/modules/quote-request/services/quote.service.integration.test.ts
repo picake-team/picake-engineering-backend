@@ -180,6 +180,38 @@ describe("견적 ② (integration)", () => {
     expect(t.notify.quoteArrived.mock.calls.length).toBe(calls);
   });
 
+  it("손님 이름·휴대폰: 보낼 때 안내를 본 요청만 가게 쪽에 보이고, 다른 가게를 고르면 사라진다(11-13)", async () => {
+    const t = await build();
+    const old = await t.createRequest();
+    await t.quotes.sendNewRequestToApps(old);
+    // 바뀌기 전에 보낸 요청(안내를 못 봄)은 보이지 않는다
+    expect((await t.quotes.sellerView(t.seller.id, t.store.id, old)).customer).toBeNull();
+
+    const requestId = await t.createRequest();
+    await t.prisma.quoteRequest.update({ where: { id: requestId }, data: { shareContact: true } });
+    await t.quotes.sendNewRequestToApps(requestId);
+    const seen = await t.quotes.sellerView(t.seller.id, t.store.id, requestId);
+    expect(seen.customer?.name).toBe(t.consumer.name);
+    expect(seen.customer?.phone).toMatch(/^010-\d{4}-\d{4}$/);
+    await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(58000));
+
+    const section = await t.quotes.adminAddTarget(requestId, {
+      kakaoPlaceId: `kp-${Date.now()}-${++seq}`,
+      name: "솜사탕케이크",
+    });
+    const unentered = section.targets.find((x) => !x.quote && x.state === "OPEN")!;
+    const token = (await t.quotes.adminCreateLink(requestId, unentered.targetId)).linkUrl.split(
+      "/q/",
+    )[1];
+    expect((await t.quotes.linkView(token)).customer?.phone).toBe(seen.customer?.phone);
+
+    // 입점 가게를 고르면 고르지 않은 가게(링크)에서는 사라지고, 고른 가게에는 남는다
+    const picked = (await t.quotes.consumerSection(t.consumer.id, requestId)).quotes[0];
+    await t.quotes.choose(t.consumer.id, requestId, picked.id);
+    expect((await t.quotes.linkView(token)).customer).toBeNull();
+    expect((await t.quotes.sellerView(t.seller.id, t.store.id, requestId)).customer).not.toBeNull();
+  });
+
   it("운영자 가게 추가·견적 링크 → 링크로 견적, 링크 안 대화, 고르면 다른 가게 쓰기 잠금·다시 고르기", async () => {
     const t = await build();
     const requestId = await t.createRequest();
