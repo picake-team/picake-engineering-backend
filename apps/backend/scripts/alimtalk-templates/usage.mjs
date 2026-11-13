@@ -5,6 +5,7 @@
  *
  * 실행: alimtalk-usage-* 태그 push(워크플로 alimtalk-templates.yml). 로컬: SOLAPI_API_KEY·SOLAPI_API_SECRET 넣고 node usage.mjs
  */
+/* global process, console, fetch, URLSearchParams */
 import { createHmac, randomBytes } from "node:crypto";
 import { appendFileSync } from "node:fs";
 
