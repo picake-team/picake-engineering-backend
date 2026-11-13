@@ -10,10 +10,10 @@ import {
 } from "@apps/backend/modules/fcm/types/fcm-push.types";
 
 /**
- * Firebase Admin SDK 래퍼 (Flutter 네이티브 앱 대상).
+ * Firebase Admin SDK 래퍼 (손님·판매자 앱 대상 — picake-engineering-app, 예전 Flutter 앱도 같은 구조로 받음).
  *
  * - 환경변수(FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY) 미설정 시 자동 비활성화.
- * - Flutter `firebase_messaging` 플러그인이 수신하는 구조에 맞게 android/apns 채널을 사용합니다.
+ * - 앱의 FCM 플러그인(`@capacitor-firebase/messaging`, 예전 Flutter `firebase_messaging`)이 받는 구조에 맞게 android/apns 채널을 사용합니다.
  * - `sendToTokens()` 응답에서 만료·무효 토큰을 반환하므로, 호출자가 DB 정리에 활용합니다.
  */
 @Injectable()
@@ -83,10 +83,10 @@ export class FcmService implements OnModuleInit {
   }
 
   /**
-   * 여러 FCM 토큰에 푸시 알림을 발송합니다 (Flutter 네이티브 대상).
+   * 여러 FCM 토큰에 푸시 알림을 발송합니다 (손님·판매자 앱 대상).
    *
    * - notification: 시스템 트레이에 표시되는 제목/본문
-   * - data: Flutter `firebase_messaging`의 `RemoteMessage.data`로 전달 (화면 이동 등에 활용)
+   * - data: 앱 알림의 data로 전달 (`path`·`orderId`로 화면 이동 — 앱 레포 docs/bridge-contract.md §2)
    * - android: 안드로이드 알림 채널 및 우선순위 설정
    * - apns: iOS 알림 배지·사운드 설정
    *
