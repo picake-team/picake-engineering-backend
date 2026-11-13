@@ -90,8 +90,10 @@ export class OrderUserListService {
     } satisfies Prisma.OrderFindManyArgs;
 
     let orders = await this.prisma.order.findMany(listFindArgs);
-    await this.orderAutomationService.syncOrderLifecycleForIds(orders.map((o) => o.id));
-    orders = await this.prisma.order.findMany(listFindArgs);
+    // 상태가 바뀐 주문이 있을 때만 다시 읽는다(전에는 주문마다 한 번씩 읽고 목록도 늘 다시 읽음)
+    if (await this.orderAutomationService.syncLoadedOrders(orders)) {
+      orders = await this.prisma.order.findMany(listFindArgs);
+    }
 
     const data: OrderResponseDto[] = orders.map((order) =>
       OrderMapperUtil.mapToOrderResponse(order),

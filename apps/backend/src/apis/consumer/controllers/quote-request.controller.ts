@@ -29,6 +29,12 @@ import {
 } from "@apps/backend/modules/quote-request/dto/quote-request.dto";
 import { QuoteRequestReadService } from "@apps/backend/modules/quote-request/services/quote-request-read.service";
 import { QuoteRequestWriteService } from "@apps/backend/modules/quote-request/services/quote-request-write.service";
+import { QuoteService } from "@apps/backend/modules/quote-request/services/quote.service";
+import {
+  ChooseQuoteDto,
+  ChooseQuoteResponseDto,
+  ConsumerQuoteSectionDto,
+} from "@apps/backend/modules/quote-request/dto/quote.dto";
 
 /**
  * 견적 요청 컨트롤러 (손님용, 기획 I-46)
@@ -42,7 +48,49 @@ export class ConsumerQuoteRequestController {
   constructor(
     private readonly readService: QuoteRequestReadService,
     private readonly writeService: QuoteRequestWriteService,
+    private readonly quoteService: QuoteService,
   ) {}
+
+  @Get("quotes/unseen-count")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "(로그인 필요) 아직 보지 않은 견적 수",
+    description: 'MY "내 견적"의 주황 숫자(기획 I-46 SC-09). 요청 상세의 견적을 열면 줄어듭니다.',
+  })
+  @SwaggerAuthResponses()
+  async unseenCount(@Request() req: { user: JwtVerifiedPayload }) {
+    return { count: await this.quoteService.unseenTotal(req.user.sub) };
+  }
+
+  @Get(":id/quotes")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "(로그인 필요) 받은 견적(SC-18)",
+    description:
+      "가게 견적(먼저 온 것이 위), 어려워요로 답한 가게, Picake가 물어본 가게 수, 고른 견적과 다시 고를 수 있는 때. 열면 새 견적을 본 것으로 적습니다.",
+  })
+  @SwaggerResponse(200, { dataDto: ConsumerQuoteSectionDto })
+  @SwaggerAuthResponses()
+  async quotes(@Param("id") id: string, @Request() req: { user: JwtVerifiedPayload }) {
+    return await this.quoteService.consumerSection(req.user.sub, id);
+  }
+
+  @Post(":id/choose")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "(로그인 필요) 이 가게로 고르기",
+    description:
+      "견적 하나를 고릅니다. 상태가 '가게 연결'이 되고 그 가게와의 채팅방 ID를 돌려줍니다. 고른 뒤 24시간 안(또는 고른 가게가 24시간 답이 없을 때)에는 다른 견적으로 바꿀 수 있습니다.",
+  })
+  @SwaggerResponse(200, { dataDto: ChooseQuoteResponseDto })
+  @SwaggerAuthResponses()
+  async choose(
+    @Param("id") id: string,
+    @Body() dto: ChooseQuoteDto,
+    @Request() req: { user: JwtVerifiedPayload },
+  ) {
+    return await this.quoteService.choose(req.user.sub, id, dto.quoteId);
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)

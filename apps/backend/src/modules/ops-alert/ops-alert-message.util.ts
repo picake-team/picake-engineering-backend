@@ -167,3 +167,48 @@ export function buildChatReportMessage(report: ChatReportAlert, ctx: OpsAlertCon
     at: report.createdAt,
   });
 }
+
+/** 견적 ②에서 운영자가 손써야 하는 일(기획 I-46·I-11). 대화 내용은 넣지 않는다 */
+export type QuoteOpsAlertKind =
+  | "CHOSEN_UNENTERED"
+  | "UNENTERED_NO_REPLY"
+  | "CHOSEN_NO_REPLY"
+  | "QUOTE_ARRIVED";
+
+export interface QuoteOpsAlert {
+  kind: QuoteOpsAlertKind;
+  requestId: string;
+  storeName: string;
+  at: Date;
+}
+
+const QUOTE_OPS_ALERT_TEXT: Record<QuoteOpsAlertKind, { title: string; hint: string }> = {
+  CHOSEN_UNENTERED: {
+    title: "손님이 입점 전 가게 견적을 골랐어요",
+    hint: '그 가게에 "손님이 사장님 견적을 골랐어요"를 DM으로 알리고 관리자에서 "알렸어요"를 눌러 주세요.',
+  },
+  UNENTERED_NO_REPLY: {
+    title: "입점 전 가게가 1시간째 손님 채팅에 답이 없어요",
+    hint: "그 가게에 견적 링크를 열어 답해 달라고 DM으로 알려 주세요.",
+  },
+  CHOSEN_NO_REPLY: {
+    title: "손님이 고른 가게가 24시간째 답이 없어요",
+    hint: "손님은 다른 견적을 다시 고를 수 있어요. 그 가게에 다시 연락해 보세요.",
+  },
+  QUOTE_ARRIVED: {
+    title: "가게 견적이 들어왔어요",
+    hint: "손님에게 알림이 갔어요.",
+  },
+};
+
+export function buildQuoteOpsMessage(alert: QuoteOpsAlert, ctx: OpsAlertContext) {
+  const text = QUOTE_OPS_ALERT_TEXT[alert.kind];
+  return embed(ctx, {
+    title: text.title,
+    hint: text.hint,
+    path: `/consumer/quote-requests/${encodeURIComponent(alert.requestId)}`,
+    fields: [{ name: "가게", value: alert.storeName }],
+    footer: `견적 요청 ${alert.requestId}`,
+    at: alert.at,
+  });
+}

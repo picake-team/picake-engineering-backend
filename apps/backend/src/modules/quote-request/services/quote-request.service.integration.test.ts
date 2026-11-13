@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
 
 import { QuoteRequestReadService } from "@apps/backend/modules/quote-request/services/quote-request-read.service";
+import { QuoteService } from "@apps/backend/modules/quote-request/services/quote.service";
 import { QuoteRequestWriteService } from "@apps/backend/modules/quote-request/services/quote-request-write.service";
 import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
 import type { UploadService } from "@apps/backend/modules/upload/upload.service";
@@ -30,7 +31,10 @@ describe("견적 요청 (integration)", () => {
     const opsAlert = { notifyNewRequest } as unknown as QuoteRequestOpsAlertService;
     return {
       prisma,
-      write: new QuoteRequestWriteService(prisma, opsAlert),
+      write: new QuoteRequestWriteService(prisma, opsAlert, {
+        sendNewRequestToApps: vi.fn().mockResolvedValue(undefined),
+        retireRequestCards: vi.fn().mockResolvedValue(undefined),
+      } as unknown as QuoteService),
       read: new QuoteRequestReadService(prisma),
       notifyNewRequest,
     };

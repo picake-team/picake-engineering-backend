@@ -78,6 +78,85 @@ export class ChatNotifyService {
     }
   }
 
+  /**
+   * 견적 카드가 들어간 뒤(기획 I-46 ②): 두 쪽에 소켓 신호, seller가 있으면 사장님 휴대폰 알림(채팅 알림 설정·방 알림 끔·밤 끄기를 따름).
+   * 손님 쪽 견적 알림(앱 알림·알림톡)은 견적 서비스가 따로 보낸다. 던지지 않는다.
+   */
+  async afterQuoteEvent(input: {
+    threadId: string;
+    seller?: { title: string; body: string };
+  }): Promise<void> {
+    try {
+      const thread = await this.prisma.chatThread.findUnique({
+        where: { id: input.threadId },
+        select: {
+          id: true,
+          consumerId: true,
+          consumerMuted: true,
+          shopMuted: true,
+          shop: { select: { storeId: true, store: { select: { sellerId: true, name: true } } } },
+        },
+      });
+      if (!thread) return;
+      const storeId = thread.shop.storeId;
+      const sellerId = thread.shop.store?.sellerId ?? null;
+      this.gateway.emitChatUpdated(thread.consumerId, {
+        threadId: thread.id,
+        storeId,
+        muted: thread.consumerMuted,
+      });
+      if (!sellerId || !storeId) return;
+      this.gateway.emitChatUpdated(sellerId, {
+        threadId: thread.id,
+        storeId,
+        muted: thread.shopMuted,
+      });
+      if (!input.seller) return;
+      const pref = await this.prisma.userNotificationPreference.findUnique({
+        where: {
+          sellerId_appSurface_storeId: {
+            sellerId,
+            appSurface: NotificationAppSurface.SELLER_WEB,
+            storeId,
+          },
+        },
+        select: { chatNotificationsEnabled: true, chatQuietNight: true },
+      });
+      if (
+        !shouldPushNow({
+          now: new Date(),
+          enabled: pref?.chatNotificationsEnabled ?? true,
+          muted: thread.shopMuted,
+          seenAt: null,
+          quietNight: pref?.chatQuietNight ?? false,
+        })
+      ) {
+        return;
+      }
+      const storeCount = await this.prisma.store.count({ where: { sellerId } });
+      const title =
+        storeCount > 1 && thread.shop.store?.name
+          ? `[${thread.shop.store.name}] ${input.seller.title}`
+          : input.seller.title;
+      await this.sellerPush.sendToSeller({
+        sellerId,
+        title,
+        body: input.seller.body,
+        data: {
+          type: FCM_PUSH_TYPE.SELLER_CHAT,
+          storeId,
+          threadId: thread.id,
+          path: buildSellerChatPath(storeId, thread.id),
+        },
+        androidChannelId: FCM_ANDROID_CHANNEL_ID.ORDER_NOTIFICATION,
+      });
+    } catch (e) {
+      LoggerUtil.log(
+        `[ChatNotify] 견적 알림 실패 thread=${input.threadId}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
   async afterMessage(input: {
     threadId: string;
     from: "CONSUMER" | "SHOP";

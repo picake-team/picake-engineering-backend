@@ -1,6 +1,7 @@
 import {
   CHAT_BLOCKED_WORDS,
   CHAT_LIMITS,
+  CHAT_QUOTE_PREVIEWS,
 } from "@apps/backend/modules/chat/constants/chat.constants";
 
 /**
@@ -49,6 +50,8 @@ export function buildPreview(input: {
 }): string {
   if (input.kind === "ORDER") return "주문에 대해 문의했어요";
   if (input.kind === "PRODUCT") return "상품에 대해 문의했어요";
+  if (input.kind === "QUOTE_REQUEST") return CHAT_QUOTE_PREVIEWS.REQUEST;
+  if (input.kind === "QUOTE_CHOSEN") return CHAT_QUOTE_PREVIEWS.CHOSEN;
   const shown = (input.maskedText ?? input.text ?? "").replace(/\s+/g, " ").trim();
   if (!shown) return input.imageCount > 0 ? "사진을 보냈어요" : "";
   return shown.length > CHAT_LIMITS.PREVIEW_MAX
@@ -58,13 +61,14 @@ export function buildPreview(input: {
 
 export type ShopWriteDecision =
   | { ok: true }
-  | { ok: false; reason: "SHOP_LEFT" | "BLOCKED" | "CONSUMER_GONE" | "LOCKED" };
+  | { ok: false; reason: "SHOP_LEFT" | "BLOCKED" | "CONSUMER_GONE" | "LOCKED" | "OTHER_CHOSEN" };
 
 /**
  * 가게가 이 방에 쓸 수 있나(한 줄 규칙).
  * 방이 열려 있고(가게가 Picake에 있고, 차단 없음, 손님 탈퇴 아님) —
  * ① 손님 마지막 글이 30일 안이거나 ② 이 가게와 픽업 전 예약이 있을 때.
- * (견적이 살아 있을 때 ③은 견적 ②와 함께 붙인다)
+ * 손님이 다른 가게 견적을 고른 뒤(otherChosenAt)에는 손님이 다시 말을 걸 때까지 잠긴다(기획 I-11, 예약이 있으면 예외).
+ * 입점 전 가게(견적 링크 안 대화)는 shopHasStore 대신 대화 기간이 열려 있는지를 넘긴다.
  */
 export function decideShopWrite(input: {
   now: Date;
@@ -74,11 +78,21 @@ export function decideShopWrite(input: {
   consumerWithdrawn: boolean;
   lastConsumerMessageAt: Date | null;
   hasActiveOrder: boolean;
+  otherChosenAt?: Date | null;
+  /** 이 가게 견적이 살아 있음(견적을 보낸 입점 전 가게의 대화 기간 안, 기획 I-11 ③) */
+  liveQuote?: boolean;
 }): ShopWriteDecision {
   if (!input.shopHasStore) return { ok: false, reason: "SHOP_LEFT" };
   if (input.consumerWithdrawn) return { ok: false, reason: "CONSUMER_GONE" };
   if (input.blockedByConsumer || input.blockedByShop) return { ok: false, reason: "BLOCKED" };
   if (input.hasActiveOrder) return { ok: true };
+  if (
+    input.otherChosenAt &&
+    (!input.lastConsumerMessageAt || input.otherChosenAt >= input.lastConsumerMessageAt)
+  ) {
+    return { ok: false, reason: "OTHER_CHOSEN" };
+  }
+  if (input.liveQuote) return { ok: true };
   if (
     input.lastConsumerMessageAt &&
     input.now.getTime() - input.lastConsumerMessageAt.getTime() <=

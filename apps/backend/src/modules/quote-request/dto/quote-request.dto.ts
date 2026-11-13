@@ -307,8 +307,14 @@ export class QuoteRequestListItemDto {
   @ApiProperty({ nullable: true, description: "첫 참고 사진" })
   thumbnailUrl: string | null;
 
-  @ApiProperty({ description: "받은 견적 수(금액을 보낸 견적만, 견적 기능이 나오기 전에는 0)" })
+  @ApiProperty({ description: "받은 견적 수(금액을 보낸 견적만)" })
   quoteCount: number;
+
+  @ApiProperty({ description: "손님이 아직 보지 않은 견적 수" })
+  unseenQuoteCount: number;
+
+  @ApiProperty({ description: "가게를 골랐나(가게 연결)" })
+  chosen: boolean;
 
   @ApiProperty({ type: QuoteRequestSummaryDto })
   summary: QuoteRequestSummaryDto;

@@ -59,10 +59,10 @@ model AdminApiKey {
 
 /// 관리자 전역 설정 (싱글톤 — id = "default")
 model AdminConfig {
-  id              String    @id @default("default")
+  id              String   @id @default("default")
   /// true: 가입 신청 후 기존 관리자가 승인해야 로그인 가능 / false: 가입 즉시 승인(APPROVED) 처리
-  requireApproval Boolean   @default(false) @map("require_approval")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  requireApproval Boolean  @default(false) @map("require_approval")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("admin_configs")
 }
@@ -214,6 +214,8 @@ enum QuoteRequestCloseReason {
   EXPIRED
   /// 손님이 "요청 닫기"
   CONSUMER
+  /// 운영자가 마감(장난·받을 수 없는 요청, SC-46 ⑨)
+  ADMIN
 }
 
 /// 케이크 크기(도시락·미니·1호·2호·3호·더 크게)
@@ -243,6 +245,28 @@ enum QuoteRequestEntry {
 }
 
 /// 견적을 물어볼 가게를 넣은 사람
+/// 견적: 사진과 얼마나 비슷하게 만들 수 있나(기획 I-46 SC-19 ⑫)
+enum QuoteSimilarity {
+  EXACT
+  SIMILAR
+  INSPIRED
+}
+
+/// 견적이 들어온 길: 견적 링크(가입 없이) · 운영자 대신 적기 · 판매자 앱
+enum QuoteSource {
+  LINK
+  ADMIN
+  SELLER
+}
+
+/// "어려워요" 이유
+enum QuoteDeclineReason {
+  FULLY_BOOKED
+  NOT_OUR_STYLE
+  BUDGET
+  OTHER
+}
+
 enum QuoteRequestStoreAddedBy {
   CONSUMER
   ADMIN
@@ -295,11 +319,24 @@ model QuoteRequest {
 
   entry QuoteRequestEntry?
 
+  /// 손님이 고른 가게(QuoteRequestStore). 고른 뒤 24시간 안에는 다른 견적으로 바꿀 수 있다
+  chosenTargetId     String?   @map("chosen_target_id")
+  chosenAt           DateTime? @map("chosen_at")
+  /// 입점 전 가게를 고르면 운영자가 그 가게에 DM으로 알리고 누른다(SC-46 ⑧)
+  chosenNotifiedAt   DateTime? @map("chosen_notified_at")
+  /// 알림톡: 첫 견적 도착, 마감 3시간 전 한 번 더, 견적 없이 마감
+  arrivalAlimtalkAt  DateTime? @map("arrival_alimtalk_at")
+  reminderAlimtalkAt DateTime? @map("reminder_alimtalk_at")
+  closedNoticeAt     DateTime? @map("closed_notice_at")
+  /// 고른 가게가 24시간 답이 없어 운영자에게 알린 때(한 번)
+  stallAlertedAt     DateTime? @map("stall_alerted_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   consumer Consumer            @relation(fields: [consumerId], references: [id], onDelete: Cascade)
   stores   QuoteRequestStore[]
+  quotes   Quote[]
 
   @@index([consumerId, createdAt])
   @@index([status, deadlineAt])
@@ -325,16 +362,58 @@ model QuoteRequestStore {
   phone     String?
   placeUrl  String? @map("place_url")
 
+  /// 채팅 가게 명부(입점 가게·카카오 장소·운영자가 넣은 가게)
+  shopId        String?             @map("shop_id")
+  /// 가입 없이 견적을 보내는 그 가게만의 링크 열쇠(SC-19). 운영자가 만든다
+  linkToken     String?             @unique @map("link_token")
+  linkCreatedAt DateTime?           @map("link_created_at")
+  linkOpenedAt  DateTime?           @map("link_opened_at")
+  /// 입점 가게 채팅방에 요청서 카드를 넣은 때(판매자 앱으로 보냄)
+  sentToAppAt   DateTime?           @map("sent_to_app_at")
+  declinedAt    DateTime?           @map("declined_at")
+  declineReason QuoteDeclineReason? @map("decline_reason")
+
   createdAt DateTime @default(now()) @map("created_at")
 
   quoteRequest QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
   store        Store?       @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  shop         Shop?        @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  quote        Quote?
 
   @@unique([quoteRequestId, storeId])
   @@unique([quoteRequestId, kakaoPlaceId])
   @@index([storeId])
   @@index([kakaoPlaceId])
+  @@index([shopId])
   @@map("quote_request_stores")
+}
+
+/// 가게 견적(기획 I-46 ②). 물어본 가게마다 하나, 손님이 고르기 전까지 고칠 수 있다
+model Quote {
+  id             String          @id @default(cuid())
+  quoteRequestId String          @map("quote_request_id")
+  targetId       String          @unique @map("target_id")
+  source         QuoteSource
+  /// 1개 금액(원). 합계는 요청 개수를 곱해 보인다
+  unitPrice      Int             @map("unit_price")
+  priceMayVary   Boolean         @default(false) @map("price_may_vary")
+  similarity     QuoteSimilarity
+  /// 주문 받는 곳 [{ type: KAKAO|INSTAGRAM|PHONE|NAVER, value }]
+  contacts       Json            @default("[]")
+  memo           String?         @db.VarChar(200)
+  photoUrls      String[]        @default([]) @map("photo_urls")
+  senderSellerId String?         @map("sender_seller_id")
+  /// 처음 보낸 뒤 고친 때(손님 화면 "고침")
+  editedAt       DateTime?       @map("edited_at")
+  consumerSeenAt DateTime?       @map("consumer_seen_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  quoteRequest QuoteRequest      @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+  target       QuoteRequestStore @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([quoteRequestId, createdAt])
+  @@map("quotes")
 }
 
 /// 판매자 앱(web-seller) 전용 계정
@@ -581,6 +660,9 @@ model Store {
   // 비즈니스 필드 - 영업 캘린더 (판매자 설정, Asia/Seoul 기준)
   /**
    * /**
+   * /**
+   * /**
+   * /**
    * /** 정기 휴무 요일 (0=일 … 6=토, 프론트 Date.getDay()와 동일)
    */
   weeklyClosedWeekdays      Int[]  @default([]) @map("weekly_closed_weekdays")
@@ -733,11 +815,14 @@ model Shop {
   kakaoPlaceId String?  @unique @map("kakao_place_id")
   /// 마지막으로 알던 가게 이름(스토어가 지워져도 손님 목록에 보이게)
   name         String   @db.VarChar(100)
+  /// 입점 전 가게(견적 링크로 대화하는 카카오 장소·운영자가 넣은 가게). 입점 가게가 떠난 방과 구분한다
+  unentered    Boolean  @default(false)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  store   Store?       @relation(fields: [storeId], references: [id], onDelete: SetNull)
-  threads ChatThread[]
+  store        Store?              @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  threads      ChatThread[]
+  quoteTargets QuoteRequestStore[]
 
   @@map("shops")
 }
@@ -767,6 +852,12 @@ model ChatThread {
   /// 알림톡을 마지막으로 보낸 때(방마다 3시간에 한 번)
   consumerNotifiedAt  DateTime? @map("consumer_notified_at")
   shopNotifiedAt      DateTime? @map("shop_notified_at")
+  /// 손님 채팅 목록에 보이기 시작한 때. 견적 요청 카드만 있는 방(가게가 아직 답하지 않음)은 손님 목록에 숨긴다
+  consumerListedAt    DateTime? @default(now()) @map("consumer_listed_at")
+  /// 손님이 다른 가게 견적을 골라 이 가게 쓰기가 잠긴 때(손님이 다시 말하면 풀림)
+  shopLockedAt        DateTime? @map("shop_locked_at")
+  /// 입점 전 가게가 1시간 답이 없어 운영자에게 알린 때(방마다 하루 한 번)
+  opsAlertedAt        DateTime? @map("ops_alerted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -785,24 +876,28 @@ model ChatThread {
 
 /// 채팅 글(기획 I-11). clientId로 다시 보내기를 한 번만 저장한다.
 model ChatMessage {
-  id             String          @id @default(cuid())
-  threadId       String          @map("thread_id")
-  clientId       String          @map("client_id") @db.VarChar(64)
-  sender         ChatSender
+  id                String          @id @default(cuid())
+  threadId          String          @map("thread_id")
+  clientId          String          @map("client_id") @db.VarChar(64)
+  sender            ChatSender
   /// 가게 쪽에서 보낸 사장님(직원 계정 I-52 때 사람을 구분)
-  senderSellerId String?         @map("sender_seller_id")
-  kind           ChatMessageKind
+  senderSellerId    String?         @map("sender_seller_id")
+  kind              ChatMessageKind
   /// 원문(신고 확인용). 화면에는 maskedText가 있으면 그것을 보여 준다
-  text           String?         @db.Text
-  maskedText     String?         @map("masked_text") @db.Text
-  imageUrls      String[]        @default([]) @map("image_urls")
-  refOrderId     String?         @map("ref_order_id")
-  refProductId   String?         @map("ref_product_id")
+  text              String?         @db.Text
+  maskedText        String?         @map("masked_text") @db.Text
+  imageUrls         String[]        @default([]) @map("image_urls")
+  refOrderId        String?         @map("ref_order_id")
+  refProductId      String?         @map("ref_product_id")
+  /// 견적 카드(요청서·견적·고름)가 가리키는 견적 요청
+  refQuoteRequestId String?         @map("ref_quote_request_id")
+  /// 한쪽에만 보이는 카드(예: "손님이 다른 가게를 골랐어요"는 가게에만)
+  onlyFor           ChatSender?     @map("only_for")
   /// 카드가 가리키던 것의 그때 값(상품 이름·사진·가격 등)
-  cardSnapshot   Json?           @map("card_snapshot")
+  cardSnapshot      Json?           @map("card_snapshot")
   /// 운영자가 신고 처리로 가린 때
-  hiddenAt       DateTime?       @map("hidden_at")
-  createdAt      DateTime        @default(now()) @map("created_at")
+  hiddenAt          DateTime?       @map("hidden_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
 
   thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
@@ -1019,17 +1114,19 @@ model Order {
 
 /// 계정 단위 알림 (USER_WEB: consumerId / SELLER_WEB: sellerId)
 model UserNotification {
-  id         String                 @id @default(cuid())
-  consumerId String?                @map("consumer_id")
-  sellerId   String?                @map("seller_id")
-  appSurface NotificationAppSurface @map("app_surface")
-  category   NotificationCategory
-  title      String
-  body       String                 @db.Text
-  readAt     DateTime?              @map("read_at")
-  storeId    String?                @map("store_id")
-  orderId    String?                @map("order_id")
-  createdAt  DateTime               @default(now()) @map("created_at")
+  id             String                 @id @default(cuid())
+  consumerId     String?                @map("consumer_id")
+  sellerId       String?                @map("seller_id")
+  appSurface     NotificationAppSurface @map("app_surface")
+  category       NotificationCategory
+  title          String
+  body           String                 @db.Text
+  readAt         DateTime?              @map("read_at")
+  storeId        String?                @map("store_id")
+  orderId        String?                @map("order_id")
+  /// 견적 알림(category QUOTE)이 가리키는 요청
+  quoteRequestId String?                @map("quote_request_id")
+  createdAt      DateTime               @default(now()) @map("created_at")
 
   consumer Consumer? @relation(fields: [consumerId], references: [id], onDelete: Cascade)
   seller   Seller?   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
@@ -1301,6 +1398,7 @@ enum NotificationAppSurface {
 
 enum NotificationCategory {
   ORDER
+  QUOTE
 }
 
 enum OrderStatus {
@@ -1363,6 +1461,12 @@ enum ChatMessageKind {
   ORDER
   /// 상품 카드
   PRODUCT
+  /// 견적 요청서 카드(입점 가게 채팅방 맨 위, 기획 I-46 ②)
+  QUOTE_REQUEST
+  /// 가게 견적 카드(견적 도착·고침)
+  QUOTE
+  /// 손님이 고름 / 다른 가게를 고름(가게에만)
+  QUOTE_CHOSEN
 }
 
 /// 채팅 신고 사유

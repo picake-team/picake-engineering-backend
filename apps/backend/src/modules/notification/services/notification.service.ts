@@ -29,8 +29,11 @@ export interface UserNotificationItemDto {
   title: string;
   body: string;
   read: boolean;
-  storeId: string;
-  orderId: string;
+  /** ORDER: 주문 알림(storeId·orderId) / QUOTE: 견적 알림(quoteRequestId, 기획 I-46 ②) */
+  category: "ORDER" | "QUOTE";
+  storeId: string | null;
+  orderId: string | null;
+  quoteRequestId: string | null;
 }
 
 /** 판매자 웹 알림 설정 API 응답 (스토어 단위) */
@@ -101,7 +104,7 @@ export class NotificationService {
 
   /**
    * DB 행을 사용자 웹 알림 응답 DTO로 변환합니다.
-   * ORDER 알림은 storeId·orderId가 항상 있어야 합니다.
+   * ORDER 알림은 storeId·orderId, QUOTE 알림은 quoteRequestId가 있다.
    */
   private toUserItemDto(row: {
     id: string;
@@ -109,12 +112,11 @@ export class NotificationService {
     title: string;
     body: string;
     readAt: Date | null;
+    category: NotificationCategory;
     storeId: string | null;
     orderId: string | null;
+    quoteRequestId: string | null;
   }): UserNotificationItemDto {
-    if (!row.storeId || !row.orderId) {
-      throw new Error("ORDER 알림에는 storeId·orderId가 필요합니다.");
-    }
     return {
       id: row.id,
       createdAt: row.createdAt.toISOString(),
@@ -122,9 +124,41 @@ export class NotificationService {
       title: row.title,
       body: row.body,
       read: row.readAt != null,
+      category: row.category === NotificationCategory.QUOTE ? "QUOTE" : "ORDER",
       storeId: row.storeId,
       orderId: row.orderId,
+      quoteRequestId: row.quoteRequestId,
     };
+  }
+
+  /** 손님 알림 목록에 보이는 알림(주문·견적) */
+  private consumerVisibleWhere(): Prisma.UserNotificationWhereInput {
+    return {
+      OR: [
+        { category: NotificationCategory.ORDER, orderId: { not: null } },
+        { category: NotificationCategory.QUOTE, quoteRequestId: { not: null } },
+      ],
+    };
+  }
+
+  /** 손님 견적 알림(앱 안 알림, 기획 I-46 ②) */
+  async createUserWebQuoteNotification(params: {
+    recipientUserId: string;
+    title: string;
+    body: string;
+    quoteRequestId: string;
+  }): Promise<UserNotificationItemDto> {
+    const row = await this.prisma.userNotification.create({
+      data: {
+        consumerId: params.recipientUserId,
+        appSurface: NotificationAppSurface.USER_WEB,
+        category: NotificationCategory.QUOTE,
+        title: params.title,
+        body: params.body,
+        quoteRequestId: params.quoteRequestId,
+      },
+    });
+    return this.toUserItemDto(row);
   }
 
   /**
@@ -360,8 +394,7 @@ export class NotificationService {
     const where: Prisma.UserNotificationWhereInput = {
       consumerId: params.userId,
       appSurface: NotificationAppSurface.USER_WEB,
-      category: NotificationCategory.ORDER,
-      orderId: { not: null },
+      ...this.consumerVisibleWhere(),
       createdAt: { gte: this.getUserNotificationVisibilityCutoff() },
       ...(params.unreadOnly ? { readAt: null } : {}),
     };
@@ -397,8 +430,7 @@ export class NotificationService {
         id: params.notificationId,
         consumerId: params.userId,
         appSurface: NotificationAppSurface.USER_WEB,
-        category: NotificationCategory.ORDER,
-        orderId: { not: null },
+        ...this.consumerVisibleWhere(),
       },
     });
     if (!row) {
@@ -418,8 +450,7 @@ export class NotificationService {
       where: {
         consumerId: userId,
         appSurface: NotificationAppSurface.USER_WEB,
-        category: NotificationCategory.ORDER,
-        orderId: { not: null },
+        ...this.consumerVisibleWhere(),
         readAt: null,
       },
       data: { readAt: new Date() },
@@ -434,8 +465,7 @@ export class NotificationService {
       where: {
         consumerId: userId,
         appSurface: NotificationAppSurface.USER_WEB,
-        category: NotificationCategory.ORDER,
-        orderId: { not: null },
+        ...this.consumerVisibleWhere(),
         createdAt: { gte: this.getUserNotificationVisibilityCutoff() },
         readAt: null,
       },

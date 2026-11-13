@@ -68,6 +68,8 @@ export const CHAT_ERROR_MESSAGES = {
   /** 내가 차단한 방(상대가 나를 차단한 건 알리지 않고 CANNOT_SEND) */
   BLOCKED_BY_ME: "차단한 대화예요. 위쪽 ⋯에서 차단을 풀 수 있어요.",
   SHOP_LEFT: "가게가 Picake 채팅을 쓰지 않아요.",
+  OTHER_CHOSEN: "손님이 다른 가게 견적을 골랐어요. 손님이 다시 말을 걸면 쓸 수 있어요.",
+  UNENTERED_CLOSED: "대화 기간이 끝났어요.",
   /** 왜 못 보내는지 한 줄(운영자 11-12): 손님 마지막 글 30일이 지났거나 손님이 말한 적이 없고, 픽업 전 예약도 없을 때 */
   SHOP_LOCKED:
     "손님 글이 30일 넘게 없고 픽업 전 예약도 없어 먼저 보낼 수 없어요. 손님이 먼저 말하면 다시 보낼 수 있어요.",
@@ -101,3 +103,11 @@ export const CHAT_BLOCKED_WORDS: readonly string[] = [
   "fuck",
   "shit",
 ];
+
+/** 견적 카드 미리보기(목록·휴대폰 알림). 사장님 목록의 "견적 요청" 표시는 이 글로 알아본다 */
+export const CHAT_QUOTE_PREVIEWS = {
+  REQUEST: "견적 요청이 왔어요",
+  QUOTE: "견적을 보냈어요",
+  QUOTE_EDITED: "견적을 고쳤어요",
+  CHOSEN: "이 견적을 골랐어요",
+} as const;

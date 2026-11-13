@@ -35,6 +35,7 @@ import { StoreEntryRequestModule } from "@apps/backend/modules/store-entry-reque
 import { ConsumerStoreEntryRequestController } from "@apps/backend/apis/consumer/controllers/store-entry-request.controller";
 import { QuoteRequestModule } from "@apps/backend/modules/quote-request/quote-request.module";
 import { ConsumerQuoteRequestController } from "@apps/backend/apis/consumer/controllers/quote-request.controller";
+import { ConsumerQuoteLinkController } from "@apps/backend/apis/consumer/controllers/quote-link.controller";
 
 /**
  * Consumer(구매자) API 모듈 — 경로 prefix `consumer`, JWT aud `consumer`
@@ -62,6 +63,7 @@ import { ConsumerQuoteRequestController } from "@apps/backend/apis/consumer/cont
     ChatModule,
   ],
   controllers: [
+    ConsumerQuoteLinkController,
     ConsumerUploadController,
     ConsumerAuthController,
     ConsumerFcmTokenController,

@@ -17,7 +17,7 @@ import {
   ADMIN_QUOTE_REQUEST_SELECT,
   QUOTE_REQUEST_SELECT,
   adminStatusWhere,
-  ongoingWhere,
+  consumerInProgressWhere,
   toAdminDetail,
   toAdminListItem,
   toDetail,
@@ -39,8 +39,8 @@ export class QuoteRequestReadService {
   ): Promise<QuoteRequestListResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const ongoing: Prisma.QuoteRequestWhereInput = { consumerId, ...ongoingWhere(now) };
-    const past: Prisma.QuoteRequestWhereInput = { consumerId, NOT: ongoingWhere(now) };
+    const ongoing: Prisma.QuoteRequestWhereInput = { consumerId, ...consumerInProgressWhere(now) };
+    const past: Prisma.QuoteRequestWhereInput = { consumerId, NOT: consumerInProgressWhere(now) };
     const isOngoing = (query.tab ?? "ONGOING") === "ONGOING";
     const where = isOngoing ? ongoing : past;
 

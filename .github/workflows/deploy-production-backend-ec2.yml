@@ -56,7 +56,7 @@ jobs:
           name: backend-release
 
       - name: Copy deployment package to EC2
-        uses: appleboy/scp-action@v1.0.0
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0 (서버 접속 키가 넘어가는 바깥 도구라 커밋으로 고정)
         with:
           host: ${{ secrets.PRODUCTION_EC2_HOST }}
           username: ec2-user
@@ -65,7 +65,7 @@ jobs:
           target: "~/"
 
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5 (커밋으로 고정)
         with:
           host: ${{ secrets.PRODUCTION_EC2_HOST }}
           username: ec2-user
@@ -77,9 +77,18 @@ jobs:
             # 새 버전을 켜기 전(SWITCHED=false)에 실패하면 기존 앱이 그대로 돌고 있으므로 폴더만 되돌린다.
             # 켠 뒤(SWITCHED=true)에 실패하면 이전 버전 폴더(node_modules·dist 포함)로 되돌려 다시 켠다.
             SWITCHED=false
+            # 새 버전 폴더(~/picake.next)를 ~/picake로 바꿨는지. 바꾸기 전이면 돌고 있는 앱 폴더는 건드리지 않는다
+            MOVED=false
             rollback_deployment() {
               echo ""
               echo "🔄 배포 실패로 인한 롤백 시작..."
+              cd ~
+
+              if [ "$MOVED" != true ]; then
+                rm -rf ~/picake.next
+                echo "✅ 롤백 완료 - 폴더를 바꾸기 전에 멈춰서 기존 앱은 그대로 돌고 있습니다"
+                exit 1
+              fi
 
               # 가장 최근 백업 = 이번 배포 직전까지 돌던 버전 (이름의 타임스탬프로 고른다)
               LATEST_BACKUP=$(ls -d ~/picake.backup.* 2>/dev/null | sort -r | head -1)
@@ -89,7 +98,6 @@ jobs:
               fi
 
               echo "📦 백업 복원 중: $LATEST_BACKUP"
-              cd ~
               rm -rf ~/picake
               mv "$LATEST_BACKUP" ~/picake
 
@@ -229,27 +237,15 @@ jobs:
               echo "✅ DB 백업 완료: $DB_BACKUP_NAME"
             fi
 
-            # 기존 프로젝트 백업 (타임스탬프 포함)
-            # 롤백 때 그대로 다시 켤 수 있게 node_modules·dist를 지우지 않고 통째로 옮긴다(돌고 있는 앱은 그대로 계속 돈다).
-            # 오래된 백업의 node_modules는 strip_old_backup_deps가 지운다.
-            CURRENT_BACKUP_NAME=""
-            if [ -d ~/picake ]; then
-              find ~/picake -type f -name "*.log" -delete 2>/dev/null || true
-
-              CURRENT_BACKUP_NAME=~/picake.backup.$(date +%Y%m%d_%H%M%S)
-              echo "📦 기존 프로젝트 백업 중: $CURRENT_BACKUP_NAME"
-              mv ~/picake "$CURRENT_BACKUP_NAME" || {
-                echo "⚠️ 백업 실패, 기존 디렉토리 삭제 후 진행"
-                rm -rf ~/picake
-              }
-            fi
-            strip_old_backup_deps
-
+            # 새 버전은 ~/picake.next에 다 풀고 환경 파일·마이그레이션까지 끝낸 뒤, 켜기 바로 전에 폴더를 바꾼다.
+            # 전에는 돌고 있는 앱 폴더를 먼저 옮기고 그 자리에 풀어서, 그사이 앱이 다시 켜지면 반쯤 풀린 폴더에서
+            # "Cannot find module '@nestjs/core'"로 거듭 멈췄다(상용 오류 로그, 2026-11-12).
             # 배포 실패 시 롤백을 위한 trap 설정
             trap rollback_deployment ERR
 
-            mkdir -p ~/picake
-            cd ~/picake
+            rm -rf ~/picake.next
+            mkdir -p ~/picake.next
+            cd ~/picake.next
 
             echo "📂 압축 해제"
             tar -xzf ~/deploy.tar.gz
@@ -421,7 +417,7 @@ jobs:
               echo "✅ 마이그레이션 완료"
             fi
 
-            cd ~/picake
+            cd ~
 
             echo "💾 스왑 메모리 확인 (앱이 잠깐 메모리를 많이 쓸 때 멈추지 않게)"
             ensure_swap() {
@@ -438,6 +434,21 @@ jobs:
             }
             ensure_swap || echo "⚠️ 스왑을 켜지 못했어요 (배포는 계속)"
             free -m | sed -n '1,3p' || true
+
+            # 기존 프로젝트 백업 (타임스탬프 포함) → 새 버전으로 폴더 바꾸기. 두 번의 mv라 틈이 거의 없다
+            # 롤백 때 그대로 다시 켤 수 있게 node_modules·dist를 지우지 않고 통째로 옮긴다(돌고 있는 앱은 그대로 계속 돈다).
+            # 오래된 백업의 node_modules는 strip_old_backup_deps가 지운다.
+            echo "🔁 폴더 바꾸기"
+            if [ -d ~/picake ]; then
+              find ~/picake -type f -name "*.log" -delete 2>/dev/null || true
+              CURRENT_BACKUP_NAME=~/picake.backup.$(date +%Y%m%d_%H%M%S)
+              mv ~/picake "$CURRENT_BACKUP_NAME"
+              echo "📦 기존 프로젝트 백업: $CURRENT_BACKUP_NAME"
+            fi
+            MOVED=true
+            mv ~/picake.next ~/picake
+            strip_old_backup_deps
+            cd ~/picake
 
             echo "🚀 PM2 restart"
             SWITCHED=true

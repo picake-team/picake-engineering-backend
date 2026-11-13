@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
-import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
+import { Prisma, QuoteRequestStatus } from "@apps/backend/infra/database/prisma/generated/client";
 import { isAllowedUploadUrl } from "@apps/backend/modules/upload/utils/upload-url.util";
 import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
 import { EnableStatus } from "@apps/backend/modules/product/constants/product.constants";
@@ -15,8 +15,13 @@ import { formatKstDate } from "@apps/backend/modules/quote-request/utils/quote-r
 import {
   CHAT_ERROR_MESSAGES,
   CHAT_LIMITS,
+  CHAT_QUOTE_PREVIEWS,
   CHAT_RULES_VERSION,
 } from "@apps/backend/modules/chat/constants/chat.constants";
+import {
+  linkChatOpenUntil,
+  targetState,
+} from "@apps/backend/modules/quote-request/utils/quote-policy.util";
 import {
   ChatListQueryDto,
   ChatMessageDto,
@@ -41,6 +46,10 @@ import {
   maskBlockedWords,
 } from "@apps/backend/modules/chat/utils/chat-policy.util";
 import { ChatNotifyService } from "@apps/backend/modules/chat/services/chat-notify.service";
+import {
+  QUOTE_LIMITS,
+  SELLER_QUOTE_PUSH_TITLES,
+} from "@apps/backend/modules/quote-request/constants/quote.constants";
 import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 
 type Side = "CONSUMER" | "SHOP";
@@ -70,12 +79,15 @@ const THREAD_SELECT = {
   shopMuted: true,
   blockedByConsumerAt: true,
   blockedByShopAt: true,
+  consumerListedAt: true,
+  shopLockedAt: true,
   consumer: { select: { nickname: true, withdrawnAt: true } },
   shop: {
     select: {
       id: true,
       name: true,
       storeId: true,
+      unentered: true,
       store: { select: { id: true, name: true, logoImageUrl: true, sellerId: true } },
     },
   },
@@ -83,16 +95,26 @@ const THREAD_SELECT = {
 
 type ThreadRow = Prisma.ChatThreadGetPayload<{ select: typeof THREAD_SELECT }>;
 
+type MessageKind =
+  | "TEXT"
+  | "IMAGE"
+  | "ORDER"
+  | "PRODUCT"
+  | "QUOTE_REQUEST"
+  | "QUOTE"
+  | "QUOTE_CHOSEN";
+
 type MessageRow = {
   id: string;
   clientId: string;
   sender: "CONSUMER" | "SHOP" | "SYSTEM";
-  kind: "TEXT" | "IMAGE" | "ORDER" | "PRODUCT";
+  kind: MessageKind;
   text: string | null;
   maskedText: string | null;
   imageUrls: string[];
   refOrderId: string | null;
   refProductId: string | null;
+  refQuoteRequestId: string | null;
   cardSnapshot: Prisma.JsonValue | null;
   hiddenAt: Date | null;
   createdAt: Date;
@@ -108,16 +130,28 @@ const MESSAGE_SELECT = {
   imageUrls: true,
   refOrderId: true,
   refProductId: true,
+  refQuoteRequestId: true,
   cardSnapshot: true,
   hiddenAt: true,
   createdAt: true,
 } satisfies Prisma.ChatMessageSelect;
 
-type CardSnapshot = { title: string; subtitle?: string | null; imageUrl?: string | null };
+type CardSnapshot = {
+  title: string;
+  subtitle?: string | null;
+  imageUrl?: string | null;
+  /** 고름 카드: 손님이 다른 가게를 골랐어요(가게에만) */
+  otherChosen?: boolean;
+};
+
+/** 방의 쓰기 판단에 필요한 것(예약·입점 전 가게 대화 기간) */
+type WriteContext = { hasActiveOrder: boolean; unenteredOpen: boolean };
 
 /**
- * 채팅(기획 I-11) 1단계 — 손님 × 입점 가게.
+ * 채팅(기획 I-11) — 손님 × 가게 명부(입점 가게, 견적을 보낸 입점 전 가게).
  * 방은 손님이 첫 글을 보낼 때(또는 사장님이 픽업 전 예약 손님에게 처음 보낼 때) 생긴다.
+ * 견적(I-46 ②): 입점 가게에 요청서 카드가 들어가면 방이 생기고(손님 목록에는 가게가 답한 뒤 보임),
+ * 입점 전 가게는 견적을 보내면 방이 생겨 견적 링크 안에서 대화한다.
  * 가게 쓰기 규칙·차단·거르기·규칙 동의·도배 막기는 모두 여기서 서버가 판단한다.
  */
 @Injectable()
@@ -185,8 +219,50 @@ export class ChatService {
     return count > 0;
   }
 
-  private writeState(side: Side, thread: ThreadRow, hasActiveOrder: boolean): ChatWriteStateDto {
-    const shopHasStore = !!thread.shop.storeId;
+  /** 입점 전 가게 방: 이 손님 요청에 이 가게가 견적을 보냈고 대화 기간(고른 뒤 14일·마감 뒤 7일) 안인가 */
+  private async unenteredOpen(thread: {
+    consumerId: string;
+    shopId: string;
+    shop: { unentered: boolean; storeId: string | null };
+  }): Promise<boolean> {
+    if (!thread.shop.unentered || thread.shop.storeId) return false;
+    const targets = await this.prisma.quoteRequestStore.findMany({
+      where: {
+        shopId: thread.shopId,
+        quote: { isNot: null },
+        quoteRequest: { consumerId: thread.consumerId },
+      },
+      select: {
+        id: true,
+        quoteRequest: {
+          select: {
+            status: true,
+            deadlineAt: true,
+            closedAt: true,
+            chosenTargetId: true,
+            chosenAt: true,
+          },
+        },
+      },
+    });
+    const now = Date.now();
+    return targets.some((t) => linkChatOpenUntil(t.quoteRequest, t.id).getTime() > now);
+  }
+
+  private async writeContext(side: Side, t: ThreadRow): Promise<WriteContext> {
+    return {
+      hasActiveOrder:
+        side === "SHOP" ? await this.hasActiveOrder(t.consumerId, t.shop.storeId) : false,
+      unenteredOpen: await this.unenteredOpen(t),
+    };
+  }
+
+  private writeState(side: Side, thread: ThreadRow, ctx: WriteContext): ChatWriteStateDto {
+    const unentered = thread.shop.unentered && !thread.shop.storeId;
+    const shopHasStore = unentered ? ctx.unenteredOpen : !!thread.shop.storeId;
+    const leftMessage = unentered
+      ? CHAT_ERROR_MESSAGES.UNENTERED_CLOSED
+      : CHAT_ERROR_MESSAGES.SHOP_LEFT;
     if (side === "CONSUMER") {
       const d = decideConsumerWrite({
         shopHasStore,
@@ -198,7 +274,7 @@ export class ChatService {
         ok: false,
         message:
           d.reason === "SHOP_LEFT"
-            ? CHAT_ERROR_MESSAGES.SHOP_LEFT
+            ? leftMessage
             : thread.blockedByConsumerAt
               ? CHAT_ERROR_MESSAGES.BLOCKED_BY_ME
               : CHAT_ERROR_MESSAGES.CANNOT_SEND,
@@ -211,20 +287,37 @@ export class ChatService {
       blockedByShop: !!thread.blockedByShopAt,
       consumerWithdrawn: !!thread.consumer.withdrawnAt,
       lastConsumerMessageAt: thread.lastConsumerMessageAt,
-      hasActiveOrder,
+      hasActiveOrder: ctx.hasActiveOrder,
+      otherChosenAt: thread.shopLockedAt,
+      // 견적을 보낸 입점 전 가게는 손님이 먼저 말하지 않아도 대화 기간 안에 쓸 수 있다
+      liveQuote: unentered && ctx.unenteredOpen,
     });
     if (d.ok) return { ok: true, message: null };
     const message =
       d.reason === "LOCKED"
         ? CHAT_ERROR_MESSAGES.SHOP_LOCKED
-        : d.reason === "CONSUMER_GONE"
-          ? "손님이 탈퇴해 대화가 지워졌어요."
-          : d.reason === "SHOP_LEFT"
-            ? CHAT_ERROR_MESSAGES.SHOP_LEFT
-            : d.reason === "BLOCKED" && thread.blockedByShopAt
-              ? CHAT_ERROR_MESSAGES.BLOCKED_BY_ME
-              : CHAT_ERROR_MESSAGES.CANNOT_SEND;
+        : d.reason === "OTHER_CHOSEN"
+          ? CHAT_ERROR_MESSAGES.OTHER_CHOSEN
+          : d.reason === "CONSUMER_GONE"
+            ? "손님이 탈퇴해 대화가 지워졌어요."
+            : d.reason === "SHOP_LEFT"
+              ? leftMessage
+              : d.reason === "BLOCKED" && thread.blockedByShopAt
+                ? CHAT_ERROR_MESSAGES.BLOCKED_BY_ME
+                : CHAT_ERROR_MESSAGES.CANNOT_SEND;
     return { ok: false, message };
+  }
+
+  /** 견적 카드 미리보기는 보는 쪽 말투로(서버에는 한 줄만 저장) */
+  private previewFor(side: Side, preview: string | null): string | null {
+    if (side === "CONSUMER") {
+      if (preview === CHAT_QUOTE_PREVIEWS.REQUEST) return "견적 요청을 보냈어요";
+      if (preview === CHAT_QUOTE_PREVIEWS.QUOTE) return "견적이 도착했어요";
+      if (preview === CHAT_QUOTE_PREVIEWS.QUOTE_EDITED) return "견적이 바뀌었어요";
+    } else if (preview === CHAT_QUOTE_PREVIEWS.CHOSEN) {
+      return "손님이 견적을 골랐어요";
+    }
+    return preview;
   }
 
   private toThreadDto(side: Side, t: ThreadRow): ChatThreadDto {
@@ -240,11 +333,12 @@ export class ChatService {
       title,
       imageUrl: side === "CONSUMER" ? (t.shop.store?.logoImageUrl ?? null) : null,
       lastMessageAt: t.lastMessageAt?.toISOString() ?? null,
-      lastMessagePreview: t.lastMessagePreview,
+      lastMessagePreview: this.previewFor(side, t.lastMessagePreview),
       unread: isUnreadFor(side, t),
-      needsReply: side === "SHOP" && t.lastMessageSender === "CONSUMER",
+      needsReply: side === "SHOP" && t.lastMessageSender === "CONSUMER" && !t.shopLockedAt,
       muted: side === "CONSUMER" ? t.consumerMuted : t.shopMuted,
       blockedByMe: side === "CONSUMER" ? !!t.blockedByConsumerAt : !!t.blockedByShopAt,
+      quoteRequest: side === "SHOP" && t.lastMessagePreview === CHAT_QUOTE_PREVIEWS.REQUEST,
     };
   }
 
@@ -253,20 +347,66 @@ export class ChatService {
     t: ThreadRow,
     actorId: string,
   ): Promise<ChatThreadDetailDto> {
-    const active =
-      side === "SHOP" ? await this.hasActiveOrder(t.consumerId, t.shop.storeId) : false;
     const otherReadAt = side === "CONSUMER" ? t.shopReadAt : t.consumerReadAt;
+    const unentered = t.shop.unentered && !t.shop.storeId;
     return {
       ...this.toThreadDto(side, t),
-      write: this.writeState(side, t, active),
+      write: this.writeState(side, t, await this.writeContext(side, t)),
       otherReadAt: otherReadAt?.toISOString() ?? null,
-      rulesAgreed: await this.hasAgreed(side === "CONSUMER" ? "CONSUMER" : "SELLER", actorId),
+      // 견적 링크 쪽(입점 전 가게)은 계정이 없어 규칙 동의를 링크 화면 안내로 대신한다
+      rulesAgreed:
+        unentered && side === "SHOP"
+          ? true
+          : await this.hasAgreed(side === "CONSUMER" ? "CONSUMER" : "SELLER", actorId),
       rulesVersion: CHAT_RULES_VERSION,
-      unenteredShop: false,
+      unenteredShop: unentered,
     };
   }
 
-  private async loadLiveCards(rows: MessageRow[]) {
+  private async loadLiveCards(rows: MessageRow[], shopId: string) {
+    const quoteRequestIds = [
+      ...new Set(
+        rows
+          .filter((r) => r.kind === "QUOTE_REQUEST" || r.kind === "QUOTE")
+          .map((r) => r.refQuoteRequestId)
+          .filter((v): v is string => !!v),
+      ),
+    ];
+    const quoteState = new Map<string, string>();
+    if (quoteRequestIds.length) {
+      const now = new Date();
+      const requests = await this.prisma.quoteRequest.findMany({
+        where: { id: { in: quoteRequestIds } },
+        select: {
+          id: true,
+          status: true,
+          deadlineAt: true,
+          closedAt: true,
+          chosenTargetId: true,
+          chosenAt: true,
+          _count: { select: { quotes: true } },
+          stores: {
+            where: { shopId },
+            select: { id: true, declinedAt: true, quote: { select: { id: true } } },
+          },
+        },
+      });
+      for (const r of requests) {
+        const target = r.stores[0];
+        if (!target) continue;
+        quoteState.set(
+          r.id,
+          targetState({
+            request: r,
+            targetId: target.id,
+            declinedAt: target.declinedAt,
+            hasQuote: !!target.quote,
+            quoteCount: r._count.quotes,
+            now,
+          }),
+        );
+      }
+    }
     const orderIds = [...new Set(rows.map((r) => r.refOrderId).filter((v): v is string => !!v))];
     const productIds = [
       ...new Set(rows.map((r) => r.refProductId).filter((v): v is string => !!v)),
@@ -286,6 +426,7 @@ export class ChatService {
         : [],
     ]);
     return {
+      quoteState,
       orderStatus: new Map(orders.map((o) => [o.id, o.orderStatus as string])),
       productAvailable: new Map(
         products.map((p) => [
@@ -320,6 +461,20 @@ export class ChatService {
         subtitle: snap?.subtitle ?? null,
         imageUrl: snap?.imageUrl ?? null,
         available: live.productAvailable.get(m.refProductId) ?? false,
+      };
+    } else if (
+      (m.kind === "QUOTE_REQUEST" || m.kind === "QUOTE" || m.kind === "QUOTE_CHOSEN") &&
+      m.refQuoteRequestId
+    ) {
+      card = {
+        type: m.kind,
+        refId: m.refQuoteRequestId,
+        title: snap?.title ?? "견적",
+        subtitle: snap?.subtitle ?? null,
+        // 가게 쪽 화면은 견적 카드 사진을 쓰지 않고, 손님 요청서 사진일 수 있어 보내지 않는다
+        imageUrl: viewer === "SHOP" ? null : (snap?.imageUrl ?? null),
+        quoteState: live.quoteState.get(m.refQuoteRequestId) ?? null,
+        otherChosen: snap?.otherChosen ?? false,
       };
     }
     return {
@@ -403,9 +558,20 @@ export class ChatService {
         lastMessageSender: sender,
         lastMessagePreview: preview.slice(0, 80),
         ...(sender === "CONSUMER"
-          ? { lastConsumerMessageAt: now, consumerReadAt: now, consumerSeenAt: now }
+          ? // 손님이 다시 말을 걸면 "다른 가게를 골랐어요" 잠금이 풀린다
+            {
+              lastConsumerMessageAt: now,
+              consumerReadAt: now,
+              consumerSeenAt: now,
+              shopLockedAt: null,
+            }
           : { shopReadAt: now, shopSeenAt: now }),
       },
+    });
+    // 견적 요청서만 있던 방도 누가 한 번 쓰면 손님 목록에 보인다
+    await this.prisma.chatThread.updateMany({
+      where: { id: threadId, consumerListedAt: null },
+      data: { consumerListedAt: now },
     });
     await this.notify.afterMessage({ threadId, from: sender, preview });
   }
@@ -460,7 +626,7 @@ export class ChatService {
     anyCreated ||= r.created;
 
     if (anyCreated) await this.afterSend(thread.id, sender, r.row);
-    const live = await this.loadLiveCards(saved);
+    const live = await this.loadLiveCards(saved, thread.shopId);
     return { threadId: thread.id, messages: saved.map((m) => this.toMessageDto(sender, m, live)) };
   }
 
@@ -469,8 +635,13 @@ export class ChatService {
     thread: ThreadRow,
     actorId: string,
     query: ChatMessagesQueryDto,
+    since?: Date,
   ): Promise<ChatMessagesDto> {
     const take = CHAT_LIMITS.PAGE_SIZE;
+    const visible: Prisma.ChatMessageWhereInput[] = [
+      { OR: [{ onlyFor: null }, { onlyFor: side }] },
+      ...(since ? [{ createdAt: { gte: since } }] : []),
+    ];
     let rows: MessageRow[];
     let hasMore = false;
     if (query.after) {
@@ -481,6 +652,7 @@ export class ChatService {
       rows = (await this.prisma.chatMessage.findMany({
         where: {
           threadId: thread.id,
+          AND: visible,
           ...(pivot
             ? {
                 OR: [
@@ -504,6 +676,7 @@ export class ChatService {
       const desc = (await this.prisma.chatMessage.findMany({
         where: {
           threadId: thread.id,
+          AND: visible,
           ...(pivot
             ? {
                 OR: [
@@ -547,7 +720,7 @@ export class ChatService {
       }
     }
 
-    const live = await this.loadLiveCards(rows);
+    const live = await this.loadLiveCards(rows, thread.shopId);
     return {
       messages: rows.map((m) => this.toMessageDto(side, m, live)),
       hasMore,
@@ -603,7 +776,7 @@ export class ChatService {
 
   async unreadForConsumer(consumerId: string): Promise<ChatUnreadDto> {
     const rows = await this.prisma.chatThread.findMany({
-      where: { consumerId, lastMessageSender: "SHOP" },
+      where: { consumerId, lastMessageSender: "SHOP", consumerListedAt: { not: null } },
       select: {
         lastMessageAt: true,
         lastMessageSender: true,
@@ -619,6 +792,7 @@ export class ChatService {
     const rows = await this.prisma.chatThread.findMany({
       where: {
         consumerId,
+        consumerListedAt: { not: null },
         lastMessageAt: cursor && !Number.isNaN(cursor.getTime()) ? { lt: cursor } : { not: null },
       },
       orderBy: [{ lastMessageAt: "desc" }, { id: "desc" }],
@@ -650,7 +824,9 @@ export class ChatService {
     return {
       threadId: thread?.id ?? null,
       title: store.name,
-      write: thread ? this.writeState("CONSUMER", thread, false) : { ok: true, message: null },
+      write: thread
+        ? this.writeState("CONSUMER", thread, await this.writeContext("CONSUMER", thread))
+        : { ok: true, message: null },
       rulesAgreed: await this.hasAgreed("CONSUMER", consumerId),
       rulesVersion: CHAT_RULES_VERSION,
     };
@@ -722,7 +898,7 @@ export class ChatService {
       }
       thread = await this.createThread(consumerId, shopId);
     }
-    const w = this.writeState("CONSUMER", thread, false);
+    const w = this.writeState("CONSUMER", thread, await this.writeContext("CONSUMER", thread));
     if (!w.ok) throw new ForbiddenException(w.message ?? CHAT_ERROR_MESSAGES.CANNOT_SEND);
     return this.sendInto(thread, "CONSUMER", null, dto, card);
   }
@@ -732,7 +908,7 @@ export class ChatService {
       throw new BadRequestException(CHAT_ERROR_MESSAGES.RULES_NOT_AGREED);
     }
     const t = await this.getConsumerThread(consumerId, threadId);
-    const w = this.writeState("CONSUMER", t, false);
+    const w = this.writeState("CONSUMER", t, await this.writeContext("CONSUMER", t));
     if (!w.ok) throw new ForbiddenException(w.message ?? CHAT_ERROR_MESSAGES.CANNOT_SEND);
     return this.sendInto(t, "CONSUMER", null, dto);
   }
@@ -777,6 +953,7 @@ export class ChatService {
   private replyNeededWhere(now: Date): Prisma.ChatThreadWhereInput {
     return {
       lastMessageSender: "CONSUMER",
+      shopLockedAt: null,
       blockedByShopAt: null,
       blockedByConsumerAt: null,
       consumer: { withdrawnAt: null },
@@ -797,12 +974,42 @@ export class ChatService {
         shopReadAt: true,
       },
     });
-    const replyNeeded = await this.prisma.chatThread.count({
-      where: { shop: { storeId }, ...this.replyNeededWhere(new Date()) },
-    });
+    const now = new Date();
+    const [replyNeeded, replyNeededChats, quoteTargets] = await Promise.all([
+      this.prisma.chatThread.count({
+        where: { shop: { storeId }, ...this.replyNeededWhere(now) },
+      }),
+      // 홈 "답할 채팅": 마지막 글이 견적 요청 카드인 방은 "견적 요청" 줄이 세므로 뺀다
+      this.prisma.chatThread.count({
+        where: {
+          shop: { storeId },
+          ...this.replyNeededWhere(now),
+          NOT: { lastMessagePreview: CHAT_QUOTE_PREVIEWS.REQUEST },
+        },
+      }),
+      // 홈 "견적 요청": 채팅방으로 받은 요청 중 아직 견적·어려워요로 답하지 않았고 받는 중인 것(판매자 카드 "견적 기다림")
+      this.prisma.quoteRequestStore.findMany({
+        where: {
+          storeId,
+          sentToAppAt: { not: null },
+          declinedAt: null,
+          quote: { is: null },
+          quoteRequest: {
+            status: QuoteRequestStatus.OPEN,
+            chosenTargetId: null,
+            deadlineAt: { gt: now },
+          },
+        },
+        select: { quoteRequest: { select: { _count: { select: { quotes: true } } } } },
+      }),
+    ]);
     return {
       unreadThreads: rows.filter((r) => isUnreadFor("SHOP", r)).length,
       replyNeeded,
+      replyNeededChats,
+      quoteRequests: quoteTargets.filter(
+        (t) => t.quoteRequest._count.quotes < QUOTE_LIMITS.MAX_QUOTES,
+      ).length,
     };
   }
 
@@ -856,7 +1063,7 @@ export class ChatService {
       throw new BadRequestException(CHAT_ERROR_MESSAGES.RULES_NOT_AGREED);
     }
     const t = await this.getStoreThread(storeId, threadId);
-    const w = this.writeState("SHOP", t, await this.hasActiveOrder(t.consumerId, storeId));
+    const w = this.writeState("SHOP", t, await this.writeContext("SHOP", t));
     if (!w.ok) throw new ForbiddenException(w.message ?? CHAT_ERROR_MESSAGES.CANNOT_SEND);
     return this.sendInto(t, "SHOP", sellerId, dto);
   }
@@ -886,7 +1093,7 @@ export class ChatService {
       : null;
     const active = CHAT_ACTIVE_ORDER_STATUSES.includes(order.orderStatus as OrderStatus);
     const write: ChatWriteStateDto = thread
-      ? this.writeState("SHOP", thread, await this.hasActiveOrder(order.consumerId, storeId))
+      ? this.writeState("SHOP", thread, await this.writeContext("SHOP", thread))
       : order.consumer.withdrawnAt
         ? { ok: false, message: "손님이 탈퇴해 대화가 지워졌어요." }
         : active
@@ -936,7 +1143,7 @@ export class ChatService {
       if (!active) throw new ForbiddenException(CHAT_ERROR_MESSAGES.ORDER_NOT_ACTIVE);
       thread = await this.createThread(order.consumerId, shopId);
     }
-    const w = this.writeState("SHOP", thread, await this.hasActiveOrder(order.consumerId, storeId));
+    const w = this.writeState("SHOP", thread, await this.writeContext("SHOP", thread));
     if (!w.ok) throw new ForbiddenException(w.message ?? CHAT_ERROR_MESSAGES.CANNOT_SEND);
     return this.sendInto(thread, "SHOP", sellerId, dto, {
       kind: "ORDER",
@@ -965,6 +1172,328 @@ export class ChatService {
     await this.assertStoreOwner(sellerId, storeId);
     const t = await this.getStoreThread(storeId, threadId);
     return this.report("SHOP", sellerId, t, dto);
+  }
+
+  // ───────────────────────── 견적(I-46 ②) ─────────────────────────
+
+  /** 입점 가게의 가게 명부 줄 */
+  async shopIdForStore(storeId: string): Promise<string> {
+    return (await this.ensureShopForStore(storeId)).shopId;
+  }
+
+  /** 입점 전 가게(카카오 장소, 또는 운영자가 넣은 가게)의 가게 명부 줄 */
+  async shopIdForUnentered(input: { kakaoPlaceId: string | null; name: string }): Promise<string> {
+    const name = input.name.slice(0, 100);
+    if (input.kakaoPlaceId) {
+      const shop = await this.prisma.shop.upsert({
+        where: { kakaoPlaceId: input.kakaoPlaceId },
+        create: { kakaoPlaceId: input.kakaoPlaceId, name, unentered: true },
+        update: {},
+        select: { id: true },
+      });
+      return shop.id;
+    }
+    const shop = await this.prisma.shop.create({
+      data: { name, unentered: true },
+      select: { id: true },
+    });
+    return shop.id;
+  }
+
+  private async findOrCreateThreadFor(
+    consumerId: string,
+    shopId: string,
+    listed: boolean,
+  ): Promise<ThreadRow> {
+    const existing = await this.prisma.chatThread.findUnique({
+      where: { consumerId_shopId: { consumerId, shopId } },
+      select: THREAD_SELECT,
+    });
+    if (existing) return existing;
+    try {
+      return await this.prisma.chatThread.create({
+        data: { consumerId, shopId, consumerListedAt: listed ? new Date() : null },
+        select: THREAD_SELECT,
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        return this.prisma.chatThread.findUniqueOrThrow({
+          where: { consumerId_shopId: { consumerId, shopId } },
+          select: THREAD_SELECT,
+        });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * 입점 가게 채팅방에 손님 요청서 카드를 넣는다(판매자 앱에서 받기, 운영자 결정 2026-11-12 A안).
+   * 사장님 "답할 것"에 들어가고 휴대폰 알림이 간다. 손님 목록에는 가게가 답하기 전까지 보이지 않는다.
+   * 같은 요청은 한 번만 들어간다. @returns 방 ID
+   */
+  async postQuoteRequestCard(input: {
+    consumerId: string;
+    shopId: string;
+    requestId: string;
+    snapshot: CardSnapshot;
+  }): Promise<string> {
+    const thread = await this.findOrCreateThreadFor(input.consumerId, input.shopId, false);
+    const { row, created } = await this.insertMessage(thread.id, {
+      clientId: `quote-request:${input.requestId}`.slice(0, 64),
+      sender: "CONSUMER",
+      senderSellerId: null,
+      kind: "QUOTE_REQUEST",
+      refQuoteRequestId: input.requestId,
+      cardSnapshot: input.snapshot as Prisma.InputJsonValue,
+    });
+    if (created) {
+      const now = row.createdAt;
+      await this.prisma.chatThread.update({
+        where: { id: thread.id },
+        data: {
+          lastMessageAt: now,
+          lastMessageSender: "CONSUMER",
+          lastMessagePreview: CHAT_QUOTE_PREVIEWS.REQUEST,
+          lastConsumerMessageAt: now,
+          consumerReadAt: now,
+          shopLockedAt: null,
+        },
+      });
+      await this.notify.afterQuoteEvent({
+        threadId: thread.id,
+        seller: {
+          title: SELLER_QUOTE_PUSH_TITLES.REQUEST,
+          body: input.snapshot.subtitle ?? input.snapshot.title,
+        },
+      });
+    }
+    return thread.id;
+  }
+
+  /**
+   * 가게 견적 카드(도착·고침). 손님 목록에 방이 보이기 시작한다.
+   * 채팅 알림·안 읽은 수는 만들지 않는다(견적 알림이 따로 가고 "내 견적"에 숫자가 생김, 기획 I-11 "한 일에 알림은 한 번만").
+   */
+  async postQuoteCard(input: {
+    consumerId: string;
+    shopId: string;
+    requestId: string;
+    quoteId: string;
+    version: number;
+    edited: boolean;
+    senderSellerId: string | null;
+    snapshot: CardSnapshot;
+  }): Promise<string> {
+    const thread = await this.findOrCreateThreadFor(input.consumerId, input.shopId, true);
+    const unreadBefore = isUnreadFor("CONSUMER", thread);
+    const { row, created } = await this.insertMessage(thread.id, {
+      clientId: `quote:${input.quoteId}:${input.version}`.slice(0, 64),
+      sender: "SHOP",
+      senderSellerId: input.senderSellerId,
+      kind: "QUOTE",
+      refQuoteRequestId: input.requestId,
+      cardSnapshot: input.snapshot as Prisma.InputJsonValue,
+    });
+    if (created) {
+      const now = row.createdAt;
+      await this.prisma.chatThread.update({
+        where: { id: thread.id },
+        data: {
+          lastMessageAt: now,
+          lastMessageSender: "SHOP",
+          lastMessagePreview: input.edited
+            ? CHAT_QUOTE_PREVIEWS.QUOTE_EDITED
+            : CHAT_QUOTE_PREVIEWS.QUOTE,
+          shopReadAt: now,
+          shopSeenAt: now,
+          consumerListedAt: thread.consumerListedAt ?? now,
+          ...(unreadBefore ? {} : { consumerReadAt: now }),
+        },
+      });
+      await this.notify.afterQuoteEvent({ threadId: thread.id });
+    }
+    return thread.id;
+  }
+
+  /**
+   * 손님이 견적을 고름. 고른 가게 방에 "이 견적을 골랐어요"(가게 답할 것, 입점 가게는 휴대폰 알림),
+   * 다른 가게 방에는 가게에만 보이는 "손님이 다른 가게 견적을 골랐어요"와 쓰기 잠금(손님이 다시 말하면 풀림).
+   * @returns 고른 가게와의 방 ID
+   */
+  async postChosenCards(input: {
+    consumerId: string;
+    requestId: string;
+    chosenShopId: string;
+    otherShopIds: string[];
+    snapshot: CardSnapshot;
+  }): Promise<string> {
+    const stamp = Date.now();
+    const thread = await this.findOrCreateThreadFor(input.consumerId, input.chosenShopId, true);
+    const { row } = await this.insertMessage(thread.id, {
+      clientId: `quote-chosen:${input.requestId}:${stamp}`.slice(0, 64),
+      sender: "CONSUMER",
+      senderSellerId: null,
+      kind: "QUOTE_CHOSEN",
+      refQuoteRequestId: input.requestId,
+      cardSnapshot: input.snapshot as Prisma.InputJsonValue,
+    });
+    const now = row.createdAt;
+    await this.prisma.chatThread.update({
+      where: { id: thread.id },
+      data: {
+        lastMessageAt: now,
+        lastMessageSender: "CONSUMER",
+        lastMessagePreview: CHAT_QUOTE_PREVIEWS.CHOSEN,
+        lastConsumerMessageAt: now,
+        consumerReadAt: now,
+        consumerSeenAt: now,
+        consumerListedAt: thread.consumerListedAt ?? now,
+        shopLockedAt: null,
+      },
+    });
+    await this.notify.afterQuoteEvent({
+      threadId: thread.id,
+      seller: {
+        title: SELLER_QUOTE_PUSH_TITLES.CHOSEN,
+        body: input.snapshot.subtitle ?? input.snapshot.title,
+      },
+    });
+
+    for (const shopId of input.otherShopIds) {
+      if (shopId === input.chosenShopId) continue;
+      const other = await this.prisma.chatThread.findUnique({
+        where: { consumerId_shopId: { consumerId: input.consumerId, shopId } },
+        select: { id: true },
+      });
+      if (!other) continue;
+      await this.insertMessage(other.id, {
+        clientId: `quote-other:${input.requestId}:${stamp}`.slice(0, 64),
+        sender: "SYSTEM",
+        senderSellerId: null,
+        kind: "QUOTE_CHOSEN",
+        refQuoteRequestId: input.requestId,
+        onlyFor: "SHOP",
+        cardSnapshot: {
+          title: "손님이 다른 가게 견적을 골랐어요",
+          subtitle: "손님이 다시 말을 걸면 대화를 이어 갈 수 있어요",
+          otherChosen: true,
+        } as Prisma.InputJsonValue,
+      });
+      await this.prisma.chatThread.update({
+        where: { id: other.id },
+        data: { shopLockedAt: new Date() },
+      });
+      await this.notify.afterQuoteEvent({ threadId: other.id });
+    }
+    return thread.id;
+  }
+
+  /**
+   * 견적 요청이 마감·닫힘·다른 가게 고름으로 끝나면, 요청서 카드만 있고 사장님이 아직 답하지 않은 방을
+   * "답할 것"·안 읽음에서 뺀다(30일 동안 답할 것으로 남지 않게). 방과 카드는 그대로 두고 카드에 "마감"이 보인다.
+   * @returns 바꾼 방 수
+   */
+  async retireQuoteRequestCards(requestId: string): Promise<number> {
+    const now = new Date();
+    const threads = await this.prisma.chatThread.findMany({
+      where: {
+        lastMessageSender: "CONSUMER",
+        lastMessagePreview: CHAT_QUOTE_PREVIEWS.REQUEST,
+        messages: { some: { kind: "QUOTE_REQUEST", refQuoteRequestId: requestId } },
+      },
+      select: { id: true, shopId: true, lastMessageAt: true },
+    });
+    let retired = 0;
+    for (const t of threads) {
+      // 같은 손님이 이 가게에 보낸 다른 요청이 아직 답을 기다리면 "답할 것"에 남긴다
+      // (전에는 끝난 요청 하나 때문에 열려 있는 요청까지 사장님 할 일에서 사라졌다)
+      if (await this.hasOtherOpenRequestCard(t.id, t.shopId, requestId, now)) continue;
+      await this.prisma.chatThread.update({
+        where: { id: t.id },
+        data: { lastMessageSender: "SYSTEM", shopReadAt: t.lastMessageAt ?? now },
+      });
+      await this.notify.afterQuoteEvent({ threadId: t.id });
+      retired += 1;
+    }
+    return retired;
+  }
+
+  /** 이 방에 다른 요청서 카드가 있고, 그 요청이 아직 받는 중인데 이 가게가 답하지 않았나 */
+  private async hasOtherOpenRequestCard(
+    threadId: string,
+    shopId: string,
+    requestId: string,
+    now: Date,
+  ): Promise<boolean> {
+    const cards = await this.prisma.chatMessage.findMany({
+      where: { threadId, kind: "QUOTE_REQUEST", refQuoteRequestId: { not: requestId } },
+      select: { refQuoteRequestId: true },
+    });
+    const ids = cards.map((c) => c.refQuoteRequestId).filter((v): v is string => !!v);
+    if (ids.length === 0) return false;
+    const waiting = await this.prisma.quoteRequestStore.count({
+      where: {
+        quoteRequestId: { in: ids },
+        shopId,
+        declinedAt: null,
+        quote: { is: null },
+        quoteRequest: {
+          status: QuoteRequestStatus.OPEN,
+          chosenTargetId: null,
+          deadlineAt: { gt: now },
+        },
+      },
+    });
+    return waiting > 0;
+  }
+
+  /** 손님 한 명과 여러 가게의 방 번호(한 번에 읽기). 방이 없는 가게는 빠진다 */
+  async threadIdsFor(consumerId: string, shopIds: string[]): Promise<Map<string, string>> {
+    if (shopIds.length === 0) return new Map();
+    const rows = await this.prisma.chatThread.findMany({
+      where: { consumerId, shopId: { in: shopIds } },
+      select: { id: true, shopId: true },
+    });
+    return new Map(rows.map((r) => [r.shopId, r.id]));
+  }
+
+  /** 이 손님 × 가게 방(없으면 null) */
+  async threadIdFor(consumerId: string, shopId: string): Promise<string | null> {
+    const t = await this.prisma.chatThread.findUnique({
+      where: { consumerId_shopId: { consumerId, shopId } },
+      select: { id: true },
+    });
+    return t?.id ?? null;
+  }
+
+  /** 견적 링크(입점 전 가게) 쪽에서 대화 읽기. 방이 없으면 null */
+  async messagesForLink(
+    pair: { consumerId: string; shopId: string },
+    query: ChatMessagesQueryDto,
+    /** 이 때부터의 글만(견적 링크는 그 요청이 온 뒤 대화만 보인다) */
+    since?: Date,
+  ): Promise<ChatMessagesDto | null> {
+    const t = await this.prisma.chatThread.findUnique({
+      where: { consumerId_shopId: pair },
+      select: THREAD_SELECT,
+    });
+    if (!t) return null;
+    return this.listMessages("SHOP", t, "link", query, since);
+  }
+
+  /** 견적 링크(입점 전 가게) 쪽에서 보내기. 견적을 보내 방이 생긴 뒤에만 */
+  async sendForLink(
+    pair: { consumerId: string; shopId: string },
+    dto: ChatSendDto,
+  ): Promise<ChatSendResultDto> {
+    const t = await this.prisma.chatThread.findUnique({
+      where: { consumerId_shopId: pair },
+      select: THREAD_SELECT,
+    });
+    if (!t || !t.shop.unentered) throw new NotFoundException(CHAT_ERROR_MESSAGES.THREAD_NOT_FOUND);
+    const w = this.writeState("SHOP", t, await this.writeContext("SHOP", t));
+    if (!w.ok) throw new ForbiddenException(w.message ?? CHAT_ERROR_MESSAGES.CANNOT_SEND);
+    return this.sendInto(t, "SHOP", null, dto);
   }
 
   // ───────────────────────── 내부 ─────────────────────────
