@@ -27,6 +27,7 @@ import type {
   ChatSendResultDto,
 } from "@apps/backend/modules/chat/dto/chat.dto";
 import {
+  QUOTE_CONTACT_LABELS,
   QUOTE_ERROR_MESSAGES,
   QUOTE_LIMITS,
   QUOTE_RESERVATION_ACTIVE_STATUSES,
@@ -40,6 +41,7 @@ import type {
   AdminQuoteSectionDto,
   ChooseQuoteResponseDto,
   ConsumerQuoteSectionDto,
+  QuoteContactDto,
   QuoteDto,
   QuoteInputDto,
   QuoteLinkViewDto,
@@ -51,11 +53,13 @@ import {
   isAccepting,
   isStalled,
   linkChatOpenUntil,
+  normalizeContacts,
   quoteTotal,
   rechooseUntil,
   shopCanSeeRequestContent,
   shopVisibleCustomer,
   targetState,
+  type QuoteContact,
 } from "@apps/backend/modules/quote-request/utils/quote-policy.util";
 import {
   formatBudget,
@@ -71,6 +75,7 @@ const QUOTE_SELECT = {
   unitPrice: true,
   priceMayVary: true,
   similarity: true,
+  contacts: true,
   memo: true,
   photoUrls: true,
   editedAt: true,
@@ -181,7 +186,29 @@ export class QuoteService {
     return t.store?.name ?? t.name;
   }
 
-  private toQuoteDto(t: TargetRow, quantity: number): QuoteDto | null {
+  /** 저장한 연락할 곳을 보여 줄 모양으로(누르면 열 주소 포함) */
+  private contactsDto(raw: Prisma.JsonValue): QuoteContactDto[] {
+    const list = Array.isArray(raw) ? (raw as unknown as QuoteContact[]) : [];
+    return list
+      .filter((c) => c && typeof c.value === "string" && QUOTE_CONTACT_LABELS[c.type])
+      .map((c) => ({
+        type: c.type,
+        label: QUOTE_CONTACT_LABELS[c.type],
+        value: c.value,
+        href:
+          c.type === "PHONE"
+            ? `tel:${c.value.replace(/-/g, "")}`
+            : c.type === "INSTAGRAM"
+              ? `https://www.instagram.com/${c.value}`
+              : c.value,
+      }));
+  }
+
+  /**
+   * @param showContacts 손님 화면은 이 가게를 고른 뒤에만 연락할 곳을 보인다(운영자 결정 11-13).
+   *   가게 쪽(링크·판매자 앱)·운영자는 늘 본다
+   */
+  private toQuoteDto(t: TargetRow, quantity: number, showContacts = true): QuoteDto | null {
     const q = t.quote;
     if (!q) return null;
     const sim = QUOTE_SIMILARITY_LABELS[q.similarity];
@@ -200,8 +227,7 @@ export class QuoteService {
       similarity: q.similarity,
       similarityLabel: sim.label,
       similarityDetail: sim.detail,
-      // 주문 받는 곳은 묻지 않음(11-12). 바뀌기 전 화면 호환용 빈 목록
-      contacts: [],
+      contacts: showContacts ? this.contactsDto(q.contacts) : [],
       memo: q.memo,
       photoUrls: q.photoUrls,
       edited: !!q.editedAt,
@@ -257,7 +283,7 @@ export class QuoteService {
       orderId: reservedOrderId(t),
       quote: this.toQuoteDto(t, r.quantity),
       declineReason: t.quote ? null : t.declineReason,
-      prefillContacts: [],
+      prefillContacts: t.quote ? this.contactsDto(t.quote.contacts) : [],
     };
   }
 
@@ -310,10 +336,14 @@ export class QuoteService {
     ) {
       throw new BadRequestException(QUOTE_ERROR_MESSAGES.PHOTO_INVALID);
     }
+    // 연락할 곳 칸이 없는 화면(판매자 앱·운영자 대신 적기)이 고치면 가게가 적은 연락할 곳을 그대로 둔다
+    const contacts = dto.contacts === undefined ? undefined : normalizeContacts(dto.contacts);
+    if (contacts === null) throw new BadRequestException(QUOTE_ERROR_MESSAGES.CONTACT_INVALID);
     const data = {
       unitPrice: dto.unitPrice,
       priceMayVary: !!dto.priceMayVary,
       similarity: dto.similarity,
+      ...(contacts ? { contacts: contacts as unknown as Prisma.InputJsonValue } : {}),
       memo: dto.memo?.trim() || null,
       photoUrls,
     };
@@ -617,7 +647,8 @@ export class QuoteService {
       withQuote.map((t) => t.shopId).filter((v): v is string => !!v),
     );
     const quotes = withQuote.map((t) => ({
-      ...this.toQuoteDto(t, r.quantity)!,
+      // 연락할 곳은 손님이 이 가게를 고른 뒤에만(그 전엔 여러 가게와 밖에서 먼저 연락하지 않게)
+      ...this.toQuoteDto(t, r.quantity, r.chosenTargetId === t.id)!,
       unseen: !t.quote!.consumerSeenAt,
       chosen: r.chosenTargetId === t.id,
       canChoose: !reservationOrderId && canChoose(r, t.id, now, stalled),

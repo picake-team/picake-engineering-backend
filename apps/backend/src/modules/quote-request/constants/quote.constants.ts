@@ -14,6 +14,7 @@ export const QUOTE_LIMITS = {
   UNIT_PRICE_MAX: 10_000_000,
   MEMO_MAX_LENGTH: 200,
   MAX_PHOTOS: 3,
+  CONTACT_VALUE_MAX_LENGTH: 200,
   /** 고른 뒤 이 시간 안에는 다른 견적으로 다시 고를 수 있다(픽업 1시간 전이 먼저 오면 그때까지) */
   RECHOOSE_HOURS: 24,
   /** 고른 가게가 손님 마지막 글에 이 시간 답이 없으면 다시 고르기가 열리고 운영자에게 알린다 */
@@ -32,9 +33,19 @@ export const QUOTE_LIMITS = {
   JOB_INTERVAL_MS: 5 * 60 * 1000,
 } as const;
 
-/** 주문 받는 곳 종류. 쓰지 않음(11-12 운영자: 채팅에서 정함) — 옛 화면 호환용 입력 칸 크기에만 남김 */
-export const QUOTE_CONTACT_TYPES = ["KAKAO", "INSTAGRAM", "PHONE", "NAVER"] as const;
+/**
+ * 손님이 연락할 곳(선택). 견적 링크 대화(Picake)는 늘 열려 있고, 가게가 원하면 더한다.
+ * 손님에게는 그 가게를 고른 뒤에만 보인다(운영자 결정 11-13. 11-12에 없앤 "주문 받는 곳"을 고른 뒤에만 보이게 되살림)
+ */
+export const QUOTE_CONTACT_TYPES = ["KAKAO", "INSTAGRAM", "NAVER", "PHONE"] as const;
 export type QuoteContactType = (typeof QUOTE_CONTACT_TYPES)[number];
+
+export const QUOTE_CONTACT_LABELS: Record<QuoteContactType, string> = {
+  KAKAO: "카카오톡 채널",
+  INSTAGRAM: "인스타그램",
+  NAVER: "네이버 톡톡",
+  PHONE: "전화",
+};
 
 export const QUOTE_SIMILARITY_LABELS: Record<QuoteSimilarity, { label: string; detail: string }> = {
   EXACT: { label: "거의 똑같이", detail: "모양·색·글씨까지 사진대로 만들어요" },
@@ -97,6 +108,7 @@ export const QUOTE_ERROR_MESSAGES = {
   FULL: "이 요청은 견적이 다 모였어요.",
   PRICE_INVALID: "금액은 1,000원부터 1,000만 원까지 숫자로 적어 주세요.",
   PHOTO_INVALID: "사진은 올린 사진만 3장까지 넣을 수 있어요.",
+  CONTACT_INVALID: "연락할 곳의 주소나 번호를 다시 확인해 주세요.",
   CANNOT_CHOOSE: "지금은 이 견적을 고를 수 없어요.",
   NOT_UNENTERED: "Picake에 입점한 가게는 판매자 앱에서 견적을 보내요.",
   STORE_ALREADY_ADDED: "이미 물어본 가게예요.",
