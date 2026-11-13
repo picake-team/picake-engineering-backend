@@ -176,7 +176,8 @@ export function targetState(input: {
   return "OPEN";
 }
 
-const PHONE_RE = /^0\d{1,2}-?\d{3,4}-?\d{4}$/;
+/** 일반 전화·휴대폰(0으로 시작)과 가게 대표번호(1588·1644 같은 8자리) */
+const PHONE_RE = /^(0\d{1,2}-?\d{3,4}-?\d{4}|1[5-9]\d{2}-?\d{4})$/;
 
 /** 누르면 열 주소로 받는 곳(남의 사이트로 보내는 주소는 받지 않는다) */
 const CONTACT_HOSTS: Partial<Record<QuoteContactType, string[]>> = {
