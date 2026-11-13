@@ -152,6 +152,18 @@ for (const to of byTo.keys()) {
 }
 if (bursts === 0) p("| - | - | 없음 | - |");
 
+// 최근 48시간 시각표(번호·내용 없이 받는 사람 글자·시각·템플릿만)
+p("");
+p("| 한국 시각 | 받는 사람 | 템플릿 |");
+p("|---|---|---|");
+const recent = messages
+  .filter((m) => Date.now() - new Date(created(m)).getTime() < 48 * 3600 * 1000)
+  .sort((a, b) => new Date(created(a)) - new Date(created(b)));
+for (const m of recent) {
+  const t = new Date(new Date(created(m)).getTime() + 9 * 3600 * 1000).toISOString();
+  p(`| ${t.slice(5, 10)} ${t.slice(11, 16)} | ${toLabel.get(m.to)} | ${label(m)} |`);
+}
+
 // 결과 코드
 const codes = new Map();
 for (const m of messages)
