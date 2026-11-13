@@ -15,7 +15,7 @@ import type {
   ReserveQuoteResponseDto,
 } from "@apps/backend/modules/quote-request/dto/quote.dto";
 import { quoteTotal } from "@apps/backend/modules/quote-request/utils/quote-policy.util";
-import { formatCake } from "@apps/backend/modules/quote-request/utils/quote-request-label.util";
+import { formatQuoteOrderName } from "@apps/backend/modules/quote-request/utils/quote-request-label.util";
 
 /**
  * 견적으로 예약하기(기획 I-01, 운영자 결정 2026-11-13).
@@ -75,7 +75,7 @@ export class QuoteReservationService {
       consumerId,
       storeId: target.storeId,
       quoteId: quote.id,
-      productName: formatCake(r),
+      productName: formatQuoteOrderName(r),
       // 사장님 견적 사진이 있으면 그것, 없으면 손님 참고 사진(주문 목록·알림에 보이는 그림)
       productImages: (quote.photoUrls.length ? quote.photoUrls : r.photoUrls).slice(0, 3),
       totalQuantity: r.quantity,

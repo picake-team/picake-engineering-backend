@@ -144,7 +144,7 @@ describe("견적으로 예약하기 (integration)", () => {
       totalPrice: 52_000,
       reservationPhone: t.consumer.phone,
     });
-    expect(order.productName).toContain("1호");
+    expect(order.productName).toBe("견적 1호 케이크");
     expect(t.hooks.afterOrderStatusTransition).toHaveBeenCalledWith(
       expect.objectContaining({ orderId, toStatus: OrderStatus.RESERVATION_REQUESTED }),
     );
