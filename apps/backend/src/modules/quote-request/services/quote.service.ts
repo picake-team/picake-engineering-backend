@@ -53,6 +53,7 @@ import {
   quoteTotal,
   rechooseUntil,
   shopCanSeeRequestContent,
+  shopVisibleCustomer,
   targetState,
 } from "@apps/backend/modules/quote-request/utils/quote-policy.util";
 import {
@@ -126,6 +127,8 @@ const REQUEST_SELECT = {
   budgetMin: true,
   budgetMax: true,
   requestNote: true,
+  shareContact: true,
+  consumer: { select: { name: true, nickname: true, phone: true, withdrawnAt: true } },
   createdAt: true,
   _count: { select: { quotes: true } },
 } satisfies Prisma.QuoteRequestSelect;
@@ -205,7 +208,10 @@ export class QuoteService {
     });
   }
 
-  /** 가게 쪽(견적 링크·판매자 앱)에서 보는 요청서. 손님 이름·연락처는 넣지 않고 지역은 동네까지 */
+  /**
+   * 가게 쪽(견적 링크·판매자 앱)에서 보는 요청서. 지역은 동네까지.
+   * 손님 이름·휴대폰은 보낼 때 안내를 보고 보낸 요청(shareContact)에만, 손님 글과 같은 기간 동안 넣는다(운영자 결정 11-13).
+   */
   private forShop(t: TargetWithRequest, now: Date): QuoteRequestForShopDto {
     const r = t.quoteRequest;
     const state = this.stateOf(r, t, now);
@@ -226,6 +232,7 @@ export class QuoteService {
       requestNote: visible ? r.requestNote : null,
       photoUrls: visible ? r.photoUrls : [],
       contentHidden: !visible,
+      customer: visible ? shopVisibleCustomer(r) : null,
       state,
       // 어려워요로 답한 가게도 마감 전엔 견적으로 바꿀 수 있지만, 그사이 견적이 다 모였으면 보낼 수 없다
       canEdit:

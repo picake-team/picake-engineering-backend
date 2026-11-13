@@ -94,6 +94,7 @@ export class QuoteRequestWriteService {
         budgetMin,
         budgetMax,
         requestNote: dto.requestNote?.trim() || null,
+        shareContact: dto.shareContact === true,
         entry: dto.entry ?? null,
         stores: { createMany: { data: stores } },
       },
