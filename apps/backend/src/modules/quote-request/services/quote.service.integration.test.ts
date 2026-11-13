@@ -137,8 +137,15 @@ describe("견적 ② (integration)", () => {
     expect(view.state).toBe("OPEN");
     const q = await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(58000));
     expect(q).toMatchObject({ total: 58000, similarityLabel: "거의 똑같이", isPicakeStore: true });
-    // 주문 받는 곳은 묻지 않음(11-12): 옛 화면이 보내도 저장하지 않는다
-    expect(q.contacts).toEqual([]);
+    // 손님이 연락할 곳은 가게 쪽에는 바로 보인다
+    expect(q.contacts).toEqual([
+      {
+        type: "INSTAGRAM",
+        label: "인스타그램",
+        value: "gureum_bakery",
+        href: "https://www.instagram.com/gureum_bakery",
+      },
+    ]);
     expect(t.notify.quoteArrived).toHaveBeenCalledWith(
       expect.objectContaining({ requestId, edited: false, total: 58000 }),
     );
@@ -158,6 +165,8 @@ describe("견적 ② (integration)", () => {
       storeName: "구름베이커리",
     });
     expect(first.quotes[0].threadId).toBe(consumerList.threads[0].id);
+    // 손님에게 연락할 곳은 이 가게를 고르기 전에는 보이지 않는다
+    expect(first.quotes[0].contacts).toEqual([]);
     expect((await t.quotes.consumerSection(t.consumer.id, requestId)).quotes[0].unseen).toBe(false);
 
     // 고치면 "고침"과 고침 알림. 10분 안에 또 고치면 알림은 다시 보내지 않는다
@@ -178,6 +187,13 @@ describe("견적 ② (integration)", () => {
     const calls = t.notify.quoteArrived.mock.calls.length;
     await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(54000));
     expect(t.notify.quoteArrived.mock.calls.length).toBe(calls);
+
+    // 연락할 곳 칸이 없는 화면이 고치면(contacts 없음) 적어 둔 연락할 곳은 그대로
+    const kept = await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, {
+      unitPrice: 53000,
+      similarity: "EXACT",
+    });
+    expect(kept.contacts.map((c) => c.value)).toEqual(["gureum_bakery"]);
   });
 
   it("손님 이름·휴대폰: 보낼 때 안내를 본 요청만 가게 쪽에 보이고, 다른 가게를 고르면 사라진다(11-13)", async () => {
@@ -239,9 +255,24 @@ describe("견적 ② (integration)", () => {
       chatOpen: false,
       area: "연남동",
     });
-    await t.quotes.linkSubmit(token, quoteInput(52000));
+    // 잘못된 연락할 곳(남의 주소)은 받지 않는다
+    await expect(
+      t.quotes.linkSubmit(token, {
+        ...quoteInput(52000),
+        contacts: [{ type: "KAKAO" as const, value: "https://example.com/kakao" }],
+      }),
+    ).rejects.toThrow(QUOTE_ERROR_MESSAGES.CONTACT_INVALID);
+    await t.quotes.linkSubmit(token, {
+      ...quoteInput(52000),
+      contacts: [
+        { type: "KAKAO" as const, value: "pf.kakao.com/_somsatang" },
+        { type: "PHONE" as const, value: "02-123-4567" },
+      ],
+    });
     const sent = await t.quotes.linkView(token);
     expect(sent).toMatchObject({ state: "SENT", chatOpen: true });
+    // 가게가 고칠 때 미리 채움
+    expect(sent.prefillContacts.map((c) => c.type)).toEqual(["KAKAO", "PHONE"]);
     expect(t.notify.ops).toHaveBeenCalledWith("QUOTE_ARRIVED", requestId, "솜사탕케이크");
 
     // 손님이 입점 전 가게에 묻고, 가게는 링크에서 답한다
@@ -289,8 +320,21 @@ describe("견적 ② (integration)", () => {
     );
 
     // 24시간 안에는 다른 견적으로 다시 고를 수 있다 → 입점 전 가게는 운영자 알림
+    expect(unenteredQuote.contacts).toEqual([]);
     const again = await t.quotes.choose(t.consumer.id, requestId, unenteredQuote.id);
     expect(again.threadId).toBe(unenteredQuote.threadId);
+    // 고른 뒤에는 그 가게가 적은 연락할 곳이 손님에게 보인다(다른 가게 것은 계속 안 보임)
+    const afterChoose = await t.quotes.consumerSection(t.consumer.id, requestId);
+    expect(afterChoose.quotes.find((q) => q.id === unenteredQuote.id)?.contacts).toEqual([
+      {
+        type: "KAKAO",
+        label: "카카오톡 채널",
+        value: "https://pf.kakao.com/_somsatang",
+        href: "https://pf.kakao.com/_somsatang",
+      },
+      { type: "PHONE", label: "전화", value: "02-123-4567", href: "tel:021234567" },
+    ]);
+    expect(afterChoose.quotes.find((q) => q.isPicakeStore)?.contacts).toEqual([]);
     expect(t.notify.ops).toHaveBeenCalledWith("CHOSEN_UNENTERED", requestId, "솜사탕케이크");
     await t.quotes.linkSend(token, { clientId: cid(), text: "감사합니다! 연락드릴게요" });
     const admin = await t.quotes.adminSection(requestId);

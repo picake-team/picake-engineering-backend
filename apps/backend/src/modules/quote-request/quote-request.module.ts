@@ -13,6 +13,8 @@ import { QuoteRequestOpsAlertService } from "@apps/backend/modules/quote-request
 import { QuoteService } from "@apps/backend/modules/quote-request/services/quote.service";
 import { QuoteNotifyService } from "@apps/backend/modules/quote-request/services/quote-notify.service";
 import { QuoteJobsService } from "@apps/backend/modules/quote-request/services/quote-jobs.service";
+import { OrderModule } from "@apps/backend/modules/order/order.module";
+import { QuoteReservationService } from "@apps/backend/modules/quote-request/services/quote-reservation.service";
 
 /**
  * 견적 요청 모듈(기획 I-46)
@@ -29,9 +31,11 @@ import { QuoteJobsService } from "@apps/backend/modules/quote-request/services/q
     NotificationModule,
     OpsAlertModule,
     SolapiModule,
+    OrderModule,
   ],
   providers: [
     QuoteRequestReadService,
+    QuoteReservationService,
     QuoteRequestWriteService,
     QuoteRequestOpsAlertService,
     QuoteRequestCleanupService,
@@ -41,6 +45,7 @@ import { QuoteJobsService } from "@apps/backend/modules/quote-request/services/q
   ],
   exports: [
     QuoteRequestReadService,
+    QuoteReservationService,
     QuoteRequestWriteService,
     QuoteRequestCleanupService,
     QuoteService,

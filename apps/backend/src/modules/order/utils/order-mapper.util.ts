@@ -10,6 +10,7 @@ import {
 } from "@apps/backend/modules/order/constants/order.constants";
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { refundCancellationPolicyFromDb } from "@apps/backend/modules/store/utils/store-refund-cancellation-policy.util";
+import { QUOTE_SIMILARITY_LABELS } from "@apps/backend/modules/quote-request/constants/quote.constants";
 
 /** 주문 응답에 실을 스토어 연락·정산·환불 규정 select (후기 등 동일 include와 공유) */
 export const ORDER_RESPONSE_STORE_SELECT = {
@@ -25,11 +26,25 @@ export const ORDER_RESPONSE_STORE_SELECT = {
 /**
  * Prisma Order 엔티티 타입 (orderItems·연결 후기 id 포함)
  */
+/** 견적으로 만든 예약(기획 I-01)의 견적·요청서 */
+export const ORDER_QUOTE_SELECT = {
+  memo: true,
+  photoUrls: true,
+  similarity: true,
+  quoteRequest: {
+    select: { id: true, description: true, requestNote: true, photoUrls: true },
+  },
+} as const satisfies Prisma.QuoteSelect;
+
 type OrderWithItems = Order & {
   orderItems: OrderItem[];
   review: { id: string; deletedAt: Date | null } | null;
   store: Prisma.StoreGetPayload<{ select: typeof ORDER_RESPONSE_STORE_SELECT }>;
+  quote?: Prisma.QuoteGetPayload<{ select: typeof ORDER_QUOTE_SELECT }> | null;
 };
+
+/** 손님이 쓴 요청서 글·사진은 픽업 24시간 뒤까지만 가게에 보인다(처리방침 제3조 ②, 견적 P-75와 같게) */
+const QUOTE_CONTENT_HOURS_AFTER_PICKUP = 24;
 
 /**
  * 주문 매핑 유틸리티
@@ -49,17 +64,19 @@ export class OrderMapperUtil {
     store: {
       select: ORDER_RESPONSE_STORE_SELECT,
     },
+    quote: { select: ORDER_QUOTE_SELECT },
   } as const satisfies Prisma.OrderInclude;
 
   /**
    * 주문 상태·연결 후기(소프트 삭제 포함)로 사용자 후기 UI 상태 계산
    */
   static reviewUiFromOrder(
-    order: Pick<Order, "orderStatus"> & {
+    order: Pick<Order, "orderStatus" | "productId"> & {
       review: { id: string; deletedAt: Date | null } | null;
     },
   ): Pick<OrderResponseDto, "myReviewUiStatus" | "linkedProductReviewId"> {
-    if (order.orderStatus !== OrderStatus.PICKUP_COMPLETED) {
+    // 견적으로 만든 예약은 상품이 없어 후기를 받지 않는다(운영자 결정 11-13)
+    if (order.orderStatus !== OrderStatus.PICKUP_COMPLETED || !order.productId) {
       return {
         myReviewUiStatus: OrderMyReviewUiStatus.NOT_AVAILABLE,
         linkedProductReviewId: null,
@@ -120,11 +137,31 @@ export class OrderMapperUtil {
    * @param order - Prisma Order 엔티티 (orderItems 포함)
    * @returns OrderResponseDto 객체
    */
+  /** 견적 예약의 견적·요청서(상품 예약은 null). 요청서 글·사진은 픽업 24시간 뒤에는 가린다 */
+  static quoteInfo(order: OrderWithItems, now: Date = new Date()): OrderResponseDto["quote"] {
+    const q = order.quote;
+    if (!order.quoteId || !q) return null;
+    const hidden =
+      !!order.pickupDate &&
+      now.getTime() >= order.pickupDate.getTime() + QUOTE_CONTENT_HOURS_AFTER_PICKUP * 3600 * 1000;
+    return {
+      quoteRequestId: q.quoteRequest.id,
+      similarityLabel: QUOTE_SIMILARITY_LABELS[q.similarity].label,
+      memo: q.memo,
+      quotePhotoUrls: q.photoUrls,
+      description: hidden ? null : q.quoteRequest.description,
+      requestNote: hidden ? null : q.quoteRequest.requestNote,
+      requestPhotoUrls: hidden ? [] : q.quoteRequest.photoUrls,
+      contentHidden: hidden,
+    };
+  }
+
   static mapToOrderResponse(order: OrderWithItems): OrderResponseDto {
     return {
       id: order.id,
       userId: order.consumerId,
       productId: order.productId,
+      quote: this.quoteInfo(order),
       productName: order.productName ?? "",
       productImages: order.productImages ?? [],
       storeId: order.storeId,

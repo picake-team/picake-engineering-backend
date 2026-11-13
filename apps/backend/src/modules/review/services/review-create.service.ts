@@ -59,6 +59,11 @@ export class ReviewCreateService {
       throw new BadRequestException(REVIEW_ERROR_MESSAGES.REVIEW_ORDER_NOT_ELIGIBLE);
     }
 
+    // 견적으로 만든 예약은 상품이 없어 후기를 받지 않는다(운영자 결정 11-13, 가게 후기는 나중)
+    if (!order.productId) {
+      throw new BadRequestException(REVIEW_ERROR_MESSAGES.REVIEW_QUOTE_ORDER);
+    }
+
     const existingForOrder = await this.prisma.productReview.findUnique({
       where: { orderId: order.id },
       select: { id: true, deletedAt: true },

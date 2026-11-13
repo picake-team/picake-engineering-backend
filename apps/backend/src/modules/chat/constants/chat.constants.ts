@@ -110,4 +110,5 @@ export const CHAT_QUOTE_PREVIEWS = {
   QUOTE: "견적을 보냈어요",
   QUOTE_EDITED: "견적을 고쳤어요",
   CHOSEN: "이 견적을 골랐어요",
+  RESERVED: "예약을 신청했어요",
 } as const;

@@ -1,4 +1,13 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from "@nestjs/common";
+import {
+  Prisma,
+  OrderStatus as DbOrderStatus,
+} from "@apps/backend/infra/database/prisma/generated/client";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import {
   CreateOrderRequestDto,
@@ -257,6 +266,118 @@ export class OrderCreateService {
     LoggerUtil.log(
       `주문 생성 최종 실패: 재시도 루프 종료 - userId: ${userId}, productId: ${productId}, maxRetries: ${maxRetries}`,
     );
+    throw new BadRequestException(ORDER_ERROR_MESSAGES.ORDER_CREATE_FAILED);
+  }
+
+  /**
+   * 견적으로 예약 만들기(기획 I-01): 입점 가게 견적을 고른 손님이 "이 견적으로 예약하기".
+   * 상품 예약과 같이 예약신청으로 만들고, 이후(사장님 예약 확인 → 입금대기 …)는 지금 흐름 그대로다.
+   * 상품·옵션 없이 견적 금액과 요청서 요약을 주문에 남긴다. 같은 견적에 살아 있는 예약이 있으면 막는다.
+   */
+  async createOrderFromQuote(input: {
+    consumerId: string;
+    storeId: string;
+    quoteId: string;
+    productName: string;
+    productImages: string[];
+    totalQuantity: number;
+    totalPrice: number;
+    pickupAt: Date;
+    reservationContactName: string | null;
+    reservationPhone: string | null;
+    activeStatuses: readonly DbOrderStatus[];
+  }): Promise<{ id: string }> {
+    const store = await this.prisma.store.findUnique({
+      where: { id: input.storeId },
+      select: {
+        name: true,
+        address: true,
+        roadAddress: true,
+        detailAddress: true,
+        zonecode: true,
+        latitude: true,
+        longitude: true,
+        weeklyClosedWeekdays: true,
+        standardOpenTime: true,
+        standardCloseTime: true,
+        businessCalendarOverrides: true,
+      },
+    });
+    if (!store) throw new NotFoundException(ORDER_ERROR_MESSAGES.STORE_NOT_FOUND);
+    if (input.pickupAt.getTime() <= Date.now()) {
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.PICKUP_IN_PAST);
+    }
+    if (!isPickupAllowedForStore(input.pickupAt, store)) {
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.PICKUP_OUTSIDE_STORE_BUSINESS_HOURS);
+    }
+
+    const data: Omit<Prisma.OrderUncheckedCreateInput, "orderNumber"> = {
+      consumerId: input.consumerId,
+      productId: null,
+      quoteId: input.quoteId,
+      productName: input.productName,
+      productImages: input.productImages,
+      storeId: input.storeId,
+      storeName: store.name,
+      totalQuantity: input.totalQuantity,
+      totalPrice: input.totalPrice,
+      pickupDate: input.pickupAt,
+      pickupAddress: store.address,
+      pickupRoadAddress: store.roadAddress,
+      pickupDetailAddress: store.detailAddress ?? "",
+      pickupZonecode: store.zonecode,
+      pickupLatitude: store.latitude,
+      pickupLongitude: store.longitude,
+      reservationContactName: input.reservationContactName,
+      reservationPhone: input.reservationPhone,
+      orderStatus: OrderStatus.RESERVATION_REQUESTED,
+    };
+
+    for (let retry = 0; retry < 10; retry++) {
+      try {
+        const created = await this.prisma.$transaction(
+          async (tx) => {
+            // 두 번 눌러도 예약은 하나만(견적 줄을 잠그고 살아 있는 예약이 있는지 본다)
+            await tx.$queryRaw`SELECT id FROM quotes WHERE id = ${input.quoteId} FOR UPDATE`;
+            const existing = await tx.order.count({
+              where: { quoteId: input.quoteId, orderStatus: { in: [...input.activeStatuses] } },
+            });
+            if (existing > 0)
+              throw new ConflictException(ORDER_ERROR_MESSAGES.QUOTE_ALREADY_RESERVED);
+            const ymd = koreaCalendarYmd(new Date());
+            const todayOrderCount = await tx.order.count({
+              where: {
+                createdAt: { gte: koreaCalendarDayStartUtc(ymd), lte: koreaCalendarDayEndUtc(ymd) },
+              },
+            });
+            const sequence = String(todayOrderCount + 1 + retry).padStart(3, "0");
+            const order = await tx.order.create({
+              data: { ...data, orderNumber: `ORD-${ymd.replace(/-/g, "")}-${sequence}` },
+              select: { id: true },
+            });
+            return { id: order.id };
+          },
+          { maxWait: 5000, timeout: 10000 },
+        );
+        this.orderLifecycleHookService.afterOrderStatusTransition({
+          orderId: created.id,
+          fromStatus: null,
+          toStatus: OrderStatus.RESERVATION_REQUESTED,
+          source: ORDER_STATUS_TRANSITION_SOURCE.ORDER_CREATE,
+        });
+        return created;
+      } catch (error: unknown) {
+        const e = error as { code?: string; meta?: { target?: unknown } };
+        const target = Array.isArray(e?.meta?.target)
+          ? (e.meta!.target as string[]).join(",")
+          : String(e?.meta?.target ?? "");
+        if (e?.code === "P2002" && (!target || target.includes("order_number"))) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          continue;
+        }
+        throw error;
+      }
+    }
     throw new BadRequestException(ORDER_ERROR_MESSAGES.ORDER_CREATE_FAILED);
   }
 }

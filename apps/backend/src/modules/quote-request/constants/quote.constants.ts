@@ -1,4 +1,5 @@
 import {
+  OrderStatus,
   QuoteDeclineReason,
   QuoteSimilarity,
 } from "@apps/backend/infra/database/prisma/generated/client";
@@ -13,6 +14,7 @@ export const QUOTE_LIMITS = {
   UNIT_PRICE_MAX: 10_000_000,
   MEMO_MAX_LENGTH: 200,
   MAX_PHOTOS: 3,
+  CONTACT_VALUE_MAX_LENGTH: 200,
   /** 고른 뒤 이 시간 안에는 다른 견적으로 다시 고를 수 있다(픽업 1시간 전이 먼저 오면 그때까지) */
   RECHOOSE_HOURS: 24,
   /** 고른 가게가 손님 마지막 글에 이 시간 답이 없으면 다시 고르기가 열리고 운영자에게 알린다 */
@@ -31,9 +33,19 @@ export const QUOTE_LIMITS = {
   JOB_INTERVAL_MS: 5 * 60 * 1000,
 } as const;
 
-/** 주문 받는 곳 종류. 쓰지 않음(11-12 운영자: 채팅에서 정함) — 옛 화면 호환용 입력 칸 크기에만 남김 */
-export const QUOTE_CONTACT_TYPES = ["KAKAO", "INSTAGRAM", "PHONE", "NAVER"] as const;
+/**
+ * 손님이 연락할 곳(선택). 견적 링크 대화(Picake)는 늘 열려 있고, 가게가 원하면 더한다.
+ * 손님에게는 그 가게를 고른 뒤에만 보인다(운영자 결정 11-13. 11-12에 없앤 "주문 받는 곳"을 고른 뒤에만 보이게 되살림)
+ */
+export const QUOTE_CONTACT_TYPES = ["KAKAO", "INSTAGRAM", "NAVER", "PHONE"] as const;
 export type QuoteContactType = (typeof QUOTE_CONTACT_TYPES)[number];
+
+export const QUOTE_CONTACT_LABELS: Record<QuoteContactType, string> = {
+  KAKAO: "카카오톡 채널",
+  INSTAGRAM: "인스타그램",
+  NAVER: "네이버 톡톡",
+  PHONE: "전화",
+};
 
 export const QUOTE_SIMILARITY_LABELS: Record<QuoteSimilarity, { label: string; detail: string }> = {
   EXACT: { label: "거의 똑같이", detail: "모양·색·글씨까지 사진대로 만들어요" },
@@ -70,7 +82,24 @@ export const SELLER_QUOTE_PUSH_TITLES = {
   CHOSEN: "손님이 견적을 골랐어요",
 } as const;
 
+/** 견적으로 만든 예약이 살아 있는 상태(취소된 예약만 빼고). 있으면 다시 예약·다시 고르기·견적 고치기를 막는다 */
+export const QUOTE_RESERVATION_ACTIVE_STATUSES = [
+  OrderStatus.RESERVATION_REQUESTED,
+  OrderStatus.PAYMENT_PENDING,
+  OrderStatus.PAYMENT_COMPLETED,
+  OrderStatus.CONFIRMED,
+  OrderStatus.PICKUP_PENDING,
+  OrderStatus.PICKUP_COMPLETED,
+  OrderStatus.NO_SHOW,
+] as const;
+
 export const QUOTE_ERROR_MESSAGES = {
+  RESERVE_NOT_CHOSEN: "먼저 견적을 골라 주세요.",
+  RESERVE_UNENTERED: "Picake에 입점한 가게만 예약할 수 있어요. 가게와 채팅으로 정해 주세요.",
+  RESERVE_CLOSED: "끝난 요청이라 예약할 수 없어요.",
+  RESERVE_PRICE_CHANGED: "사장님이 견적을 고쳤어요. 바뀐 금액을 확인하고 다시 예약해 주세요.",
+  RESERVED_CANNOT_RECHOOSE:
+    "이 견적으로 예약했어요. 다른 견적을 고르려면 예약을 먼저 취소해 주세요.",
   LINK_NOT_FOUND: "견적 링크를 찾을 수 없어요. 링크를 다시 확인해 주세요.",
   TARGET_NOT_FOUND: "물어본 가게를 찾을 수 없어요.",
   QUOTE_NOT_FOUND: "견적을 찾을 수 없어요.",
@@ -79,6 +108,7 @@ export const QUOTE_ERROR_MESSAGES = {
   FULL: "이 요청은 견적이 다 모였어요.",
   PRICE_INVALID: "금액은 1,000원부터 1,000만 원까지 숫자로 적어 주세요.",
   PHOTO_INVALID: "사진은 올린 사진만 3장까지 넣을 수 있어요.",
+  CONTACT_INVALID: "연락할 곳의 주소나 번호를 다시 확인해 주세요.",
   CANNOT_CHOOSE: "지금은 이 견적을 고를 수 없어요.",
   NOT_UNENTERED: "Picake에 입점한 가게는 판매자 앱에서 견적을 보내요.",
   STORE_ALREADY_ADDED: "이미 물어본 가게예요.",

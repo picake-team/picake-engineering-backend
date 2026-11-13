@@ -23,6 +23,8 @@ export class ReviewWritableListService {
       consumerId: userId,
       orderStatus: OrderStatus.PICKUP_COMPLETED,
       review: { is: null },
+      // 견적으로 만든 예약은 상품이 없어 후기를 받지 않는다(기획 I-01, 운영자 결정 11-13)
+      productId: { not: null },
     };
 
     const totalItems = await this.prisma.order.count({ where });

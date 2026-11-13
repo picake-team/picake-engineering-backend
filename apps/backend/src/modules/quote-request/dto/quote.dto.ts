@@ -1,17 +1,22 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from "class-validator";
+import { IsValidKoreanPhone } from "@apps/backend/common/decorators/validators.decorator";
 import {
   QuoteDeclineReason,
   QuoteSimilarity,
@@ -24,6 +29,20 @@ import {
 } from "@apps/backend/modules/quote-request/constants/quote.constants";
 
 // ───────────────────────── 입력 ─────────────────────────
+
+export class QuoteContactInputDto {
+  @ApiProperty({ enum: QUOTE_CONTACT_TYPES })
+  @IsIn(QUOTE_CONTACT_TYPES)
+  type!: QuoteContactType;
+
+  @ApiProperty({
+    description:
+      "카카오톡 채널(kakao.com)·네이버 톡톡(naver.com) 주소, 인스타그램 아이디, 전화번호",
+  })
+  @IsString()
+  @MaxLength(QUOTE_LIMITS.CONTACT_VALUE_MAX_LENGTH)
+  value!: string;
+}
 
 /** 견적 보내기·고치기(견적 링크·판매자 앱·운영자 대신 적기가 같은 칸) */
 export class QuoteInputDto {
@@ -43,15 +62,14 @@ export class QuoteInputDto {
   @IsEnum(QuoteSimilarity)
   similarity!: QuoteSimilarity;
 
-  /**
-   * 쓰지 않음(운영자 2026-11-12: 주문 받는 곳을 묻지 않고 채팅에서 정함).
-   * 바뀌기 전 화면이 보내도 받기만 하고 저장하지 않는다. 화면이 다 바뀐 뒤 지운다
-   */
-  @ApiPropertyOptional({ deprecated: true, description: "쓰지 않음. 보내도 저장하지 않음" })
+  /** 손님이 연락할 곳(선택, 종류마다 하나). 손님에게는 이 가게를 고른 뒤에만 보인다(운영자 결정 11-13) */
+  @ApiPropertyOptional({ type: () => [QuoteContactInputDto] })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(QUOTE_CONTACT_TYPES.length)
-  contacts?: unknown[];
+  @ValidateNested({ each: true })
+  @Type(() => QuoteContactInputDto)
+  contacts?: QuoteContactInputDto[];
 
   @ApiPropertyOptional({ maxLength: QUOTE_LIMITS.MEMO_MAX_LENGTH })
   @IsOptional()
@@ -71,6 +89,45 @@ export class QuoteDeclineInputDto {
   @ApiProperty({ enum: QuoteDeclineReason })
   @IsEnum(QuoteDeclineReason)
   reason!: QuoteDeclineReason;
+}
+
+/** 견적으로 예약하기(기획 I-01) */
+export class ReserveQuoteDto {
+  @ApiProperty({
+    description: "픽업 일시(ISO, 가게 영업 시간 안)",
+    example: "2026-11-21T05:00:00.000Z",
+  })
+  @IsNotEmpty()
+  @IsDateString()
+  pickupDate!: string;
+
+  @ApiPropertyOptional({ description: "예약자명(비우면 가입한 이름)" })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() || undefined : value))
+  @IsString()
+  @MaxLength(50)
+  reservationContactName?: string;
+
+  @ApiPropertyOptional({ description: "예약 연락처 휴대폰(비우면 가입한 번호)" })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.replace(/[-\s]/g, "").trim() || undefined : value,
+  )
+  @IsString()
+  @IsValidKoreanPhone()
+  reservationPhone?: string;
+
+  @ApiPropertyOptional({
+    description: "손님이 예약 창에서 본 합계. 그사이 사장님이 견적을 고쳐 다르면 400(다시 확인)",
+    example: 52000,
+  })
+  @IsOptional()
+  @IsInt()
+  expectedTotal?: number;
+}
+
+export class ReserveQuoteResponseDto {
+  @ApiProperty({ description: "만든 예약(주문) ID" }) orderId!: string;
 }
 
 export class ChooseQuoteDto {
@@ -106,8 +163,8 @@ export class QuoteDto {
   @ApiProperty() similarityDetail!: string;
   @ApiProperty({
     type: [QuoteContactDto],
-    deprecated: true,
-    description: "쓰지 않음(늘 빈 목록, 바뀌기 전 화면 호환용 — 주문은 채팅에서)",
+    description:
+      "손님이 연락할 곳. 가게 쪽·운영자에게는 늘, 손님에게는 이 가게를 고른 뒤에만(그 전엔 빈 목록)",
   })
   contacts!: QuoteContactDto[];
   @ApiProperty({ nullable: true, type: String }) memo!: string | null;
@@ -142,6 +199,14 @@ export class ConsumerQuoteSectionDto {
   @ApiProperty({ nullable: true, type: Date }) chosenAt!: Date | null;
   @ApiProperty({ nullable: true, type: Date, description: "다시 고를 수 있는 마지막 때" })
   rechooseUntil!: Date | null;
+  @ApiProperty({ description: "고른 견적으로 예약할 수 있는지(입점 가게·예약 없음, 기획 I-01)" })
+  canReserve!: boolean;
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: "고른 견적으로 만든 살아 있는 예약 ID",
+  })
+  reservationOrderId!: string | null;
 }
 
 export class ChooseQuoteResponseDto {
@@ -201,10 +266,15 @@ export class QuoteRequestForShopDto {
   declineReason!: QuoteDeclineReason | null;
   @ApiProperty({
     type: [QuoteContactDto],
-    deprecated: true,
-    description: "쓰지 않음(늘 빈 목록, 바뀌기 전 화면 호환용)",
+    description: "손님이 연락할 곳 미리 채움(보낸 견적이 있으면 그것)",
   })
   prefillContacts!: QuoteContactDto[];
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: "손님이 이 견적으로 만든 살아 있는 예약(주문) ID(기획 I-01). 없으면 null",
+  })
+  orderId!: string | null;
 }
 
 /** 견적 링크(가입 없이, SC-19). 입점 전 가게 대화 상태를 함께 */

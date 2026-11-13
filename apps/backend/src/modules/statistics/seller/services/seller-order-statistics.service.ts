@@ -79,12 +79,15 @@ export class SellerOrderStatisticsService {
     const totalSales = aggregate._sum.totalPrice ?? 0;
     const totalOrders = aggregate._count._all;
 
-    const productsMapped: SellerOrderStatisticsProductStatDto[] = productGroups.map((g) => ({
-      productId: g.productId,
-      productName: g._max.productName ?? SELLER_ORDER_STATISTICS_PRODUCT_NAME_FALLBACK,
-      revenue: g._sum.totalPrice ?? 0,
-      orderCount: g._count._all,
-    }));
+    // 견적으로 만든 예약(상품 없음)은 합계에는 들어가고 상품별 순위에서는 뺀다
+    const productsMapped: SellerOrderStatisticsProductStatDto[] = productGroups
+      .filter((g): g is typeof g & { productId: string } => g.productId !== null)
+      .map((g) => ({
+        productId: g.productId,
+        productName: g._max.productName ?? SELLER_ORDER_STATISTICS_PRODUCT_NAME_FALLBACK,
+        revenue: g._sum.totalPrice ?? 0,
+        orderCount: g._count._all,
+      }));
 
     const topProductsByRevenue = [...productsMapped]
       .sort((a, b) => b.revenue - a.revenue)

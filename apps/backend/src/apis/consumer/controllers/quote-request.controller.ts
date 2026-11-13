@@ -34,7 +34,10 @@ import {
   ChooseQuoteDto,
   ChooseQuoteResponseDto,
   ConsumerQuoteSectionDto,
+  ReserveQuoteDto,
+  ReserveQuoteResponseDto,
 } from "@apps/backend/modules/quote-request/dto/quote.dto";
+import { QuoteReservationService } from "@apps/backend/modules/quote-request/services/quote-reservation.service";
 
 /**
  * 견적 요청 컨트롤러 (손님용, 기획 I-46)
@@ -48,6 +51,7 @@ export class ConsumerQuoteRequestController {
   constructor(
     private readonly readService: QuoteRequestReadService,
     private readonly writeService: QuoteRequestWriteService,
+    private readonly reservationService: QuoteReservationService,
     private readonly quoteService: QuoteService,
   ) {}
 
@@ -90,6 +94,23 @@ export class ConsumerQuoteRequestController {
     @Request() req: { user: JwtVerifiedPayload },
   ) {
     return await this.quoteService.choose(req.user.sub, id, dto.quoteId);
+  }
+
+  @Post(":id/reservation")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: "(로그인 필요) 고른 견적으로 예약하기(기획 I-01)",
+    description:
+      "입점 가게 견적을 고른 뒤 픽업 일시를 골라 예약신청을 만듭니다. 이후는 상품 예약과 같은 흐름(사장님 예약 확인 → 입금대기 …)입니다. 입점 전 가게는 400, 이미 이 견적으로 예약했으면 409.",
+  })
+  @SwaggerResponse(201, { dataDto: ReserveQuoteResponseDto })
+  @SwaggerAuthResponses()
+  async reserve(
+    @Param("id") id: string,
+    @Body() dto: ReserveQuoteDto,
+    @Request() req: { user: JwtVerifiedPayload },
+  ) {
+    return await this.reservationService.reserve(req.user.sub, id, dto);
   }
 
   @Post()

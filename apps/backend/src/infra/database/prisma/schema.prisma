@@ -413,6 +413,8 @@ model Quote {
 
   quoteRequest QuoteRequest      @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
   target       QuoteRequestStore @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  /// 이 견적으로 만든 예약(기획 I-01). 취소하면 다시 예약할 수 있어 여러 개일 수 있다
+  orders       Order[]
 
   @@index([quoteRequestId, createdAt])
   @@map("quotes")
@@ -991,7 +993,10 @@ model Order {
 
   // 관계 필드
   consumerId    String   @map("consumer_id")
-  productId     String   @map("product_id")
+  /// 상품 예약이면 상품, 견적으로 만든 예약(기획 I-01)이면 null이고 quoteId가 있다
+  productId     String?  @map("product_id")
+  /// 입점 가게 견적을 손님이 고른 뒤 "이 견적으로 예약하기"로 만든 예약의 견적(기획 I-01, 2026-11-13). 상품 예약은 null
+  quoteId       String?  @map("quote_id")
   storeId       String   @map("store_id")
   storeName     String?  @map("store_name") // 스토어명 (주문 시점의 스토어명 보존)
   productName   String?  @map("product_name") // 상품명 (주문 시점의 상품명 보존)
@@ -1093,7 +1098,8 @@ model Order {
 
   // Relations
   consumer   Consumer       @relation(fields: [consumerId], references: [id], onDelete: Cascade)
-  product    Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product    Product?       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quote      Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   store      Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
   review     ProductReview?
@@ -1102,6 +1108,7 @@ model Order {
   @@index([consumerId, createdAt(sort: Desc)]) // 사용자별 주문 목록 조회 최적화 (최신순)
   @@index([storeId, createdAt(sort: Desc)]) // 스토어별 주문 목록 조회 최적화 (최신순)
   @@index([productId]) // 상품별 주문 조회
+  @@index([quoteId]) // 견적으로 만든 예약
   @@index([orderStatus]) // 주문 상태별 조회
   @@index([orderStatus, paymentPendingDeadlineAt]) // 입금대기 만료 배치
   @@index([orderStatus, paymentPendingDeadlineAt, paymentReminderSentAt]) // 재입금 안내 배치

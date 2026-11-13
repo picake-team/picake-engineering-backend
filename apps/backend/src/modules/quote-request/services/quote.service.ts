@@ -27,8 +27,10 @@ import type {
   ChatSendResultDto,
 } from "@apps/backend/modules/chat/dto/chat.dto";
 import {
+  QUOTE_CONTACT_LABELS,
   QUOTE_ERROR_MESSAGES,
   QUOTE_LIMITS,
+  QUOTE_RESERVATION_ACTIVE_STATUSES,
   QUOTE_SIMILARITY_LABELS,
 } from "@apps/backend/modules/quote-request/constants/quote.constants";
 import {
@@ -39,6 +41,7 @@ import type {
   AdminQuoteSectionDto,
   ChooseQuoteResponseDto,
   ConsumerQuoteSectionDto,
+  QuoteContactDto,
   QuoteDto,
   QuoteInputDto,
   QuoteLinkViewDto,
@@ -50,11 +53,13 @@ import {
   isAccepting,
   isStalled,
   linkChatOpenUntil,
+  normalizeContacts,
   quoteTotal,
   rechooseUntil,
   shopCanSeeRequestContent,
   shopVisibleCustomer,
   targetState,
+  type QuoteContact,
 } from "@apps/backend/modules/quote-request/utils/quote-policy.util";
 import {
   formatBudget,
@@ -70,13 +75,26 @@ const QUOTE_SELECT = {
   unitPrice: true,
   priceMayVary: true,
   similarity: true,
+  contacts: true,
   memo: true,
   photoUrls: true,
   editedAt: true,
   consumerSeenAt: true,
   createdAt: true,
   updatedAt: true,
+  // 이 견적으로 만든 살아 있는 예약(기획 I-01). 있으면 다시 고르기·견적 고치기를 막는다
+  orders: {
+    where: { orderStatus: { in: [...QUOTE_RESERVATION_ACTIVE_STATUSES] } },
+    select: { id: true },
+    orderBy: { createdAt: "desc" },
+    take: 1,
+  },
 } satisfies Prisma.QuoteSelect;
+
+/** 이 견적으로 만든 살아 있는 예약 ID(없으면 null) */
+function reservedOrderId(t: { quote: { orders: { id: string }[] } | null }): string | null {
+  return t.quote?.orders[0]?.id ?? null;
+}
 
 const TARGET_SELECT = {
   id: true,
@@ -168,7 +186,29 @@ export class QuoteService {
     return t.store?.name ?? t.name;
   }
 
-  private toQuoteDto(t: TargetRow, quantity: number): QuoteDto | null {
+  /** 저장한 연락할 곳을 보여 줄 모양으로(누르면 열 주소 포함) */
+  private contactsDto(raw: Prisma.JsonValue): QuoteContactDto[] {
+    const list = Array.isArray(raw) ? (raw as unknown as QuoteContact[]) : [];
+    return list
+      .filter((c) => c && typeof c.value === "string" && QUOTE_CONTACT_LABELS[c.type])
+      .map((c) => ({
+        type: c.type,
+        label: QUOTE_CONTACT_LABELS[c.type],
+        value: c.value,
+        href:
+          c.type === "PHONE"
+            ? `tel:${c.value.replace(/-/g, "")}`
+            : c.type === "INSTAGRAM"
+              ? `https://www.instagram.com/${c.value}`
+              : c.value,
+      }));
+  }
+
+  /**
+   * @param showContacts 손님 화면은 이 가게를 고른 뒤에만 연락할 곳을 보인다(운영자 결정 11-13).
+   *   가게 쪽(링크·판매자 앱)·운영자는 늘 본다
+   */
+  private toQuoteDto(t: TargetRow, quantity: number, showContacts = true): QuoteDto | null {
     const q = t.quote;
     if (!q) return null;
     const sim = QUOTE_SIMILARITY_LABELS[q.similarity];
@@ -187,8 +227,7 @@ export class QuoteService {
       similarity: q.similarity,
       similarityLabel: sim.label,
       similarityDetail: sim.detail,
-      // 주문 받는 곳은 묻지 않음(11-12). 바뀌기 전 화면 호환용 빈 목록
-      contacts: [],
+      contacts: showContacts ? this.contactsDto(q.contacts) : [],
       memo: q.memo,
       photoUrls: q.photoUrls,
       edited: !!q.editedAt,
@@ -238,11 +277,26 @@ export class QuoteService {
       canEdit:
         state === "OPEN" ||
         state === "SENT" ||
-        (state === "DECLINED" && r._count.quotes < QUOTE_LIMITS.MAX_QUOTES),
+        (state === "DECLINED" && r._count.quotes < QUOTE_LIMITS.MAX_QUOTES) ||
+        // 입점 가게는 손님이 고른 뒤에도 예약하기 전까지 금액을 고칠 수 있다(운영자 결정 11-13, 기획 I-01)
+        this.canEditAfterChosen(t),
+      orderId: reservedOrderId(t),
       quote: this.toQuoteDto(t, r.quantity),
       declineReason: t.quote ? null : t.declineReason,
-      prefillContacts: [],
+      prefillContacts: t.quote ? this.contactsDto(t.quote.contacts) : [],
     };
+  }
+
+  /** 고른 입점 가게가 손님이 예약하기 전까지 견적을 고칠 수 있나 */
+  private canEditAfterChosen(t: TargetWithRequest): boolean {
+    const r = t.quoteRequest;
+    return (
+      !!t.storeId &&
+      !!t.quote &&
+      r.chosenTargetId === t.id &&
+      r.status === QuoteRequestStatus.CONNECTED &&
+      !reservedOrderId(t)
+    );
   }
 
   /** 이 가게의 채팅 가게 명부 줄(없으면 만든다) */
@@ -270,7 +324,7 @@ export class QuoteService {
   ): Promise<QuoteDto> {
     const now = new Date();
     const r = t.quoteRequest;
-    if (!isAccepting(r, now)) {
+    if (!isAccepting(r, now) && !this.canEditAfterChosen(t)) {
       throw new BadRequestException(
         r.chosenTargetId ? QUOTE_ERROR_MESSAGES.ALREADY_CHOSEN : QUOTE_ERROR_MESSAGES.NOT_ACCEPTING,
       );
@@ -282,10 +336,14 @@ export class QuoteService {
     ) {
       throw new BadRequestException(QUOTE_ERROR_MESSAGES.PHOTO_INVALID);
     }
+    // 연락할 곳 칸이 없는 화면(판매자 앱·운영자 대신 적기)이 고치면 가게가 적은 연락할 곳을 그대로 둔다
+    const contacts = dto.contacts === undefined ? undefined : normalizeContacts(dto.contacts);
+    if (contacts === null) throw new BadRequestException(QUOTE_ERROR_MESSAGES.CONTACT_INVALID);
     const data = {
       unitPrice: dto.unitPrice,
       priceMayVary: !!dto.priceMayVary,
       similarity: dto.similarity,
+      ...(contacts ? { contacts: contacts as unknown as Prisma.InputJsonValue } : {}),
       memo: dto.memo?.trim() || null,
       photoUrls,
     };
@@ -577,7 +635,10 @@ export class QuoteService {
       },
     });
     if (!r) throw new NotFoundException(QUOTE_REQUEST_ERROR_MESSAGES.NOT_FOUND);
-    const stalled = await this.chosenStalled(r, r.stores, now);
+    const chosen = r.stores.find((t) => t.id === r.chosenTargetId) ?? null;
+    const reservationOrderId = chosen ? reservedOrderId(chosen) : null;
+    // 고른 견적으로 예약했으면 다시 고르기는 막는다(예약을 취소하면 다시 열림)
+    const stalled = reservationOrderId ? false : await this.chosenStalled(r, r.stores, now);
     const withQuote = r.stores
       .filter((t) => t.quote)
       .sort((a, b) => a.quote!.createdAt.getTime() - b.quote!.createdAt.getTime());
@@ -586,10 +647,11 @@ export class QuoteService {
       withQuote.map((t) => t.shopId).filter((v): v is string => !!v),
     );
     const quotes = withQuote.map((t) => ({
-      ...this.toQuoteDto(t, r.quantity)!,
+      // 연락할 곳은 손님이 이 가게를 고른 뒤에만(그 전엔 여러 가게와 밖에서 먼저 연락하지 않게)
+      ...this.toQuoteDto(t, r.quantity, r.chosenTargetId === t.id)!,
       unseen: !t.quote!.consumerSeenAt,
       chosen: r.chosenTargetId === t.id,
-      canChoose: canChoose(r, t.id, now, stalled),
+      canChoose: !reservationOrderId && canChoose(r, t.id, now, stalled),
       threadId: (t.shopId && threadIds.get(t.shopId)) ?? null,
     }));
     if (withQuote.some((t) => !t.quote!.consumerSeenAt)) {
@@ -608,7 +670,13 @@ export class QuoteService {
       ).length,
       chosenTargetId: r.chosenTargetId,
       chosenAt: r.chosenAt,
-      rechooseUntil: rechooseUntil(r),
+      rechooseUntil: reservationOrderId ? null : rechooseUntil(r),
+      canReserve:
+        !!chosen?.storeId &&
+        !!chosen.quote &&
+        r.status === QuoteRequestStatus.CONNECTED &&
+        !reservationOrderId,
+      reservationOrderId,
     };
   }
 
@@ -656,6 +724,10 @@ export class QuoteService {
     if (!r) throw new NotFoundException(QUOTE_REQUEST_ERROR_MESSAGES.NOT_FOUND);
     const target = r.stores.find((t) => t.quote?.id === quoteId);
     if (!target) throw new NotFoundException(QUOTE_ERROR_MESSAGES.QUOTE_NOT_FOUND);
+    const chosenNow = r.stores.find((t) => t.id === r.chosenTargetId);
+    if (chosenNow && reservedOrderId(chosenNow)) {
+      throw new BadRequestException(QUOTE_ERROR_MESSAGES.RESERVED_CANNOT_RECHOOSE);
+    }
     const stalled = await this.chosenStalled(r, r.stores, now);
     if (!canChoose(r, target.id, now, stalled)) {
       throw new BadRequestException(QUOTE_ERROR_MESSAGES.CANNOT_CHOOSE);

@@ -1320,6 +1320,51 @@ export class ChatService {
    * 다른 가게 방에는 가게에만 보이는 "손님이 다른 가게 견적을 골랐어요"와 쓰기 잠금(손님이 다시 말하면 풀림).
    * @returns 고른 가게와의 방 ID
    */
+  /**
+   * 견적으로 예약하면(기획 I-01) 그 가게 채팅방에 예약 카드를 남긴다(누르면 예약 상세).
+   * 사장님에게는 예약 알림이 따로 가니 안 읽음·답할 채팅을 만들지 않는다.
+   */
+  async postQuoteOrderCard(input: {
+    consumerId: string;
+    shopId: string;
+    order: {
+      id: string;
+      orderNumber: string;
+      productName: string | null;
+      productImages: string[];
+      pickupDate: Date | null;
+    };
+  }): Promise<string> {
+    const thread = await this.findOrCreateThreadFor(input.consumerId, input.shopId, true);
+    // 사장님이 아직 안 읽은 손님 글(질문 등)이 있으면 안 읽음·답할 채팅을 지우지 않는다
+    const shopUnread =
+      thread.lastMessageSender === "CONSUMER" &&
+      !!thread.lastMessageAt &&
+      (!thread.shopReadAt || thread.shopReadAt < thread.lastMessageAt);
+    const { row } = await this.insertMessage(thread.id, {
+      clientId: `quote-order:${input.order.id}`.slice(0, 64),
+      sender: "CONSUMER",
+      senderSellerId: null,
+      kind: "ORDER",
+      refOrderId: input.order.id,
+      cardSnapshot: this.orderSnapshot(input.order) as Prisma.InputJsonValue,
+    });
+    const now = row.createdAt;
+    await this.prisma.chatThread.update({
+      where: { id: thread.id },
+      data: {
+        lastMessageAt: now,
+        lastMessagePreview: CHAT_QUOTE_PREVIEWS.RESERVED,
+        consumerReadAt: now,
+        consumerSeenAt: now,
+        ...(shopUnread ? {} : { lastMessageSender: "SYSTEM" as const, shopReadAt: now }),
+        consumerListedAt: thread.consumerListedAt ?? now,
+      },
+    });
+    await this.notify.afterQuoteEvent({ threadId: thread.id });
+    return thread.id;
+  }
+
   async postChosenCards(input: {
     consumerId: string;
     requestId: string;

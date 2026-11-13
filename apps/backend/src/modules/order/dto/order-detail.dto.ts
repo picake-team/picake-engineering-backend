@@ -171,10 +171,19 @@ export class OrderResponseDto extends PickupAddressDto {
   userId: string;
 
   @ApiProperty({
-    description: "상품 ID",
+    description: "상품 ID(견적으로 만든 예약이면 null)",
     example: SWAGGER_EXAMPLES.ORDER_DATA.productId,
+    nullable: true,
+    type: String,
   })
-  productId: string;
+  productId: string | null;
+
+  @ApiProperty({
+    description: "견적으로 만든 예약(기획 I-01)의 견적·요청서. 상품 예약은 null",
+    nullable: true,
+    type: () => OrderQuoteInfoDto,
+  })
+  quote: OrderQuoteInfoDto | null;
 
   @ApiProperty({
     description: "상품명",
@@ -430,4 +439,25 @@ export class OrderResponseDto extends PickupAddressDto {
     nullable: true,
   })
   linkedProductReviewId: string | null;
+}
+
+/** 견적으로 만든 예약의 견적·요청서(기획 I-01) */
+export class OrderQuoteInfoDto {
+  @ApiProperty({ description: "견적 요청 ID(손님 견적 화면·채팅으로 잇기)" })
+  quoteRequestId!: string;
+  @ApiProperty({ description: "사진과 얼마나 비슷하게(거의 똑같이·비슷하게·느낌만 살려서)" })
+  similarityLabel!: string;
+  @ApiProperty({ nullable: true, type: String, description: "사장님 견적 메모" }) memo!:
+    | string
+    | null;
+  @ApiProperty({ type: [String], description: "사장님 견적 사진" }) quotePhotoUrls!: string[];
+  @ApiProperty({ nullable: true, type: String, description: "손님 요청서 설명" }) description!:
+    | string
+    | null;
+  @ApiProperty({ nullable: true, type: String, description: "손님 요청 사항" }) requestNote!:
+    | string
+    | null;
+  @ApiProperty({ type: [String], description: "손님 참고 사진" }) requestPhotoUrls!: string[];
+  @ApiProperty({ description: "픽업 24시간이 지나 손님 글·사진을 가렸는지" })
+  contentHidden!: boolean;
 }
