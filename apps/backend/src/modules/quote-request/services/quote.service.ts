@@ -29,6 +29,7 @@ import type {
 import {
   QUOTE_ERROR_MESSAGES,
   QUOTE_LIMITS,
+  QUOTE_RESERVATION_ACTIVE_STATUSES,
   QUOTE_SIMILARITY_LABELS,
 } from "@apps/backend/modules/quote-request/constants/quote.constants";
 import {
@@ -76,7 +77,19 @@ const QUOTE_SELECT = {
   consumerSeenAt: true,
   createdAt: true,
   updatedAt: true,
+  // 이 견적으로 만든 살아 있는 예약(기획 I-01). 있으면 다시 고르기·견적 고치기를 막는다
+  orders: {
+    where: { orderStatus: { in: [...QUOTE_RESERVATION_ACTIVE_STATUSES] } },
+    select: { id: true },
+    orderBy: { createdAt: "desc" },
+    take: 1,
+  },
 } satisfies Prisma.QuoteSelect;
+
+/** 이 견적으로 만든 살아 있는 예약 ID(없으면 null) */
+function reservedOrderId(t: { quote: { orders: { id: string }[] } | null }): string | null {
+  return t.quote?.orders[0]?.id ?? null;
+}
 
 const TARGET_SELECT = {
   id: true,
@@ -238,11 +251,26 @@ export class QuoteService {
       canEdit:
         state === "OPEN" ||
         state === "SENT" ||
-        (state === "DECLINED" && r._count.quotes < QUOTE_LIMITS.MAX_QUOTES),
+        (state === "DECLINED" && r._count.quotes < QUOTE_LIMITS.MAX_QUOTES) ||
+        // 입점 가게는 손님이 고른 뒤에도 예약하기 전까지 금액을 고칠 수 있다(운영자 결정 11-13, 기획 I-01)
+        this.canEditAfterChosen(t),
+      orderId: reservedOrderId(t),
       quote: this.toQuoteDto(t, r.quantity),
       declineReason: t.quote ? null : t.declineReason,
       prefillContacts: [],
     };
+  }
+
+  /** 고른 입점 가게가 손님이 예약하기 전까지 견적을 고칠 수 있나 */
+  private canEditAfterChosen(t: TargetWithRequest): boolean {
+    const r = t.quoteRequest;
+    return (
+      !!t.storeId &&
+      !!t.quote &&
+      r.chosenTargetId === t.id &&
+      r.status === QuoteRequestStatus.CONNECTED &&
+      !reservedOrderId(t)
+    );
   }
 
   /** 이 가게의 채팅 가게 명부 줄(없으면 만든다) */
@@ -270,7 +298,7 @@ export class QuoteService {
   ): Promise<QuoteDto> {
     const now = new Date();
     const r = t.quoteRequest;
-    if (!isAccepting(r, now)) {
+    if (!isAccepting(r, now) && !this.canEditAfterChosen(t)) {
       throw new BadRequestException(
         r.chosenTargetId ? QUOTE_ERROR_MESSAGES.ALREADY_CHOSEN : QUOTE_ERROR_MESSAGES.NOT_ACCEPTING,
       );
@@ -577,7 +605,10 @@ export class QuoteService {
       },
     });
     if (!r) throw new NotFoundException(QUOTE_REQUEST_ERROR_MESSAGES.NOT_FOUND);
-    const stalled = await this.chosenStalled(r, r.stores, now);
+    const chosen = r.stores.find((t) => t.id === r.chosenTargetId) ?? null;
+    const reservationOrderId = chosen ? reservedOrderId(chosen) : null;
+    // 고른 견적으로 예약했으면 다시 고르기는 막는다(예약을 취소하면 다시 열림)
+    const stalled = reservationOrderId ? false : await this.chosenStalled(r, r.stores, now);
     const withQuote = r.stores
       .filter((t) => t.quote)
       .sort((a, b) => a.quote!.createdAt.getTime() - b.quote!.createdAt.getTime());
@@ -589,7 +620,7 @@ export class QuoteService {
       ...this.toQuoteDto(t, r.quantity)!,
       unseen: !t.quote!.consumerSeenAt,
       chosen: r.chosenTargetId === t.id,
-      canChoose: canChoose(r, t.id, now, stalled),
+      canChoose: !reservationOrderId && canChoose(r, t.id, now, stalled),
       threadId: (t.shopId && threadIds.get(t.shopId)) ?? null,
     }));
     if (withQuote.some((t) => !t.quote!.consumerSeenAt)) {
@@ -608,7 +639,13 @@ export class QuoteService {
       ).length,
       chosenTargetId: r.chosenTargetId,
       chosenAt: r.chosenAt,
-      rechooseUntil: rechooseUntil(r),
+      rechooseUntil: reservationOrderId ? null : rechooseUntil(r),
+      canReserve:
+        !!chosen?.storeId &&
+        !!chosen.quote &&
+        r.status === QuoteRequestStatus.CONNECTED &&
+        !reservationOrderId,
+      reservationOrderId,
     };
   }
 
@@ -656,6 +693,10 @@ export class QuoteService {
     if (!r) throw new NotFoundException(QUOTE_REQUEST_ERROR_MESSAGES.NOT_FOUND);
     const target = r.stores.find((t) => t.quote?.id === quoteId);
     if (!target) throw new NotFoundException(QUOTE_ERROR_MESSAGES.QUOTE_NOT_FOUND);
+    const chosenNow = r.stores.find((t) => t.id === r.chosenTargetId);
+    if (chosenNow && reservedOrderId(chosenNow)) {
+      throw new BadRequestException(QUOTE_ERROR_MESSAGES.RESERVED_CANNOT_RECHOOSE);
+    }
     const stalled = await this.chosenStalled(r, r.stores, now);
     if (!canChoose(r, target.id, now, stalled)) {
       throw new BadRequestException(QUOTE_ERROR_MESSAGES.CANNOT_CHOOSE);

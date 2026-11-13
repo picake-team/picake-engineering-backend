@@ -1,4 +1,5 @@
 import {
+  OrderStatus,
   QuoteDeclineReason,
   QuoteSimilarity,
 } from "@apps/backend/infra/database/prisma/generated/client";
@@ -70,7 +71,24 @@ export const SELLER_QUOTE_PUSH_TITLES = {
   CHOSEN: "손님이 견적을 골랐어요",
 } as const;
 
+/** 견적으로 만든 예약이 살아 있는 상태(취소된 예약만 빼고). 있으면 다시 예약·다시 고르기·견적 고치기를 막는다 */
+export const QUOTE_RESERVATION_ACTIVE_STATUSES = [
+  OrderStatus.RESERVATION_REQUESTED,
+  OrderStatus.PAYMENT_PENDING,
+  OrderStatus.PAYMENT_COMPLETED,
+  OrderStatus.CONFIRMED,
+  OrderStatus.PICKUP_PENDING,
+  OrderStatus.PICKUP_COMPLETED,
+  OrderStatus.NO_SHOW,
+] as const;
+
 export const QUOTE_ERROR_MESSAGES = {
+  RESERVE_NOT_CHOSEN: "먼저 견적을 골라 주세요.",
+  RESERVE_UNENTERED: "Picake에 입점한 가게만 예약할 수 있어요. 가게와 채팅으로 정해 주세요.",
+  RESERVE_CLOSED: "끝난 요청이라 예약할 수 없어요.",
+  RESERVE_PRICE_CHANGED: "사장님이 견적을 고쳤어요. 바뀐 금액을 확인하고 다시 예약해 주세요.",
+  RESERVED_CANNOT_RECHOOSE:
+    "이 견적으로 예약했어요. 다른 견적을 고르려면 예약을 먼저 취소해 주세요.",
   LINK_NOT_FOUND: "견적 링크를 찾을 수 없어요. 링크를 다시 확인해 주세요.",
   TARGET_NOT_FOUND: "물어본 가게를 찾을 수 없어요.",
   QUOTE_NOT_FOUND: "견적을 찾을 수 없어요.",

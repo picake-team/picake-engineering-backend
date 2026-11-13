@@ -49,7 +49,7 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 - **스토어**: `/v1/consumer/store/*` - 스토어 조회
   - `/v1/consumer/store/:id/link-visits` - 사장님이 보낸 링크(`?from=link`)로 들어온 기기 남기기 (POST, 로그인 없이, 기기 임의 값만, 기획 I-45)
 - **입점 요청**: `/v1/consumer/store-entry-requests/*` - 비입점 카카오 장소 등록 요청
-- **견적 요청**: `/v1/consumer/quote-requests/*` - 손님 견적 요청서 보내기·내 견적 요청 목록·상세·닫기, 받은 견적(`:id/quotes`, 열면 본 것으로)·고르기(`:id/choose`, 고른 뒤 24시간 또는 고른 가게가 24시간 답이 없으면 다시 고르기)·안 본 견적 수(`quotes/unseen-count`)(기획 I-46, 새 요청은 디스코드 【PICAKE】운영으로 알림). 손님이 탈퇴하면 견적 요청과 참고 사진(S3)을 지운다(계정은 주문 보관 때문에 익명화만 해서 자동으로 지워지지 않음, `QuoteRequestCleanupService`). 장소 링크(`placeUrl`)는 http·https만 받는다(입점 요청도 같음)
+- **견적 요청**: `/v1/consumer/quote-requests/*` - 손님 견적 요청서 보내기·내 견적 요청 목록·상세·닫기, 받은 견적(`:id/quotes`, 열면 본 것으로)·고르기(`:id/choose`, 고른 뒤 24시간 또는 고른 가게가 24시간 답이 없으면 다시 고르기)·고른 견적으로 예약하기(`:id/reservation`, 입점 가게만 — 상품 없는 예약신청을 만들고 이후는 상품 예약과 같은 주문 흐름, 기획 I-01. 예약이 살아 있으면 다시 고르기·사장님 견적 고치기가 막히고, 고른 뒤 예약 전까지는 사장님이 견적을 고칠 수 있음)·안 본 견적 수(`quotes/unseen-count`)(기획 I-46, 새 요청은 디스코드 【PICAKE】운영으로 알림). 손님이 탈퇴하면 견적 요청과 참고 사진(S3)을 지운다(계정은 주문 보관 때문에 익명화만 해서 자동으로 지워지지 않음, `QuoteRequestCleanupService`). 장소 링크(`placeUrl`)는 http·https만 받는다(입점 요청도 같음)
 - **견적 링크**: `/v1/consumer/quote-links/:token/*` - 입점 전 가게가 가입 없이(링크 열쇠가 권한) 요청서 보기·견적 보내기·고치기(`quote`)·어려워요(`decline`)·사진(`photos`)·손님과 대화(`chat/messages`, 그 요청이 온 뒤 글만). 요청 수 제한(분당 30, 보내기·사진 10, 대화 20)
 - **주문**: `/v1/consumer/orders/*` - 주문 생성 및 조회
 - **피드**: `/v1/consumer/feed/*` - 피드 조회

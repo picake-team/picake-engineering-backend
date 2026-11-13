@@ -1,17 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Max,
   MaxLength,
   Min,
 } from "class-validator";
+import { IsValidKoreanPhone } from "@apps/backend/common/decorators/validators.decorator";
 import {
   QuoteDeclineReason,
   QuoteSimilarity,
@@ -71,6 +74,45 @@ export class QuoteDeclineInputDto {
   @ApiProperty({ enum: QuoteDeclineReason })
   @IsEnum(QuoteDeclineReason)
   reason!: QuoteDeclineReason;
+}
+
+/** 견적으로 예약하기(기획 I-01) */
+export class ReserveQuoteDto {
+  @ApiProperty({
+    description: "픽업 일시(ISO, 가게 영업 시간 안)",
+    example: "2026-11-21T05:00:00.000Z",
+  })
+  @IsNotEmpty()
+  @IsDateString()
+  pickupDate!: string;
+
+  @ApiPropertyOptional({ description: "예약자명(비우면 가입한 이름)" })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() || undefined : value))
+  @IsString()
+  @MaxLength(50)
+  reservationContactName?: string;
+
+  @ApiPropertyOptional({ description: "예약 연락처 휴대폰(비우면 가입한 번호)" })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.replace(/[-\s]/g, "").trim() || undefined : value,
+  )
+  @IsString()
+  @IsValidKoreanPhone()
+  reservationPhone?: string;
+
+  @ApiPropertyOptional({
+    description: "손님이 예약 창에서 본 합계. 그사이 사장님이 견적을 고쳐 다르면 400(다시 확인)",
+    example: 52000,
+  })
+  @IsOptional()
+  @IsInt()
+  expectedTotal?: number;
+}
+
+export class ReserveQuoteResponseDto {
+  @ApiProperty({ description: "만든 예약(주문) ID" }) orderId!: string;
 }
 
 export class ChooseQuoteDto {
@@ -142,6 +184,14 @@ export class ConsumerQuoteSectionDto {
   @ApiProperty({ nullable: true, type: Date }) chosenAt!: Date | null;
   @ApiProperty({ nullable: true, type: Date, description: "다시 고를 수 있는 마지막 때" })
   rechooseUntil!: Date | null;
+  @ApiProperty({ description: "고른 견적으로 예약할 수 있는지(입점 가게·예약 없음, 기획 I-01)" })
+  canReserve!: boolean;
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: "고른 견적으로 만든 살아 있는 예약 ID",
+  })
+  reservationOrderId!: string | null;
 }
 
 export class ChooseQuoteResponseDto {
@@ -205,6 +255,12 @@ export class QuoteRequestForShopDto {
     description: "쓰지 않음(늘 빈 목록, 바뀌기 전 화면 호환용)",
   })
   prefillContacts!: QuoteContactDto[];
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: "손님이 이 견적으로 만든 살아 있는 예약(주문) ID(기획 I-01). 없으면 null",
+  })
+  orderId!: string | null;
 }
 
 /** 견적 링크(가입 없이, SC-19). 입점 전 가게 대화 상태를 함께 */

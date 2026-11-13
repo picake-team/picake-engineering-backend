@@ -152,7 +152,9 @@ export class StoreManagementService {
       ordersByStatus.map((group) => [group.orderStatus, group._count._all]),
     );
 
+    // 견적으로 만든 예약(상품 없음)은 상품 순위에서 뺀다
     const topProductsByRevenue = productGroups
+      .filter((g): g is typeof g & { productId: string } => g.productId !== null)
       .map((g) => ({
         productId: g.productId,
         productName: g._max.productName ?? SELLER_ORDER_STATISTICS_PRODUCT_NAME_FALLBACK,
