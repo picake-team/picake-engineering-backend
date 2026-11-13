@@ -6,7 +6,7 @@ export const FCM_PUSH_TYPE = {
   SELLER_TEST: "SELLER_TEST",
   /** 판매자 앱 아침 요약(매일 8시, 그날 픽업이 있을 때만). data에 storeId·path(홈)가 들어간다 */
   SELLER_MORNING_SUMMARY: "SELLER_MORNING_SUMMARY",
-  /** 손님 채팅 알림(기획 I-11). data에 threadId·path(/chat/:threadId)가 들어간다 — 손님 앱이 path로 이동하려면 앱 수정 필요 */
+  /** 손님 채팅 알림(기획 I-11). data에 threadId·path(/chat/:threadId)가 들어간다 — 새 손님 앱(Capacitor)은 path로 이동, 스토어에 남은 예전 Flutter 앱은 앱만 연다 */
   CHAT_MESSAGE: "CHAT_MESSAGE",
   /** 판매자 앱 채팅 알림. data에 storeId·threadId·path가 들어간다 */
   SELLER_CHAT: "SELLER_CHAT",

@@ -11,7 +11,7 @@ import { SellerMorningSummaryService } from "@apps/backend/modules/fcm/services/
 
 /**
  * Firebase Cloud Messaging 모듈
- * - FcmService: Firebase Admin SDK 초기화 및 구매자 앱(Flutter) FCM 푸시 발송
+ * - FcmService: Firebase Admin SDK 초기화 및 앱(손님·판매자) FCM 푸시 발송
  * - ConsumerFcmPushService: 구매자 대상 공용 푸시 발송 + 무효 토큰 정리
  * - ConsumerOrderFcmPushService: 주문 알림 전용 페이로드 구성
  * - SellerFcmTokenService / SellerFcmPushService: 판매자 앱(기획 I-48) 토큰·푸시 (주문 알림, 테스트 알림)
