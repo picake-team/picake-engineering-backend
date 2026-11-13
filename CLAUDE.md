@@ -4,12 +4,12 @@ Picake(디저트 주문 플랫폼)의 **백엔드 API 서버** 레포입니다. 
 
 ## 레포 구성
 
-| 레포                         | 내용                                                                                          | 로컬 위치(권장)                       |
-| ---------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `picake-engineering-backend` | 백엔드 API 서버 (현재 레포)                                                                   | -                                     |
-| `picake-engineering-web`     | 웹 프론트엔드 (`web-user`, `web-seller`, `web-admin`, `web-info`)                             | 형제 폴더 `../picake-engineering-web` |
-| `picake-engineering-app`     | Flutter 웹뷰 앱 (손님 앱이 `web-user`를 감쌈, 판매자 앱 준비 중). 코드는 지금 앱담당자가 보관 | -                                     |
-| `picake-hq` (비공개)         | 회사 운영·운영 자동화 (매일 브리핑, 주간 회의, 데이터 리포트·인프라 점검 skill)               | 형제 폴더 `../picake-hq`              |
+| 레포                         | 내용                                                                                                                                                             | 로컬 위치(권장)                       |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `picake-engineering-backend` | 백엔드 API 서버 (현재 레포)                                                                                                                                      | -                                     |
+| `picake-engineering-web`     | 웹 프론트엔드 (`web-user`, `web-seller`, `web-admin`, `web-info`)                                                                                                | 형제 폴더 `../picake-engineering-web` |
+| `picake-engineering-app`     | 손님·사장님 앱 (웹을 담는 앱 껍데기, 2026-11-13 Flutter → Capacitor로 옮기는 중). 알림 내용(data.path)·앱 링크 경로는 그 레포 `docs/bridge-contract.md`와 맞춘다 | 형제 폴더 `../picake-engineering-app` |
+| `picake-hq` (비공개)         | 회사 운영·운영 자동화 (매일 브리핑, 주간 회의, 데이터 리포트·인프라 점검 skill)                                                                                  | 형제 폴더 `../picake-hq`              |
 
 - 코드는 `apps/backend`에 있습니다. EC2 배포 스크립트가 이 경로와 루트 `package.json`/`yarn.lock`을 전제로 하므로 구조를 바꾸지 않습니다.
 - 프로젝트 공통 문서(프로젝트 구조, 인증·채팅 등 기능 가이드, AI 에이전트 가이드)는 web 레포 `docs/common`이 정본입니다. 이 레포의 `docs`에는 backend·AWS 인프라 문서만 둡니다.
