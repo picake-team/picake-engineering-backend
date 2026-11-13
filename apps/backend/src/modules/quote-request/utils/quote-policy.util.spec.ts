@@ -7,6 +7,7 @@ import {
   isReminderDue,
   isStalled,
   linkChatOpenUntil,
+  normalizeContacts,
   rechooseUntil,
   formatPhone,
   shopCanSeeRequestContent,
@@ -181,5 +182,40 @@ describe("가게 쪽 손님 이름·휴대폰(11-13)", () => {
   it("번호 모양", () => {
     expect(formatPhone("0101234567")).toBe("010-123-4567");
     expect(formatPhone("010-1234-5678")).toBe("010-1234-5678");
+  });
+
+  it("손님이 연락할 곳: 카톡·네이버는 그 회사 https 주소, 인스타는 아이디, 전화는 번호. 같은 종류 두 번·잘못된 값·남의 주소는 거절", () => {
+    expect(
+      normalizeContacts([
+        { type: "KAKAO", value: "pf.kakao.com/_gureum" },
+        { type: "INSTAGRAM", value: "https://www.instagram.com/gureum_bakery/" },
+        { type: "NAVER", value: "http://talk.naver.com/ct/w4abcd" },
+        { type: "PHONE", value: "02-123-4567" },
+      ]),
+    ).toEqual([
+      { type: "KAKAO", value: "https://pf.kakao.com/_gureum" },
+      { type: "INSTAGRAM", value: "gureum_bakery" },
+      { type: "NAVER", value: "https://talk.naver.com/ct/w4abcd" },
+      { type: "PHONE", value: "02-123-4567" },
+    ]);
+    expect(normalizeContacts([])).toEqual([]);
+    expect(normalizeContacts([{ type: "INSTAGRAM", value: "@cake.lab" }])).toEqual([
+      { type: "INSTAGRAM", value: "cake.lab" },
+    ]);
+    expect(
+      normalizeContacts([
+        { type: "PHONE", value: "02-123-4567" },
+        { type: "PHONE", value: "031-123-4567" },
+      ]),
+    ).toBeNull();
+    expect(normalizeContacts([{ type: "KAKAO", value: "javascript:alert(1)" }])).toBeNull();
+    expect(
+      normalizeContacts([{ type: "KAKAO", value: "https://kakao.com.evil.example/x" }]),
+    ).toBeNull();
+    expect(
+      normalizeContacts([{ type: "NAVER", value: "https://example.com/naver.com" }]),
+    ).toBeNull();
+    expect(normalizeContacts([{ type: "PHONE", value: "1234" }])).toBeNull();
+    expect(normalizeContacts([{ type: "EMAIL", value: "a@b.c" }])).toBeNull();
   });
 });

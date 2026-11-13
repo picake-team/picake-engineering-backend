@@ -1,5 +1,9 @@
 import { QuoteRequestStatus } from "@apps/backend/infra/database/prisma/generated/client";
-import { QUOTE_LIMITS } from "@apps/backend/modules/quote-request/constants/quote.constants";
+import {
+  QUOTE_CONTACT_TYPES,
+  QUOTE_LIMITS,
+  type QuoteContactType,
+} from "@apps/backend/modules/quote-request/constants/quote.constants";
 
 /**
  * 견적 ② 규칙 — 저장소 없이 판단만 하는 함수들(기획 I-46·I-11). 서비스가 쓰고 테스트로 지킨다.
@@ -7,6 +11,11 @@ import { QUOTE_LIMITS } from "@apps/backend/modules/quote-request/constants/quot
 
 const MS_HOUR = 60 * 60 * 1000;
 const MS_DAY = 24 * MS_HOUR;
+
+export interface QuoteContact {
+  type: QuoteContactType;
+  value: string;
+}
 
 type RequestTiming = {
   status: QuoteRequestStatus;
@@ -165,4 +174,59 @@ export function targetState(input: {
   if (input.declinedAt) return "DECLINED";
   if (input.quoteCount >= QUOTE_LIMITS.MAX_QUOTES) return "FULL";
   return "OPEN";
+}
+
+const PHONE_RE = /^0\d{1,2}-?\d{3,4}-?\d{4}$/;
+
+/** 누르면 열 주소로 받는 곳(남의 사이트로 보내는 주소는 받지 않는다) */
+const CONTACT_HOSTS: Partial<Record<QuoteContactType, string[]>> = {
+  KAKAO: ["kakao.com"],
+  NAVER: ["naver.com", "naver.me"],
+};
+
+function toHttpsUrl(raw: string, hosts: string[]): string | null {
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const u = new URL(withScheme);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    const host = u.hostname.toLowerCase();
+    if (!hosts.some((h) => host === h || host.endsWith(`.${h}`))) return null;
+    u.protocol = "https:";
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 손님이 연락할 곳을 저장할 모양으로(같은 종류는 하나, 앞뒤 공백 정리).
+ * 카카오톡 채널은 kakao.com, 네이버 톡톡은 naver.com·naver.me 주소(https 붙임), 인스타그램은 아이디(@·주소에서 뽑음), 전화는 번호.
+ * 잘못된 값이 있으면 null
+ */
+export function normalizeContacts(input: { type: string; value: string }[]): QuoteContact[] | null {
+  const seen = new Set<string>();
+  const out: QuoteContact[] = [];
+  for (const raw of input) {
+    if (!QUOTE_CONTACT_TYPES.includes(raw.type as QuoteContactType)) return null;
+    const type = raw.type as QuoteContactType;
+    if (seen.has(type)) return null;
+    seen.add(type);
+    const value = (raw.value ?? "").trim();
+    if (!value || value.length > QUOTE_LIMITS.CONTACT_VALUE_MAX_LENGTH) return null;
+    if (type === "PHONE") {
+      const phone = value.replace(/\s/g, "");
+      if (!PHONE_RE.test(phone)) return null;
+      out.push({ type, value: phone });
+    } else if (type === "INSTAGRAM") {
+      const fromUrl = value.match(/instagram\.com\/([A-Za-z0-9._]+)/i)?.[1];
+      const handle = (fromUrl ?? value).replace(/^@/, "");
+      if (!/^[A-Za-z0-9._]{1,30}$/.test(handle)) return null;
+      out.push({ type, value: handle });
+    } else {
+      const url = toHttpsUrl(value, CONTACT_HOSTS[type] ?? []);
+      if (!url) return null;
+      out.push({ type, value: url });
+    }
+  }
+  return out;
 }
