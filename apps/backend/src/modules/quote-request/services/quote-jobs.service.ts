@@ -6,7 +6,10 @@ import {
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
-import { QUOTE_LIMITS } from "@apps/backend/modules/quote-request/constants/quote.constants";
+import {
+  QUOTE_LIMITS,
+  QUOTE_RESERVATION_ACTIVE_STATUSES,
+} from "@apps/backend/modules/quote-request/constants/quote.constants";
 import { QuoteNotifyService } from "@apps/backend/modules/quote-request/services/quote-notify.service";
 import { QuoteService } from "@apps/backend/modules/quote-request/services/quote.service";
 import { CHAT_QUOTE_PREVIEWS } from "@apps/backend/modules/chat/constants/chat.constants";
@@ -210,9 +213,24 @@ export class QuoteJobsService implements OnModuleInit, OnModuleDestroy {
         if (!r.chosenTargetId) return;
         const target = await this.prisma.quoteRequestStore.findUnique({
           where: { id: r.chosenTargetId },
-          select: { shopId: true, name: true, store: { select: { name: true } } },
+          select: {
+            shopId: true,
+            name: true,
+            store: { select: { name: true } },
+            quote: {
+              select: {
+                orders: {
+                  where: { orderStatus: { in: [...QUOTE_RESERVATION_ACTIVE_STATUSES] } },
+                  select: { id: true },
+                  take: 1,
+                },
+              },
+            },
+          },
         });
         if (!target?.shopId) return;
+        // 손님이 이 견적으로 예약했으면 예약 흐름(주문)으로 넘어갔다
+        if (target.quote?.orders.length) return;
         const thread = await this.prisma.chatThread.findUnique({
           where: { consumerId_shopId: { consumerId: r.consumerId, shopId: target.shopId } },
           select: { lastMessageSender: true, lastConsumerMessageAt: true },

@@ -231,6 +231,10 @@ export class OrderUserReservationEditService {
       throw new BadRequestException(ORDER_ERROR_MESSAGES.PICKUP_OUTSIDE_STORE_BUSINESS_HOURS);
     }
 
+    // 견적으로 만든 예약(기획 I-01)은 상품·옵션이 없다. 픽업 일시는 updatePickupDate로 바꾼다
+    if (!order.productId) {
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.QUOTE_ORDER_NO_OPTIONS);
+    }
     const product = await this.prisma.product.findUnique({
       where: { id: order.productId },
     });
