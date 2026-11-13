@@ -10,6 +10,7 @@ import { CHAT_RULES_VERSION } from "@apps/backend/modules/chat/constants/chat.co
 import { OrderCreateService } from "@apps/backend/modules/order/services/order-create.service";
 import type { OrderLifecycleHookService } from "@apps/backend/modules/order/services/order-lifecycle-hook.service";
 import { OrderMapperUtil } from "@apps/backend/modules/order/utils/order-mapper.util";
+import { ReviewWritableListService } from "@apps/backend/modules/review/services/review-writable-list.service";
 import { QuoteService } from "@apps/backend/modules/quote-request/services/quote.service";
 import { QuoteReservationService } from "@apps/backend/modules/quote-request/services/quote-reservation.service";
 import type { QuoteNotifyService } from "@apps/backend/modules/quote-request/services/quote-notify.service";
@@ -129,8 +130,27 @@ describe("견적으로 예약하기 (integration)", () => {
     const before = await t.quotes.consumerSection(t.consumer.id, t.requestId);
     expect(before).toMatchObject({ canReserve: true, reservationOrderId: null });
 
+    // 예약 창을 연 사이 사장님이 고쳤으면(손님이 본 금액과 다르면) 다시 확인하게
+    await expect(
+      t.reservation.reserve(t.consumer.id, t.requestId, {
+        pickupDate: t.pickupAt.toISOString(),
+        expectedTotal: 50_000,
+      }),
+    ).rejects.toThrow(QUOTE_ERROR_MESSAGES.RESERVE_PRICE_CHANGED);
+
+    // 손님이 물어본 글을 사장님이 아직 안 읽었으면 예약 카드가 안 읽음을 지우지 않는다
+    const room = await t.prisma.chatThread.findFirstOrThrow({
+      where: { consumerId: t.consumer.id },
+      select: { id: true },
+    });
+    await t.chat.sendForConsumer(t.consumer.id, room.id, {
+      clientId: `q-${Date.now()}`,
+      text: "픽업 2시 괜찮을까요?",
+    });
+
     const { orderId } = await t.reservation.reserve(t.consumer.id, t.requestId, {
       pickupDate: t.pickupAt.toISOString(),
+      expectedTotal: 52_000,
     });
     const order = await t.prisma.order.findUniqueOrThrow({
       where: { id: orderId },
@@ -166,6 +186,11 @@ describe("견적으로 예약하기 (integration)", () => {
       include: OrderMapperUtil.ORDER_ITEMS_INCLUDE,
     });
     expect(OrderMapperUtil.mapToOrderResponse(done).myReviewUiStatus).toBe("NOT_AVAILABLE");
+    const writable = await new ReviewWritableListService(t.prisma).getWritableOrdersForUser(
+      t.consumer.id,
+      { page: 1, limit: 20 } as never,
+    );
+    expect(JSON.stringify(writable)).not.toContain(orderId);
     await t.prisma.order.update({
       where: { id: orderId },
       data: { orderStatus: OrderStatus.RESERVATION_REQUESTED },
@@ -180,7 +205,8 @@ describe("견적으로 예약하기 (integration)", () => {
         messages: { select: { kind: true, refOrderId: true } },
       },
     });
-    expect(thread.lastMessageSender).toBe("SYSTEM");
+    // 안 읽은 손님 글이 있어서 "답할 채팅"으로 남는다
+    expect(thread.lastMessageSender).toBe("CONSUMER");
     expect(thread.messages).toContainEqual({ kind: "ORDER", refOrderId: orderId });
 
     // 같은 견적으로 다시 예약 → 409, 사장님 견적 고치기 막힘, 화면에는 예약 번호

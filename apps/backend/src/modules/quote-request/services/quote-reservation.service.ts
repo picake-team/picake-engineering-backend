@@ -71,6 +71,10 @@ export class QuoteReservationService {
       (r.consumer.name?.trim() || r.consumer.nickname?.trim() || null);
     const contactPhone = dto.reservationPhone ?? r.consumer.phone;
     const quote = target.quote;
+    const total = quoteTotal(quote.unitPrice, r.quantity);
+    if (dto.expectedTotal !== undefined && dto.expectedTotal !== total) {
+      throw new BadRequestException(QUOTE_ERROR_MESSAGES.RESERVE_PRICE_CHANGED);
+    }
     const created = await this.orderCreate.createOrderFromQuote({
       consumerId,
       storeId: target.storeId,
@@ -79,7 +83,7 @@ export class QuoteReservationService {
       // 사장님 견적 사진이 있으면 그것, 없으면 손님 참고 사진(주문 목록·알림에 보이는 그림)
       productImages: (quote.photoUrls.length ? quote.photoUrls : r.photoUrls).slice(0, 3),
       totalQuantity: r.quantity,
-      totalPrice: quoteTotal(quote.unitPrice, r.quantity),
+      totalPrice: total,
       pickupAt: new Date(dto.pickupDate),
       reservationContactName: contactName,
       reservationPhone: contactPhone,

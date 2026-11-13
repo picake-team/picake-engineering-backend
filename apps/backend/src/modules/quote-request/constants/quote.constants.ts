@@ -86,6 +86,7 @@ export const QUOTE_ERROR_MESSAGES = {
   RESERVE_NOT_CHOSEN: "먼저 견적을 골라 주세요.",
   RESERVE_UNENTERED: "Picake에 입점한 가게만 예약할 수 있어요. 가게와 채팅으로 정해 주세요.",
   RESERVE_CLOSED: "끝난 요청이라 예약할 수 없어요.",
+  RESERVE_PRICE_CHANGED: "사장님이 견적을 고쳤어요. 바뀐 금액을 확인하고 다시 예약해 주세요.",
   RESERVED_CANNOT_RECHOOSE:
     "이 견적으로 예약했어요. 다른 견적을 고르려면 예약을 먼저 취소해 주세요.",
   LINK_NOT_FOUND: "견적 링크를 찾을 수 없어요. 링크를 다시 확인해 주세요.",

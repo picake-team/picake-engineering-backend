@@ -101,6 +101,14 @@ export class ReserveQuoteDto {
   @IsString()
   @IsValidKoreanPhone()
   reservationPhone?: string;
+
+  @ApiPropertyOptional({
+    description: "손님이 예약 창에서 본 합계. 그사이 사장님이 견적을 고쳐 다르면 400(다시 확인)",
+    example: 52000,
+  })
+  @IsOptional()
+  @IsInt()
+  expectedTotal?: number;
 }
 
 export class ReserveQuoteResponseDto {

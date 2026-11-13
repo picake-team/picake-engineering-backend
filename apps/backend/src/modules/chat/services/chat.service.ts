@@ -1336,6 +1336,11 @@ export class ChatService {
     };
   }): Promise<string> {
     const thread = await this.findOrCreateThreadFor(input.consumerId, input.shopId, true);
+    // 사장님이 아직 안 읽은 손님 글(질문 등)이 있으면 안 읽음·답할 채팅을 지우지 않는다
+    const shopUnread =
+      thread.lastMessageSender === "CONSUMER" &&
+      !!thread.lastMessageAt &&
+      (!thread.shopReadAt || thread.shopReadAt < thread.lastMessageAt);
     const { row } = await this.insertMessage(thread.id, {
       clientId: `quote-order:${input.order.id}`.slice(0, 64),
       sender: "CONSUMER",
@@ -1349,11 +1354,10 @@ export class ChatService {
       where: { id: thread.id },
       data: {
         lastMessageAt: now,
-        lastMessageSender: "SYSTEM",
         lastMessagePreview: CHAT_QUOTE_PREVIEWS.RESERVED,
         consumerReadAt: now,
         consumerSeenAt: now,
-        shopReadAt: now,
+        ...(shopUnread ? {} : { lastMessageSender: "SYSTEM" as const, shopReadAt: now }),
         consumerListedAt: thread.consumerListedAt ?? now,
       },
     });
