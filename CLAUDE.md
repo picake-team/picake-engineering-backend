@@ -39,7 +39,9 @@ yarn common:lint && yarn common:format:check
 
 ## web 레포의 도메인 skill
 
-소셜 로그인(OAuth), 앱 딥링크(Universal/App Links), 약관·사업자정보, iOS 앱스토어 심사 대응은 backend 코드도 함께 다루지만 skill은 web 레포에 있습니다. 이런 작업은 형제 폴더 `../picake-engineering-web/.claude/skills/`의 `picake-auth-social-login`, `picake-link-app-deep-links`, `picake-legal-terms`, `picake-review-ios-app-store` 문서를 읽고 따르세요.
+소셜 로그인(OAuth), 앱 딥링크(Universal/App Links), 약관·사업자정보, 스토어 심사 대응(심사용 로그인 포함)은 backend 코드도 함께 다루지만 skill은 web 레포에 있습니다. 이런 작업은 형제 폴더 `../picake-engineering-web/.claude/skills/`의 `picake-auth-social-login`, `picake-link-app-deep-links`, `picake-legal-terms`, `picake-review-ios-app-store` 문서를 읽고 따르세요.
+
+- 휴대폰 알림의 `data.path`(`modules/fcm`)나 알림톡 버튼 주소(주문·견적·채팅)에 새 경로를 만들면, 앱이 그 경로를 열 수 있는지 `picake-link-app-deep-links`와 앱 레포 `../picake-engineering-app/docs/bridge-contract.md`를 같이 봅니다.
 
 ## 운영 skill (picake-hq 레포)
 
