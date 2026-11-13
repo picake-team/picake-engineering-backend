@@ -216,6 +216,11 @@ describe("가게 쪽 손님 이름·휴대폰(11-13)", () => {
       normalizeContacts([{ type: "NAVER", value: "https://example.com/naver.com" }]),
     ).toBeNull();
     expect(normalizeContacts([{ type: "PHONE", value: "1234" }])).toBeNull();
+    // 가게 대표번호(1588·1644 등)도 받는다
+    expect(normalizeContacts([{ type: "PHONE", value: "1588-1234" }])).toEqual([
+      { type: "PHONE", value: "1588-1234" },
+    ]);
+    expect(normalizeContacts([{ type: "PHONE", value: "1234-5678" }])).toBeNull();
     expect(normalizeContacts([{ type: "EMAIL", value: "a@b.c" }])).toBeNull();
   });
 });
