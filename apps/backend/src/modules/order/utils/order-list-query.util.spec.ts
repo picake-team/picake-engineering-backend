@@ -10,6 +10,7 @@ import {
 import {
   buildOrderKeywordCondition,
   buildOrderOrderBy,
+  koreaCalendarYmd,
   mergeOrderPickupDateConditions,
 } from "./order-list-query.util";
 
@@ -114,5 +115,14 @@ describe("buildOrderKeywordCondition", () => {
       reservationPhone: { contains: "5678" },
     });
     expect(buildOrderKeywordCondition("567")?.OR).toHaveLength(3);
+  });
+});
+
+describe("koreaCalendarYmd", () => {
+  it("한국 자정~아침 9시(UTC로는 전날)도 한국 날짜를 준다", () => {
+    expect(koreaCalendarYmd(new Date("2026-11-12T15:00:00.000Z"))).toBe("2026-11-13"); // 11-13 00:00 KST
+    expect(koreaCalendarYmd(new Date("2026-11-12T23:59:59.999Z"))).toBe("2026-11-13"); // 11-13 08:59 KST
+    expect(koreaCalendarYmd(new Date("2026-11-12T14:59:59.999Z"))).toBe("2026-11-12"); // 11-12 23:59 KST
+    expect(koreaCalendarYmd(new Date("2026-12-31T15:00:00.000Z"))).toBe("2027-01-01");
   });
 });

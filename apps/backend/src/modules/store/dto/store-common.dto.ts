@@ -2,6 +2,7 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty, IsString, IsNumber, Min, Max } from "class-validator";
 import { SWAGGER_EXAMPLES } from "@apps/backend/modules/store/constants/store.constants";
 import { IsValidDetailAddress } from "@apps/backend/modules/store/decorators/validators.decorator";
+import { Transform } from "class-transformer";
 
 export class StoreAddressDto {
   @ApiProperty({
@@ -24,6 +25,7 @@ export class StoreAddressDto {
     description: "상세주소 (예: 101호, 지하 1층)",
     example: SWAGGER_EXAMPLES.DETAIL_ADDRESS,
   })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsValidDetailAddress()
   detailAddress: string;
 

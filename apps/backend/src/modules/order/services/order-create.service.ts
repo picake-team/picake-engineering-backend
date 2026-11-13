@@ -18,6 +18,11 @@ import {
   validateAndNormalizeOrderItem,
 } from "@apps/backend/modules/order/utils/order-item-normalize.util";
 import { isPickupAllowedForStore } from "@apps/backend/modules/order/utils/order-store-business-calendar.util";
+import {
+  koreaCalendarDayEndUtc,
+  koreaCalendarDayStartUtc,
+  koreaCalendarYmd,
+} from "@apps/backend/modules/order/utils/order-list-query.util";
 
 /**
  * 주문 생성 서비스
@@ -142,14 +147,13 @@ export class OrderCreateService {
       try {
         const created = await this.prisma.$transaction(
           async (tx) => {
-            // 주문 번호 생성 (예: ORD-20240101-001)
+            // 주문 번호 생성 (예: ORD-20240101-001). 날짜·순번은 한국 날짜 기준(전에는 UTC라 아침 9시 전 주문이 어제 날짜)
             const now = new Date();
-            const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+            const ymd = koreaCalendarYmd(now);
+            const dateStr = ymd.replace(/-/g, "");
 
-            const startOfDay = new Date(now);
-            startOfDay.setUTCHours(0, 0, 0, 0);
-            const endOfDay = new Date(now);
-            endOfDay.setUTCHours(23, 59, 59, 999);
+            const startOfDay = koreaCalendarDayStartUtc(ymd);
+            const endOfDay = koreaCalendarDayEndUtc(ymd);
 
             const todayOrderCount = await tx.order.count({
               where: {

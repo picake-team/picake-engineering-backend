@@ -495,4 +495,14 @@ describe("견적 ② (integration)", () => {
       replyNeededChats: 0,
     });
   });
+
+  it("판매자 앱으로 보낼 대상을 못 읽어도(DB 끊김) 오류를 밖으로 던지지 않는다(기다리지 않고 부르므로)", async () => {
+    const { quotes } = await build();
+    const prisma = getTestPrisma();
+    const spy = vi
+      .spyOn(prisma.quoteRequestStore, "findMany")
+      .mockRejectedValueOnce(new Error("connection reset"));
+    await expect(quotes.sendNewRequestToApps("no-such-request")).resolves.toBeUndefined();
+    spy.mockRestore();
+  });
 });

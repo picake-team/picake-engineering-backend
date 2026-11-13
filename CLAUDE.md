@@ -7,7 +7,7 @@ Picake(디저트 주문 플랫폼)의 **백엔드 API 서버** 레포입니다. 
 | 레포                         | 내용                                                                                          | 로컬 위치(권장)                       |
 | ---------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------- |
 | `picake-engineering-backend` | 백엔드 API 서버 (현재 레포)                                                                   | -                                     |
-| `picake-engineering-web`     | 웹 프론트엔드 (`web-user`, `web-seller`, `web-admin`)                                         | 형제 폴더 `../picake-engineering-web` |
+| `picake-engineering-web`     | 웹 프론트엔드 (`web-user`, `web-seller`, `web-admin`, `web-info`)                             | 형제 폴더 `../picake-engineering-web` |
 | `picake-engineering-app`     | Flutter 웹뷰 앱 (손님 앱이 `web-user`를 감쌈, 판매자 앱 준비 중). 코드는 지금 앱담당자가 보관 | -                                     |
 | `picake-hq` (비공개)         | 회사 운영·운영 자동화 (매일 브리핑, 주간 회의, 데이터 리포트·인프라 점검 skill)               | 형제 폴더 `../picake-hq`              |
 

@@ -514,12 +514,26 @@ export class QuoteService {
     });
   }
 
-  /** 새 요청서에서 손님이 지정한 입점 가게들의 판매자 앱으로 보낸다. 실패해도 요청은 그대로 */
-  async sendNewRequestToApps(requestId: string): Promise<void> {
-    const targets = await this.prisma.quoteRequestStore.findMany({
+  private loadAppTargets(requestId: string) {
+    return this.prisma.quoteRequestStore.findMany({
       where: { quoteRequestId: requestId, storeId: { not: null } },
       select: { ...TARGET_SELECT, quoteRequest: { select: REQUEST_SELECT } },
     });
+  }
+
+  /** 새 요청서에서 손님이 지정한 입점 가게들의 판매자 앱으로 보낸다. 실패해도 요청은 그대로 */
+  async sendNewRequestToApps(requestId: string): Promise<void> {
+    // 요청을 만든 뒤 기다리지 않고(void) 부르므로, 대상 읽기 실패도 여기서 잡아야 처리 안 된 오류가 되지 않는다
+    let targets: Awaited<ReturnType<typeof this.loadAppTargets>>;
+    try {
+      targets = await this.loadAppTargets(requestId);
+    } catch (e) {
+      LoggerUtil.log(
+        `[Quote] 판매자 앱 대상 읽기 실패 request=${requestId}: ${e instanceof Error ? e.message : e}`,
+      );
+      SentryUtil.captureException(e, "warning", { module: "quote", operation: "send-to-app" });
+      return;
+    }
     for (const t of targets) {
       try {
         await this.sendToApp(t);
