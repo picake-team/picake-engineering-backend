@@ -5,7 +5,7 @@ description: 카카오 알림톡 템플릿을 SOLAPI에 등록·검수 요청할
 
 # 카카오 알림톡 템플릿 등록 (SOLAPI)
 
-Picake는 SOLAPI를 통해 카카오 알림톡을 발송합니다. 주문 흐름 템플릿 9개(승인)와 견적 요청 템플릿 2개(기획 I-46 "견적 도착"·"견적 없이 마감", 2026-11-09 검수 요청 → 2026-11-10 승인, 아직 발송 코드에 연결 안 됨 — I-46 ②에서 연결)가 있습니다. 이 skill은 **새 템플릿을 기존 템플릿과 형식·톤을 맞춰 등록하고, 검수(승인요청)까지 제출**하는 절차입니다.
+Picake는 SOLAPI를 통해 카카오 알림톡을 발송합니다. 템플릿은 주문 흐름, 견적(기획 I-46 "견적 도착"·"견적 마감"), 채팅(기획 I-11 "답변 도착"·"새 문의")이 있고 모두 발송 코드에 연결돼 있습니다(2026-11-14 기준). 개수·상태는 SOLAPI 목록이나 `alimtalk-check-*` 태그로 확인합니다. 이 skill은 **새 템플릿을 기존 템플릿과 형식·톤을 맞춰 등록하고, 검수(승인요청)까지 제출**하는 절차입니다.
 
 ## 0. 연결 확인
 
@@ -24,7 +24,11 @@ Picake는 SOLAPI를 통해 카카오 알림톡을 발송합니다. 주문 흐름
 
 새 템플릿을 만들기 전에 아래 두 곳에서 기존 관례를 확인합니다. 절대 임의로 새 스타일을 만들지 않습니다.
 
-1. `apps/backend/src/modules/notification/constants/user-order-alimtalk.constants.ts` — 코드상 templateId 매핑의 authoritative source. 어떤 상태 전환에 어떤 템플릿이 쓰이는지, 버튼 URL 상수(`USER_ORDER_ALIMTALK_BUTTON_URLS`)가 어떻게 재사용되는지 확인.
+1. 코드상 templateId 매핑(어느 일에 어느 템플릿을 쓰는지):
+   - 주문: `apps/backend/src/modules/notification/constants/user-order-alimtalk.constants.ts`(`USER_ORDER_ALIMTALK_TEMPLATE_IDS`, 버튼 주소 `USER_ORDER_ALIMTALK_BUTTON_URLS`)
+   - 견적: `apps/backend/src/modules/quote-request/constants/quote.constants.ts`(`QUOTE_ALIMTALK_TEMPLATE_IDS`)
+   - 채팅: `apps/backend/src/modules/chat/constants/chat.constants.ts`(`CHAT_ALIMTALK_TEMPLATE_IDS`)
+   - 워크플로로 등록한 템플릿 원문: `apps/backend/scripts/alimtalk-templates/templates.json`
 2. `mcp__solapi__list_kakao_templates` (또는 `get_kakao_template`으로 특정 템플릿) — 실제 SOLAPI에 등록된 원본 구조(JSON) 확인.
 
 ### 고정 관례 (모든 기존 템플릿 공통)
@@ -58,8 +62,8 @@ Picake는 SOLAPI를 통해 카카오 알림톡을 발송합니다. 주문 흐름
 
 이 skill은 SOLAPI 템플릿 등록·검수 제출까지만 다룹니다. 승인이 완료된 뒤 실제 발송 로직에 연결하려면:
 
-- `templateId`를 `USER_ORDER_ALIMTALK_TEMPLATE_IDS`(`user-order-alimtalk.constants.ts`)에 추가
-- 필요시 `USER_ORDER_ALIMTALK_BUTTON_URLS`에 신규 버튼 URL 추가
+- `templateId`를 그 일의 상수(주문 `USER_ORDER_ALIMTALK_TEMPLATE_IDS`, 견적 `QUOTE_ALIMTALK_TEMPLATE_IDS`, 채팅 `CHAT_ALIMTALK_TEMPLATE_IDS`)에 추가
+- 필요하면 버튼 주소 상수 추가. **버튼 주소에 새 경로가 생기면 앱으로 열리는지** web 레포 skill `picake-link-app-deep-links`(앱 레포 경로 목록·아이폰 `picake://` 넘기기)를 같이 본다
 - 발송 트리거(배치/훅) 코드 작성
 
 은 별도 구현 작업이며, 사용자가 코드 작업을 요청하면 그때 진행합니다 (승인은 보통 카카오 검수에 시간이 걸리므로 템플릿 등록과 코드 연동을 같은 턴에 끝내지 않아도 됩니다).

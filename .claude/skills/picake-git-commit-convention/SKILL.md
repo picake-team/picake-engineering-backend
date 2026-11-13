@@ -5,7 +5,7 @@ description: Picake 저장소에 커밋 메시지를 작성할 때 사용합니�
 
 # 커밋 메시지 규칙
 
-이 레포(`picake-engineering-backend`)는 backend 전용입니다. 웹 레포는 `[WEB-USER]`/`[WEB-SELLER]`/`[WEB-ADMIN]`/`[COMMON]`을 씁니다.
+이 레포(`picake-engineering-backend`)는 backend 전용입니다. 웹 레포는 `[WEB-USER]`/`[WEB-SELLER]`/`[WEB-ADMIN]`/`[WEB-INFO]`/`[COMMON]`, 앱 레포는 `[APP]`을 씁니다.
 
 ## 형식
 
@@ -36,7 +36,8 @@ description: Picake 저장소에 커밋 메시지를 작성할 때 사용합니�
 
 ## 주의
 
-- 사용자가 명시적으로 요청하지 않으면 커밋하지 않습니다.
+- 맡은 작업은 작업 브랜치에 커밋합니다(묻지 않음). `staging`·`main`에 바로 커밋하지 않습니다.
+- 내가 만들지 않은 변경(작업 전부터 있던 수정 파일)은 같이 커밋하지 않습니다.
 
 ## 커밋 절차
 
