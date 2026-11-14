@@ -50,7 +50,7 @@ describe("견적 요청 문구", () => {
   it("케이크 줄", () => {
     expect(
       formatCake({ size: "NO1", quantity: 1, creams: ["FRESH_CREAM"], flavorNote: null }),
-    ).toBe("1호 케이크 1개 · 생크림");
+    ).toBe("1호 케이크 · 생크림");
     expect(formatCake({ size: "LUNCHBOX", quantity: 10, creams: [], flavorNote: null })).toBe(
       "도시락 케이크 10개",
     );
@@ -61,7 +61,7 @@ describe("견적 요청 문구", () => {
         creams: ["BUTTER_CREAM", "CREAM_CHEESE"],
         flavorNote: "초코 시트",
       }),
-    ).toBe("미니 케이크 1개 · 버터크림·크림치즈·초코 시트");
+    ).toBe("미니 케이크 · 버터크림·크림치즈·초코 시트");
   });
 
   it("예산", () => {

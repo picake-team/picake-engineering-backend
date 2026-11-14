@@ -315,7 +315,7 @@ export class QuoteRequestSummaryDto {
   @ApiProperty({ example: "연남동 3km 안" })
   area: string;
 
-  @ApiProperty({ example: "1호 케이크 1개 · 생크림" })
+  @ApiProperty({ example: "1호 케이크 · 생크림" })
   cake: string;
 
   @ApiProperty({ example: "3만~5만원" })

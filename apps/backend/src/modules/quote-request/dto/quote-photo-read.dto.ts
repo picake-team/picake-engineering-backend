@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsNotEmpty, IsString } from "class-validator";
-import { QuoteCream } from "@apps/backend/infra/database/prisma/generated/client";
 import { QUOTE_PHOTO_READ_ERROR_MESSAGES } from "@apps/backend/modules/quote-request/constants/quote-photo-read.constants";
 
 /** 견적 요청서 참고 사진 읽기(기획 I-112 1-나) */
@@ -54,24 +53,4 @@ export class QuotePhotoReadResponseDto {
     description: '따를 것 4칸. 웹이 요청서 설명을 "· 모양: …" 줄로 쓴다',
   })
   parts?: QuotePhotoReadPartsDto;
-
-  @ApiPropertyOptional({
-    enum: ["LUNCHBOX", "MINI"],
-    nullable: true,
-    description: "누가 봐도 도시락·미니일 때만, 그 밖에는 null(호 크기는 짐작하지 않음)",
-  })
-  size?: "LUNCHBOX" | "MINI" | null;
-
-  @ApiPropertyOptional({
-    enum: QuoteCream,
-    isArray: true,
-    description: "크림 종류가 틀림없을 때만",
-  })
-  creams?: QuoteCream[];
-
-  @ApiPropertyOptional({
-    description: "초·토퍼가 분명히 보일 때만(예: 사진처럼 초 1개), 아니면 빈 문자열",
-    example: "",
-  })
-  requestNote?: string;
 }

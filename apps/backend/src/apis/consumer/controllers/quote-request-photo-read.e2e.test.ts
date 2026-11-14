@@ -20,9 +20,6 @@ describe("POST /v1/consumer/quote-requests/photo-read (e2e)", () => {
       decoration: "분홍 하트 테두리",
       lettering: '"생일 축하해" 갈색 손글씨',
     },
-    size: "LUNCHBOX",
-    creams: [],
-    requestNote: "",
   };
 
   let restore: (() => void) | undefined;
@@ -59,12 +56,7 @@ describe("POST /v1/consumer/quote-requests/photo-read (e2e)", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data).toEqual({
-      parts: OUTPUT.parts,
-      size: "LUNCHBOX",
-      creams: [],
-      requestNote: "",
-    });
+    expect(res.body.data).toEqual({ parts: OUTPUT.parts });
     expect(create).toHaveBeenCalledTimes(1);
   });
 

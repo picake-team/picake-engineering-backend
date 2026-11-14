@@ -88,7 +88,7 @@ describe("견적 요청 (integration)", () => {
     expect(detail.summary).toEqual({
       pickup: "12월 24일(목) 오후 2시~5시",
       area: "연남동 3km 안",
-      cake: "1호 케이크 1개 · 생크림",
+      cake: "1호 케이크 · 생크림",
       budget: "3만~5만원",
       deadline: "12월 24일(목) 오후 1시",
     });
