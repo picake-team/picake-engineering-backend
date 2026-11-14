@@ -21,9 +21,6 @@ const goodOutput = {
     decoration: "분홍 하트 테두리",
     lettering: '"생일 축하해" 갈색 손글씨',
   },
-  size: "LUNCHBOX",
-  creams: [],
-  requestNote: "사진처럼 초 1개",
 };
 
 describe("parseImageDataUrl(웹이 보낸 사진 확인)", () => {
@@ -76,13 +73,8 @@ describe("parseImageDataUrl(웹이 보낸 사진 확인)", () => {
 });
 
 describe("toPhotoReadResult(읽은 값을 화면에 보낼 모양으로)", () => {
-  it("따를 것·크기·크림·요청 사항을 그대로(읽은 줄·설명 문장은 받지 않는다)", () => {
-    expect(toPhotoReadResult(goodOutput)).toEqual({
-      parts: goodOutput.parts,
-      size: "LUNCHBOX",
-      creams: [],
-      requestNote: "사진처럼 초 1개",
-    });
+  it("따를 것 4칸만 돌려준다(설명 칸만 채운다)", () => {
+    expect(toPhotoReadResult(goodOutput)).toEqual({ parts: goodOutput.parts });
   });
 
   it("케이크가 아니거나 모양을 못 읽었으면 못 읽음(null)", () => {
@@ -104,19 +96,12 @@ describe("toPhotoReadResult(읽은 값을 화면에 보낼 모양으로)", () =>
     expect(Array.from(r.parts.decoration!)).toHaveLength(80);
   });
 
-  it("크기는 도시락·미니만, 크림은 아는 값만 겹치지 않게, 빈 값은 null·빈 문자열", () => {
+  it("색이 비면 빈 문자열, 장식·글자가 비거나 글이 아니면 null", () => {
     const r = toPhotoReadResult({
       ...goodOutput,
-      size: "NO1",
-      creams: ["BUTTER_CREAM", "BUTTER_CREAM", "WHIPPED"],
-      requestNote: "  ",
       parts: { shape: "흰 케이크", color: null, decoration: "", lettering: 3 },
     })!;
-    expect(r.size).toBeNull();
-    expect(r.creams).toEqual(["BUTTER_CREAM"]);
-    expect(r.requestNote).toBe("");
     expect(r.parts).toEqual({ shape: "흰 케이크", color: "", decoration: null, lettering: null });
-    expect(toPhotoReadResult({ ...goodOutput, size: "MINI" })!.size).toBe("MINI");
   });
 });
 
@@ -152,7 +137,7 @@ describe("readCakePhoto(Claude 부르기, 클라이언트는 가짜)", () => {
       source: { type: "base64", media_type: "image/png", data: image.data },
     });
     expect(params.system).toContain("사진 속 인물 그림");
-    expect(r.result?.size).toBe("LUNCHBOX");
+    expect(r.result?.parts.shape).toBe("흰 크림 도시락 케이크");
     expect(r.usage).toEqual({ inputTokens: 900, outputTokens: 300 });
     // 마감을 넘기지 않으면 요청 옵션도 없다(클라이언트 기본값)
     expect((create.mock.calls[0] as unknown[])[1]).toBeUndefined();
@@ -182,13 +167,7 @@ describe("readCakePhoto(Claude 부르기, 클라이언트는 가짜)", () => {
     expect(PHOTO_READ_OUTPUT_SCHEMA.required).toEqual(
       Object.keys(PHOTO_READ_OUTPUT_SCHEMA.properties),
     );
-    // 읽은 줄 7개·설명 문장은 쓰게 하지 않는다(웹이 쓰지 않는 출력 토큰)
-    expect(PHOTO_READ_OUTPUT_SCHEMA.required).toEqual([
-      "isCake",
-      "parts",
-      "size",
-      "creams",
-      "requestNote",
-    ]);
+    // 따를 것 4칸만 쓰게 한다(웹이 쓰지 않는 읽은 줄·설명 문장·크기·크림·요청 사항은 빼서 출력 토큰을 줄임)
+    expect(PHOTO_READ_OUTPUT_SCHEMA.required).toEqual(["isCake", "parts"]);
   });
 });

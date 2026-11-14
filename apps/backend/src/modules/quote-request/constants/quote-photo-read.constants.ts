@@ -23,12 +23,10 @@ export const QUOTE_PHOTO_READ_LIMITS = {
    * 그보다 넉넉히 짧게 끊어 웹이 포기한 뒤에도 서버가 Claude를 기다리지 않게 한다. 끊긴 번은 횟수에서 되돌린다
    */
   CLAUDE_TIMEOUT_MS: 20_000,
-  /** 따를 것 4칸 + 크림·요청 사항이면 수백 토큰. 넘치면 잘린 응답 대신 못 읽음으로 */
+  /** 따를 것 4칸이면 수백 토큰. 넘치면 잘린 응답 대신 못 읽음으로 */
   MAX_OUTPUT_TOKENS: 1024,
   /** 따를 것 한 칸 */
   VALUE_MAX_LENGTH: 80,
-  /** 요청 사항(요청서 요청 사항 칸 200자보다 짧게) */
-  REQUEST_NOTE_MAX_LENGTH: 100,
   /** 큰 사진을 받는 이 경로만 JSON 본문 한도를 올린다(base64는 원래 크기의 4/3) */
   BODY_LIMIT: "4mb",
 } as const;

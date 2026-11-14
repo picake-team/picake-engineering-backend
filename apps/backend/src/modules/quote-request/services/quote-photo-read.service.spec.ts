@@ -36,9 +36,6 @@ const OUTPUT = {
     decoration: "딸기 3개",
     lettering: '"지민아 생일 축하해" 흰 글씨',
   },
-  size: null,
-  creams: [],
-  requestNote: "",
 };
 const reply = (output: unknown, stop = "end_turn") => ({
   model: "claude-haiku-5-5",
@@ -72,12 +69,7 @@ describe("QuotePhotoReadService(견적 요청서 사진 읽기)", () => {
 
   it("읽은 값을 돌려준다", async () => {
     const r = await build().read(IMAGE, { consumerId: "c1" });
-    expect(r).toEqual({
-      parts: OUTPUT.parts,
-      size: null,
-      creams: [],
-      requestNote: "",
-    });
+    expect(r).toEqual({ parts: OUTPUT.parts });
   });
 
   it("케이크가 아니면 { unreadable: true }만", async () => {

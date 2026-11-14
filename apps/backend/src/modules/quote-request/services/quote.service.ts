@@ -315,7 +315,9 @@ export class QuoteService {
   }
 
   private requestCardSubtitle(r: RequestRow): string {
-    return `${formatPickup(r)} · ${QUOTE_CAKE_SIZE_LABELS[r.size]} ${r.quantity}개 · 예산 ${formatBudget(r)}`;
+    // 개수는 묻지 않아 늘 1개(11-14). 그 전 요청이 여러 개면 그대로
+    const count = r.quantity > 1 ? ` ${r.quantity}개` : "";
+    return `${formatPickup(r)} · ${QUOTE_CAKE_SIZE_LABELS[r.size]}${count} · 예산 ${formatBudget(r)}`;
   }
 
   // ───────────────────────── 견적 보내기(세 길 공통) ─────────────────────────
