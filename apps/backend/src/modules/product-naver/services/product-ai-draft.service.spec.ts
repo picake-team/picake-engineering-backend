@@ -107,4 +107,18 @@ describe("ProductAiDraftService 하루 한도(상품 상세설명 AI 초안)", (
     );
     expect(generate).toHaveBeenCalledTimes(35);
   });
+
+  it("Claude가 받지 않은 4xx는 세어 둔다(되돌리지 않음)", async () => {
+    const service = build();
+    generate.mockRejectedValue(Object.assign(new Error("bad request"), { status: 400 }));
+    for (let i = 0; i < 30; i += 1) {
+      await expect(service.createDraftForSeller("s1", REQUEST, seller("a"))).rejects.toBeInstanceOf(
+        BadGatewayException,
+      );
+    }
+    await expect(service.createDraftForSeller("s1", REQUEST, seller("a"))).rejects.toMatchObject({
+      status: 429,
+    });
+    expect(generate).toHaveBeenCalledTimes(30);
+  });
 });

@@ -25,6 +25,11 @@ describe("참고 사진 정보", () => {
   });
 
   it("저장할 때: 정보가 없으면 사진마다 손님 사진·전체, 개수가 다르면 null", () => {
+    // null도 정보 없음으로(앱·다른 클라이언트가 null을 보내도 500이 나지 않게)
+    expect(buildPhotoDetailsForCreate(1, null)).toEqual({
+      photoDetails: [{ designId: null, parts: ["ALL"] }],
+      designIds: [],
+    });
     expect(buildPhotoDetailsForCreate(2, undefined)).toEqual({
       photoDetails: [
         { designId: null, parts: ["ALL"] },
