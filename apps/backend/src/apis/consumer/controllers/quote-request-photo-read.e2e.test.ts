@@ -14,23 +14,12 @@ import { createTestConsumer } from "@apps/backend/test/integration/factories";
 describe("POST /v1/consumer/quote-requests/photo-read (e2e)", () => {
   const OUTPUT = {
     isCake: true,
-    rows: {
-      shape: "원형 1단 도시락 케이크",
-      creamColor: "흰색",
-      border: "분홍 하트 테두리",
-      decoration: null,
-      lettering: '"생일 축하해" 갈색 손글씨',
-      candlesToppers: null,
-      creamType: null,
-    },
     parts: {
       shape: "흰 크림 도시락 케이크",
       color: "흰색",
       decoration: "분홍 하트 테두리",
       lettering: '"생일 축하해" 갈색 손글씨',
     },
-    description:
-      '사진처럼 흰 크림 도시락 케이크에 분홍 하트 테두리를 두르고 "생일 축하해"를 갈색으로 써 주세요.',
     size: "LUNCHBOX",
     creams: [],
     requestNote: "",
@@ -71,17 +60,7 @@ describe("POST /v1/consumer/quote-requests/photo-read (e2e)", () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data).toEqual({
-      read: [
-        { label: "모양", value: "원형 1단 도시락 케이크" },
-        { label: "크림 색", value: "흰색" },
-        { label: "테두리", value: "분홍 하트 테두리" },
-        { label: "장식", value: null },
-        { label: "글자", value: '"생일 축하해" 갈색 손글씨' },
-        { label: "초·토퍼", value: null },
-        { label: "크림 종류", value: null },
-      ],
       parts: OUTPUT.parts,
-      description: OUTPUT.description,
       size: "LUNCHBOX",
       creams: [],
       requestNote: "",

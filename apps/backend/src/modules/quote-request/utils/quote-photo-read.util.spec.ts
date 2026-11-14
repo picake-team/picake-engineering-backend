@@ -15,23 +15,12 @@ const dataUrl = (type: string, buf: Buffer) =>
 
 const goodOutput = {
   isCake: true,
-  rows: {
-    shape: "원형 1단 도시락 케이크",
-    creamColor: "흰색",
-    border: "분홍 하트 테두리",
-    decoration: null,
-    lettering: '"생일 축하해" 갈색 손글씨',
-    candlesToppers: "초 1개",
-    creamType: null,
-  },
   parts: {
     shape: "흰 크림 도시락 케이크",
     color: "흰색",
     decoration: "분홍 하트 테두리",
     lettering: '"생일 축하해" 갈색 손글씨',
   },
-  description:
-    '사진처럼 흰 크림 도시락 케이크에 분홍 하트 테두리를 두르고 가운데에 "생일 축하해"를 갈색으로 써 주세요.',
   size: "LUNCHBOX",
   creams: [],
   requestNote: "사진처럼 초 1개",
@@ -87,39 +76,32 @@ describe("parseImageDataUrl(웹이 보낸 사진 확인)", () => {
 });
 
 describe("toPhotoReadResult(읽은 값을 화면에 보낼 모양으로)", () => {
-  it("읽은 줄은 서버가 정한 이름·순서로, 나머지는 그대로", () => {
+  it("따를 것·크기·크림·요청 사항을 그대로(읽은 줄·설명 문장은 받지 않는다)", () => {
     expect(toPhotoReadResult(goodOutput)).toEqual({
-      read: [
-        { label: "모양", value: "원형 1단 도시락 케이크" },
-        { label: "크림 색", value: "흰색" },
-        { label: "테두리", value: "분홍 하트 테두리" },
-        { label: "장식", value: null },
-        { label: "글자", value: '"생일 축하해" 갈색 손글씨' },
-        { label: "초·토퍼", value: "초 1개" },
-        { label: "크림 종류", value: null },
-      ],
       parts: goodOutput.parts,
-      description: goodOutput.description,
       size: "LUNCHBOX",
       creams: [],
       requestNote: "사진처럼 초 1개",
     });
   });
 
-  it("케이크가 아니거나 설명이 비었으면 못 읽음(null)", () => {
+  it("케이크가 아니거나 모양을 못 읽었으면 못 읽음(null)", () => {
     expect(toPhotoReadResult({ ...goodOutput, isCake: false })).toBeNull();
-    expect(toPhotoReadResult({ ...goodOutput, description: "   " })).toBeNull();
+    expect(
+      toPhotoReadResult({ ...goodOutput, parts: { ...goodOutput.parts, shape: "   " } }),
+    ).toBeNull();
+    expect(toPhotoReadResult({ ...goodOutput, parts: null })).toBeNull();
     expect(toPhotoReadResult(null)).toBeNull();
     expect(toPhotoReadResult("사진처럼")).toBeNull();
   });
 
-  it("설명은 '사진처럼'으로 시작하고 180자까지, 줄바꿈·빈칸은 한 칸으로", () => {
+  it("따를 것은 한 칸 80자까지, 줄바꿈·빈칸은 한 칸으로", () => {
     const r = toPhotoReadResult({
       ...goodOutput,
-      description: `흰 케이크\n\n${"가".repeat(300)}`,
+      parts: { ...goodOutput.parts, decoration: `분홍 하트\n\n${"가".repeat(300)}` },
     })!;
-    expect(r.description.startsWith("사진처럼 흰 케이크 가")).toBe(true);
-    expect(Array.from(r.description)).toHaveLength(180);
+    expect(r.parts.decoration!.startsWith("분홍 하트 가")).toBe(true);
+    expect(Array.from(r.parts.decoration!)).toHaveLength(80);
   });
 
   it("크기는 도시락·미니만, 크림은 아는 값만 겹치지 않게, 빈 값은 null·빈 문자열", () => {
@@ -128,16 +110,12 @@ describe("toPhotoReadResult(읽은 값을 화면에 보낼 모양으로)", () =>
       size: "NO1",
       creams: ["BUTTER_CREAM", "BUTTER_CREAM", "WHIPPED"],
       requestNote: "  ",
-      rows: { ...goodOutput.rows, shape: "", border: 3 },
-      parts: { shape: "", color: null, decoration: "", lettering: null },
+      parts: { shape: "흰 케이크", color: null, decoration: "", lettering: 3 },
     })!;
     expect(r.size).toBeNull();
     expect(r.creams).toEqual(["BUTTER_CREAM"]);
     expect(r.requestNote).toBe("");
-    expect(r.read[0]).toEqual({ label: "모양", value: null });
-    expect(r.read[2]).toEqual({ label: "테두리", value: null });
-    // 따를 것 이름이 비면 읽은 줄의 모양·색으로
-    expect(r.parts).toEqual({ shape: "", color: "흰색", decoration: null, lettering: null });
+    expect(r.parts).toEqual({ shape: "흰 케이크", color: "", decoration: null, lettering: null });
     expect(toPhotoReadResult({ ...goodOutput, size: "MINI" })!.size).toBe("MINI");
   });
 });
@@ -204,14 +182,13 @@ describe("readCakePhoto(Claude 부르기, 클라이언트는 가짜)", () => {
     expect(PHOTO_READ_OUTPUT_SCHEMA.required).toEqual(
       Object.keys(PHOTO_READ_OUTPUT_SCHEMA.properties),
     );
-    expect(PHOTO_READ_OUTPUT_SCHEMA.properties.rows.required).toEqual([
-      "shape",
-      "creamColor",
-      "border",
-      "decoration",
-      "lettering",
-      "candlesToppers",
-      "creamType",
+    // 읽은 줄 7개·설명 문장은 쓰게 하지 않는다(웹이 쓰지 않는 출력 토큰)
+    expect(PHOTO_READ_OUTPUT_SCHEMA.required).toEqual([
+      "isCake",
+      "parts",
+      "size",
+      "creams",
+      "requestNote",
     ]);
   });
 });
