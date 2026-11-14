@@ -19,6 +19,7 @@ import {
   formatKstDateTime,
   formatPickup,
 } from "@apps/backend/modules/quote-request/utils/quote-request-label.util";
+import { readPhotoDetails } from "@apps/backend/modules/quote-request/utils/quote-photo-detail.util";
 
 export const QUOTE_REQUEST_STORE_SELECT = {
   id: true,
@@ -51,6 +52,8 @@ export const QUOTE_REQUEST_SELECT = {
   onlyDesignatedStores: true,
   description: true,
   photoUrls: true,
+  photoDetails: true,
+  designIds: true,
   size: true,
   quantity: true,
   creams: true,
@@ -161,6 +164,8 @@ export function toDetail(row: QuoteRequestRow, now: Date): QuoteRequestDetailDto
     ...toListItem(row, now),
     description: row.description,
     photoUrls: row.photoUrls,
+    photoDetails: readPhotoDetails(row.photoDetails, row.photoUrls.length),
+    designIds: row.designIds,
     creams: row.creams,
     flavorNote: row.flavorNote,
     budgetMin: row.budgetMin,

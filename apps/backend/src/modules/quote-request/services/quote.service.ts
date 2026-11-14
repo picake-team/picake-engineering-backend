@@ -67,6 +67,7 @@ import {
   formatKstDateTime,
   formatPickup,
 } from "@apps/backend/modules/quote-request/utils/quote-request-label.util";
+import { readPhotoDetails } from "@apps/backend/modules/quote-request/utils/quote-photo-detail.util";
 import { QuoteNotifyService } from "@apps/backend/modules/quote-request/services/quote-notify.service";
 
 const QUOTE_SELECT = {
@@ -138,6 +139,7 @@ const REQUEST_SELECT = {
   areaName: true,
   description: true,
   photoUrls: true,
+  photoDetails: true,
   size: true,
   quantity: true,
   creams: true,
@@ -270,6 +272,8 @@ export class QuoteService {
       description: visible ? r.description : null,
       requestNote: visible ? r.requestNote : null,
       photoUrls: visible ? r.photoUrls : [],
+      // 사진과 같이 가린다(사진이 없으면 그 사진의 정보도 없다)
+      photoDetails: visible ? readPhotoDetails(r.photoDetails, r.photoUrls.length) : [],
       contentHidden: !visible,
       customer: visible ? shopVisibleCustomer(r) : null,
       state,

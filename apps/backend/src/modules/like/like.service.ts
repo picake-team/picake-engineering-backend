@@ -6,6 +6,10 @@ import { LikeStoreCreateService } from "@apps/backend/modules/like/services/like
 import { LikeStoreDeleteService } from "@apps/backend/modules/like/services/like-store-delete.service";
 import { LikeStoreDetailService } from "@apps/backend/modules/like/services/like-store-detail.service";
 import { LikeUserListService } from "@apps/backend/modules/like/services/like-user-list.service";
+import { LikeDesignCreateService } from "@apps/backend/modules/like/services/like-design-create.service";
+import { LikeDesignDeleteService } from "@apps/backend/modules/like/services/like-design-delete.service";
+import { LikeDesignListService } from "@apps/backend/modules/like/services/like-design-list.service";
+import type { DesignLikesResponseDto } from "@apps/backend/modules/like/dto/like-design.dto";
 import {
   GetStoresRequestDto,
   StoreListResponseDto,
@@ -31,6 +35,9 @@ export class LikeService {
     private readonly likeStoreDeleteService: LikeStoreDeleteService,
     private readonly likeStoreDetailService: LikeStoreDetailService,
     private readonly likeUserListService: LikeUserListService,
+    private readonly likeDesignCreateService: LikeDesignCreateService,
+    private readonly likeDesignDeleteService: LikeDesignDeleteService,
+    private readonly likeDesignListService: LikeDesignListService,
   ) {}
 
   /**
@@ -79,5 +86,26 @@ export class LikeService {
     query: GetProductsRequestDto,
   ): Promise<ProductListResponseDto> {
     return this.likeUserListService.getMyProductLikesForUser(userId, query);
+  }
+
+  /**
+   * 디자인 좋아요 추가 (사용자용, 이미 눌렀으면 그대로)
+   */
+  async addDesignLikeForUser(userId: string, designId: string): Promise<void> {
+    return this.likeDesignCreateService.addDesignLikeForUser(userId, designId);
+  }
+
+  /**
+   * 디자인 좋아요 취소 (사용자용, 누르지 않았어도 그대로)
+   */
+  async removeDesignLikeForUser(userId: string, designId: string): Promise<void> {
+    return this.likeDesignDeleteService.removeDesignLikeForUser(userId, designId);
+  }
+
+  /**
+   * 디자인별 좋아요 수와 내 좋아요(로그인하지 않았으면 내 좋아요는 [])
+   */
+  async getDesignLikes(userId?: string): Promise<DesignLikesResponseDto> {
+    return this.likeDesignListService.getDesignLikes(userId);
   }
 }
