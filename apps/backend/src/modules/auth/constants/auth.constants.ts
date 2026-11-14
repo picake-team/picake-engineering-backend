@@ -49,6 +49,8 @@ export const AUTH_ERROR_MESSAGES = {
   ADMIN_API_KEY_INVALID: "유효하지 않거나 비활성화된 관리자 API 키예요.",
   ADMIN_API_KEY_MANAGEMENT_HUMAN_ONLY:
     "API 키로는 API 키를 관리(발급/폐기)할 수 없습니다. 관리자 계정으로 로그인해주세요.",
+  ADMIN_ACCOUNT_MANAGEMENT_HUMAN_ONLY:
+    "관리자 가입 설정과 가입 승인은 사람 관리자 로그인으로만 바꿀 수 있어요.",
   ADMIN_API_KEY_NOT_FOUND: "해당 API 키를 찾을 수 없어요.",
   /* --------------------------------- 토큰 관련 에러 메시지 (반드시 401으로 사용) (주의: 프론트호환성을 위해, 여기 외에 401 오류가 있으면 안됨) --------------------------------- */
   REFRESH_TOKEN_EXPIRED:
