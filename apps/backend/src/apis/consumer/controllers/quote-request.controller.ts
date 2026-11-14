@@ -10,6 +10,7 @@ import {
   Request,
 } from "@nestjs/common";
 import { ApiExtraModels, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
@@ -38,13 +39,24 @@ import {
   ReserveQuoteResponseDto,
 } from "@apps/backend/modules/quote-request/dto/quote.dto";
 import { QuoteReservationService } from "@apps/backend/modules/quote-request/services/quote-reservation.service";
+import { QuotePhotoReadService } from "@apps/backend/modules/quote-request/services/quote-photo-read.service";
+import {
+  QuotePhotoReadRequestDto,
+  QuotePhotoReadResponseDto,
+} from "@apps/backend/modules/quote-request/dto/quote-photo-read.dto";
+import { QUOTE_PHOTO_READ_ERROR_MESSAGES } from "@apps/backend/modules/quote-request/constants/quote-photo-read.constants";
 
 /**
  * 견적 요청 컨트롤러 (손님용, 기획 I-46)
  * 손님이 원하는 케이크를 요청서로 보내고, 내 견적 요청을 본다.
  */
 @ApiTags("견적 요청")
-@ApiExtraModels(CreateQuoteRequestResponseDto, QuoteRequestListResponseDto, QuoteRequestDetailDto)
+@ApiExtraModels(
+  CreateQuoteRequestResponseDto,
+  QuoteRequestListResponseDto,
+  QuoteRequestDetailDto,
+  QuotePhotoReadResponseDto,
+)
 @Controller(`${AUDIENCE.CONSUMER}/quote-requests`)
 @Auth({ isPublic: false, audiences: ["consumer"] })
 export class ConsumerQuoteRequestController {
@@ -53,7 +65,39 @@ export class ConsumerQuoteRequestController {
     private readonly writeService: QuoteRequestWriteService,
     private readonly reservationService: QuoteReservationService,
     private readonly quoteService: QuoteService,
+    private readonly photoReadService: QuotePhotoReadService,
   ) {}
+
+  @Post("photo-read")
+  // 요청서는 로그인 전에도 쓴다(보낼 때 로그인). 로그인했으면 손님마다, 아니면 접속 주소마다 하루 한도
+  @Auth({ isOptionalPublic: true, audiences: ["consumer"] })
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({
+    summary: "참고 사진 읽기(로그인 없이도, 기획 I-112 1-나)",
+    description:
+      "손님이 올린 케이크 사진(JPG·PNG data URL, 2.5MB까지)을 Claude가 읽어 요청서 칸을 채울 값을 돌려줍니다: 읽은 줄 7개(모양·크림 색·테두리·장식·글자·초·토퍼·크림 종류), 따를 것 이름, '사진처럼'으로 시작하는 설명 한 문장, 크기(도시락·미니일 때만), 크림, 요청 사항. " +
+      "케이크가 아니거나 읽지 못하면 `{ unreadable: true }`만 옵니다. 사진은 저장하지 않습니다. 하루 20번(로그인하면 손님마다, 아니면 접속 주소마다), 넘으면 429.",
+  })
+  @SwaggerResponse(200, { dataDto: QuotePhotoReadResponseDto })
+  @SwaggerResponse(400, {
+    dataExample: createMessageObject(QUOTE_PHOTO_READ_ERROR_MESSAGES.INVALID_IMAGE),
+  })
+  @SwaggerResponse(429, {
+    dataExample: createMessageObject(QUOTE_PHOTO_READ_ERROR_MESSAGES.DAILY_LIMIT),
+  })
+  @SwaggerResponse(502, {
+    dataExample: createMessageObject(QUOTE_PHOTO_READ_ERROR_MESSAGES.FAILED),
+  })
+  async photoRead(
+    @Body() dto: QuotePhotoReadRequestDto,
+    @Request() req: { user?: JwtVerifiedPayload; ip?: string },
+  ) {
+    return await this.photoReadService.read(dto.image, {
+      consumerId: req.user?.sub ?? null,
+      ip: req.ip ?? null,
+    });
+  }
 
   @Get("quotes/unseen-count")
   @HttpCode(HttpStatus.OK)

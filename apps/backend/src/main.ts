@@ -23,6 +23,7 @@ import { initializeSentry } from "@apps/backend/common/config/sentry.config";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { isNonProduction } from "@apps/backend/common/utils/environment.util";
+import { applyLargeJsonBodyRoutes } from "@apps/backend/common/config/body-limit.config";
 
 /**
  * NestJS 애플리케이션의 진입점
@@ -107,6 +108,10 @@ async function bootstrap(): Promise<void> {
     credentials: true, // 인증 헤더 등을 포함한 자격 증명을 CORS 요청에 포함할 수 있도록 허용
     maxAge: 86400,
   });
+
+  // 사진(data URL)을 받는 견적 요청서 사진 읽기만 JSON 한도를 올린다.
+  // 기본 파서(listen 때 붙음)보다 먼저, CORS보다 뒤에(너무 큰 사진 413에도 CORS 헤더가 붙게)
+  applyLargeJsonBodyRoutes(app);
 
   // 보안 헤더 설정 (WebSocket 연결을 위해 Content-Security-Policy 조정)
   app.use(

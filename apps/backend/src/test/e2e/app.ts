@@ -4,6 +4,7 @@ import { Test } from "@nestjs/testing";
 
 import { AppModule } from "@apps/backend/app.module";
 import { API_PREFIX } from "@apps/backend/common/constants/app.constants";
+import { applyLargeJsonBodyRoutes } from "@apps/backend/common/config/body-limit.config";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { NotificationOrderDispatchService } from "@apps/backend/modules/notification/services/notification-order-dispatch.service";
 import { assertTestDatabase } from "@apps/backend/test/integration/db";
@@ -33,6 +34,8 @@ export async function createTestApp(): Promise<INestApplication> {
     .compile();
 
   app = moduleRef.createNestApplication();
+  // main.ts와 같게: 사진 읽기 경로만 JSON 한도를 올린다(app.init() 전에)
+  applyLargeJsonBodyRoutes(app);
 
   // Sentry로 실제 이벤트가 나가지 않도록: nodeEnv만 등록해 SentryUtil.enabled()가 false를 반환하게 함.
   // (initializeSentry()는 호출하지 않음 — 그건 실제 Sentry SDK를 DSN으로 초기화하는 함수)
