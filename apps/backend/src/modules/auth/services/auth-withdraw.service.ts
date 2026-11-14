@@ -68,6 +68,8 @@ export class AuthWithdrawService {
       // 디자인 모음 좋아요는 웹에서 디자인별 수로 보이므로 탈퇴한 손님 것은 지운다(기획 I-112).
       // 계정을 익명화만 해서 onDelete: Cascade로는 지워지지 않는다
       await this.prisma.designLike.deleteMany({ where: { consumerId: accountId } });
+      // 휴대폰 알림 기기도 지운다(사장님 탈퇴와 같게). 남겨 두면 탈퇴 뒤 관리자 환불 되돌리기 등 알림이 그 기기로 간다
+      await this.prisma.consumerFcmToken.deleteMany({ where: { consumerId: accountId } });
 
       // Apple 가이드라인 5.1.1(v) — 계정 삭제 시 Sign in with Apple 인가를 revoke. 실패해도 탈퇴는 계속 진행.
       if (row.appleRefreshToken) {
