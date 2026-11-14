@@ -12,6 +12,7 @@ import {
   USER_CANCEL_REFUND_REQUEST_SOURCE_STATUSES,
 } from "@apps/backend/modules/order/utils/order-status-transition.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
+import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { OrderLifecycleHookService } from "@apps/backend/modules/order/services/order-lifecycle-hook.service";
 import { ORDER_STATUS_TRANSITION_SOURCE } from "@apps/backend/modules/order/types/order-lifecycle.types";
 import {
@@ -84,20 +85,22 @@ export class OrderUserActionService {
         })
       ) {
         // 조회 이후 만료 시각을 넘긴 경로. 취소와 동시에 입금자명을 남깁니다.
-        await this.prisma.order.update({
-          where: { id: orderId },
-          data: {
-            orderStatus: OrderStatus.CANCEL_COMPLETED,
-            depositorName: dto.depositorName,
-            paymentPendingExpiredAt: now,
-          },
+        // 자동 작업이 먼저 취소했으면(조건 불일치) 취소 알림은 그쪽이 보냈으니 입금자명만 남깁니다.
+        const cancelled = await this.updateIfStatus(orderId, OrderStatus.PAYMENT_PENDING, {
+          orderStatus: OrderStatus.CANCEL_COMPLETED,
+          depositorName: dto.depositorName,
+          paymentPendingExpiredAt: now,
         });
-        this.orderLifecycleHookService.afterOrderStatusTransition({
-          orderId,
-          fromStatus: OrderStatus.PAYMENT_PENDING,
-          toStatus: OrderStatus.CANCEL_COMPLETED,
-          source: ORDER_STATUS_TRANSITION_SOURCE.USER_ACTION_PAYMENT_EXPIRED,
-        });
+        if (cancelled) {
+          this.orderLifecycleHookService.afterOrderStatusTransition({
+            orderId,
+            fromStatus: OrderStatus.PAYMENT_PENDING,
+            toStatus: OrderStatus.CANCEL_COMPLETED,
+            source: ORDER_STATUS_TRANSITION_SOURCE.USER_ACTION_PAYMENT_EXPIRED,
+          });
+        } else {
+          await this.recordDepositorClaim(orderId, dto.depositorName);
+        }
         throw new BadRequestException(ORDER_ERROR_MESSAGES.PAYMENT_PENDING_EXPIRED);
       }
     }
@@ -107,13 +110,22 @@ export class OrderUserActionService {
       throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
     }
 
-    await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        orderStatus: OrderStatus.PAYMENT_COMPLETED,
-        depositorName: dto.depositorName,
-      },
+    const paid = await this.updateIfStatus(orderId, OrderStatus.PAYMENT_PENDING, {
+      orderStatus: OrderStatus.PAYMENT_COMPLETED,
+      depositorName: dto.depositorName,
     });
+    if (!paid) {
+      // 그사이 마감으로 자동 취소됐거나 사장님이 바꿨다. 취소됐으면 위와 같이 입금자명을 남기고 마감 안내를
+      const latest = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { orderStatus: true },
+      });
+      if ((latest?.orderStatus as OrderStatus | undefined) === OrderStatus.CANCEL_COMPLETED) {
+        await this.recordDepositorClaim(orderId, dto.depositorName);
+        throw new BadRequestException(ORDER_ERROR_MESSAGES.PAYMENT_PENDING_EXPIRED);
+      }
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
+    }
     this.orderLifecycleHookService.afterOrderStatusTransition({
       orderId,
       fromStatus: OrderStatus.PAYMENT_PENDING,
@@ -158,17 +170,17 @@ export class OrderUserActionService {
         throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
       }
 
-      await this.prisma.order.update({
-        where: { id: orderId },
-        data: {
-          orderStatus: OrderStatus.CANCEL_REFUND_PENDING,
-          // 환불 절차로 넘어가므로 사유도 환불 요청 사유로 기록합니다(판매자 화면 표기 일치).
-          refundRequestReason: dto.reason,
-          refundBankName: dto.bankName,
-          refundBankAccountNumber: dto.bankAccountNumber,
-          refundAccountHolderName: dto.accountHolderName,
-        },
+      const moved = await this.updateIfStatus(orderId, beforeCancel, {
+        orderStatus: OrderStatus.CANCEL_REFUND_PENDING,
+        // 환불 절차로 넘어가므로 사유도 환불 요청 사유로 기록합니다(판매자 화면 표기 일치).
+        refundRequestReason: dto.reason,
+        refundBankName: dto.bankName,
+        refundBankAccountNumber: dto.bankAccountNumber,
+        refundAccountHolderName: dto.accountHolderName,
       });
+      if (!moved) {
+        throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
+      }
       this.orderLifecycleHookService.afterOrderStatusTransition({
         orderId,
         fromStatus: beforeCancel,
@@ -181,13 +193,13 @@ export class OrderUserActionService {
       return { id: orderId };
     }
 
-    await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        orderStatus: OrderStatus.CANCEL_COMPLETED,
-        userCancelReason: dto.reason,
-      },
+    const cancelled = await this.updateIfStatus(orderId, beforeCancel, {
+      orderStatus: OrderStatus.CANCEL_COMPLETED,
+      userCancelReason: dto.reason,
     });
+    if (!cancelled) {
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
+    }
     this.orderLifecycleHookService.afterOrderStatusTransition({
       orderId,
       fromStatus: beforeCancel,
@@ -219,16 +231,16 @@ export class OrderUserActionService {
       throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
     }
 
-    await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        orderStatus: OrderStatus.CANCEL_REFUND_PENDING,
-        refundRequestReason: dto.reason,
-        refundBankName: dto.bankName,
-        refundBankAccountNumber: dto.bankAccountNumber,
-        refundAccountHolderName: dto.accountHolderName,
-      },
+    const requested = await this.updateIfStatus(orderId, fromStatus, {
+      orderStatus: OrderStatus.CANCEL_REFUND_PENDING,
+      refundRequestReason: dto.reason,
+      refundBankName: dto.bankName,
+      refundBankAccountNumber: dto.bankAccountNumber,
+      refundAccountHolderName: dto.accountHolderName,
     });
+    if (!requested) {
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
+    }
     this.orderLifecycleHookService.afterOrderStatusTransition({
       orderId,
       fromStatus,
@@ -266,16 +278,38 @@ export class OrderUserActionService {
       throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
     }
 
-    await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        refundBankName: dto.bankName,
-        refundBankAccountNumber: dto.bankAccountNumber,
-        refundAccountHolderName: dto.accountHolderName,
-      },
+    // 그사이 사장님이 환불 완료로 바꿨으면 계좌를 고치지 않는다
+    const saved = await this.updateIfStatus(orderId, OrderStatus.CANCEL_REFUND_PENDING, {
+      refundBankName: dto.bankName,
+      refundBankAccountNumber: dto.bankAccountNumber,
+      refundAccountHolderName: dto.accountHolderName,
     });
+    if (!saved) {
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
+    }
     LoggerUtil.log(`[OrderUserAction] 환불 계좌 입력 - orderId: ${orderId}`);
     return { id: orderId };
+  }
+
+  /**
+   * 읽은 상태 그대로일 때만 바꾼다. 그사이 사장님·자동 작업(입금 마감 취소 등)이 먼저 바꿨으면
+   * 덮어쓰지 않고 `false`(취소된 주문이 되살아나거나 상태 알림이 두 번 가는 것을 막는다).
+   */
+  private async updateIfStatus(
+    orderId: string,
+    expected: OrderStatus,
+    data: Prisma.OrderUpdateManyMutationInput,
+  ): Promise<boolean> {
+    const { count } = await this.prisma.order.updateMany({
+      where: { id: orderId, orderStatus: expected },
+      data,
+    });
+    if (count === 0) {
+      LoggerUtil.log(
+        `[OrderUserAction] 그사이 상태가 바뀌어 처리하지 않음 - orderId: ${orderId}, expected: ${expected}`,
+      );
+    }
+    return count === 1;
   }
 
   /**

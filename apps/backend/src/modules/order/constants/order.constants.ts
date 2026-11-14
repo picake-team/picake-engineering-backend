@@ -21,6 +21,8 @@ export const ORDER_ERROR_MESSAGES = {
   INVALID_TOTAL_QUANTITY: "총 수량이 올바르지 않아요.",
   INVALID_TOTAL_PRICE: "총 금액이 올바르지 않아요.",
   INVALID_STATUS_TRANSITION: "현재 주문 상태에서 요청한 상태로 변경할 수 없어요.",
+  PICKUP_PASSED_CANNOT_CONFIRM:
+    "픽업 시간이 지난 예약은 확인할 수 없어요. 손님과 날짜를 다시 정하거나 예약을 취소해 주세요.",
   SAME_STATUS: "이미 해당 상태예요.",
   PAYMENT_PENDING_EXPIRED: "입금 가능 시간이 지나 예약이 취소됐어요.",
   INVALID_USER_ORDER_ACTION: "지금 이 주문에 대해 수행할 수 없는 작업이에요.",

@@ -93,14 +93,21 @@ export function isPickupReminderLeadEligible(createdAt: Date, pickupDate: Date):
   return pickupDate.getTime() - createdAt.getTime() >= PICKUP_REMINDER_LEAD_MS;
 }
 
+/** 한국 날짜(YYYY-MM-DD). 서버 시계는 UTC라 9시간을 더해 자른다 */
+function koreaYmd(date: Date): string {
+  return new Date(date.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 /**
  * 픽업 24시간 전 안내 발송 시점 도달 여부.
  * - `pickupDate - 24h <= now < pickupDate` 이면 true (픽업 시각 전에는 미발송분 재시도 가능)
+ * - 단, 한국 날짜로 픽업 당일이면 false. 안내 글이 "내일 픽업이에요"라서, 사장님이 픽업 당일에
+ *   예약을 확정하면 그날 "내일"이라고 가던 것(2026-11-15 검토). 당일 확정은 예약 확정 안내에 시각이 있다
  */
 export function isPickupReminderDue(pickupDate: Date, now: Date): boolean {
   const reminderAt = pickupDate.getTime() - PICKUP_REMINDER_LEAD_MS;
   const t = now.getTime();
-  return t >= reminderAt && t < pickupDate.getTime();
+  return t >= reminderAt && t < pickupDate.getTime() && koreaYmd(now) < koreaYmd(pickupDate);
 }
 
 /**

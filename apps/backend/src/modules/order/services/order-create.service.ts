@@ -147,6 +147,39 @@ export class OrderCreateService {
       throw new BadRequestException(ORDER_ERROR_MESSAGES.PICKUP_OUTSIDE_STORE_BUSINESS_HOURS);
     }
 
+    // 주문에 남기는 상품·가게·픽업 정보는 앱이 보낸 값이 아니라 DB 값으로 채운다. 상품명·가게명·픽업 장소는
+    // 알림톡(#{상품명} 등)과 사장님 화면에 그대로 나가서, 앱 값을 믿으면 아무 글이나 공식 채널로 보낼 수 있었다
+    // (2026-11-15 검토). 앱도 같은 DB 값을 보내므로 정상 예약은 달라지지 않는다. 가게 주소가 없는 옛 가게만 앱 값을 쓴다
+    const store = product.store;
+    const hasStoreAddress = Boolean(store.roadAddress || store.address);
+    const snapshot = {
+      productName: product.name,
+      productImages: product.images.length > 0 ? product.images : (productImages ?? []),
+      storeName: store.name,
+      pickup: hasStoreAddress
+        ? {
+            pickupAddress: store.address,
+            pickupRoadAddress: store.roadAddress,
+            pickupDetailAddress: store.detailAddress ?? "",
+            pickupZonecode: store.zonecode,
+            pickupLatitude: store.latitude,
+            pickupLongitude: store.longitude,
+          }
+        : {
+            pickupAddress,
+            pickupRoadAddress,
+            pickupDetailAddress,
+            pickupZonecode,
+            pickupLatitude,
+            pickupLongitude,
+          },
+    };
+    if (productName !== snapshot.productName || storeName !== snapshot.storeName) {
+      LoggerUtil.log(
+        `주문 생성: 앱이 보낸 상품명·가게명이 DB와 달라 DB 값으로 저장 - productId: ${productId}, userId: ${userId}`,
+      );
+    }
+
     // 주문 생성 (트랜잭션)
     // 주문 번호 중복 방지를 위해 최대 10회 재시도
     const maxRetries = 10;
@@ -184,20 +217,15 @@ export class OrderCreateService {
               data: {
                 consumerId: userId,
                 productId,
-                productName,
-                productImages,
+                productName: snapshot.productName,
+                productImages: snapshot.productImages,
                 storeId: product.storeId,
-                storeName,
+                storeName: snapshot.storeName,
                 orderNumber,
                 totalQuantity,
                 totalPrice,
                 pickupDate: new Date(pickupDate),
-                pickupAddress,
-                pickupRoadAddress,
-                pickupDetailAddress,
-                pickupZonecode,
-                pickupLatitude,
-                pickupLongitude,
+                ...snapshot.pickup,
                 reservationContactName: reservationContactName ?? null,
                 reservationPhone: reservationPhone ?? null,
                 entrySource: entrySource ?? null,
