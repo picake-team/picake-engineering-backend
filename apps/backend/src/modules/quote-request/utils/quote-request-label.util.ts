@@ -68,10 +68,6 @@ export function formatPickup(input: {
 }
 
 /**
- * "1호 케이크 · 생크림·크림치즈 · 초코 시트", 여러 개면 "도시락 케이크 10개".
- * 11-14부터 요청서가 개수·맛·크림을 묻지 않아(늘 1개) 1개는 쓰지 않는다. 그 전 요청은 값이 있으면 그대로
- */
-/**
  * 견적으로 만든 예약의 주문 이름 "견적 1호 케이크 · 생크림"(개수는 주문 개수로 따로 보여서 넣지 않는다).
  * 주문 목록·알림톡의 상품명 자리에 쓴다(기획 I-01)
  */
@@ -88,6 +84,10 @@ export function formatQuoteOrderName(input: {
   return flavors.length > 0 ? `${base} · ${flavors.join("·")}` : base;
 }
 
+/**
+ * "1호 케이크 · 생크림·크림치즈 · 초코 시트", 여러 개면 "도시락 케이크 10개".
+ * 11-14부터 요청서가 개수·맛·크림을 묻지 않아(늘 1개) 1개는 쓰지 않는다. 그 전 요청은 값이 있으면 그대로
+ */
 export function formatCake(input: {
   size: QuoteCakeSize;
   quantity: number;

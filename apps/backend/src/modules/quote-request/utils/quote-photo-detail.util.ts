@@ -34,9 +34,10 @@ export function designIdsOf(details: readonly QuotePhotoDetail[]): string[] {
  */
 export function buildPhotoDetailsForCreate(
   photoCount: number,
-  input: readonly { designId?: string | null; parts: readonly unknown[] }[] | undefined,
+  input: readonly { designId?: string | null; parts: readonly unknown[] }[] | null | undefined,
 ): { photoDetails: QuotePhotoDetail[]; designIds: string[] } | null {
-  if (input === undefined) {
+  // @IsOptional은 null도 통과시킨다(앱·다른 클라이언트가 null을 보내도 500이 나지 않게)
+  if (input == null) {
     return { photoDetails: Array.from({ length: photoCount }, defaultDetail), designIds: [] };
   }
   if (input.length !== photoCount) return null;

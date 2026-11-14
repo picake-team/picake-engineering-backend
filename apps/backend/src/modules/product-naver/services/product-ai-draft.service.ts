@@ -35,7 +35,7 @@ const DAILY_TOTAL_NOTICE_INTERVAL_MS = 6 * 3_600_000;
  * - 판매자가 준 자료(네이버 설명·확인한 사실·옵션 요약)에 있는 내용만 쓴다. 재료·알레르기·크기·보관처럼
  *   중요한 정보가 없으면 지어내지 않고 [판매자 확인 필요]로 남긴다.
  * - 초안은 저장하지 않는다. 판매자가 고치고 확인한 뒤 상품 등록·수정으로 저장한다.
- * - 판매자당 하루 30번, 모든 판매자를 합쳐 하루 300번(넘으면 503). 우리 쪽(연결·Claude) 문제로 못 만들면 두 한도 모두 되돌린다.
+ * - 판매자당 하루 30번, 모든 판매자를 합쳐 하루 300번(넘으면 503). 연결·시간 초과·429·5xx로 못 만들면 두 한도 모두 되돌린다.
  */
 @Injectable()
 export class ProductAiDraftService {
@@ -75,9 +75,13 @@ export class ProductAiDraftService {
     try {
       result = await generateDescriptionDraft(this.client, this.model, request);
     } catch (error: any) {
-      // 우리 쪽 문제로 못 만들었으면 두 한도 모두 되돌린다(사진 읽기와 같음)
-      this.quota.refund(user.sub);
-      this.totalQuota.refund("all");
+      const status: number | undefined = error?.status;
+      // 우리 쪽(연결·시간 초과·Claude 한도 429·서버 오류 5xx) 문제로 못 만들었으면 두 한도 모두 되돌린다.
+      // Claude가 요청을 받지 않은 4xx는 세어 둔다(사진 읽기와 같음, 11-14 상용 전 검토)
+      if (!status || status === 429 || status >= 500) {
+        this.quota.refund(user.sub);
+        this.totalQuota.refund("all");
+      }
       ExternalApiErrorUtil.reportFailure(
         {
           provider: "anthropic",

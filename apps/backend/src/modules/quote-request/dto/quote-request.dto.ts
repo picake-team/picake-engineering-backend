@@ -44,6 +44,9 @@ import {
 /**
  * 참고 사진 한 장의 정보(기획 I-112): 케이크 디자인 모음에서 온 사진인지, 무엇을 따를지
  */
+/** 사진 정보 칸이 틀렸을 때(웹이 만든 값만 오므로 드묾) */
+const PHOTO_DETAIL_INVALID = "참고 사진 정보를 다시 확인해 주세요. 사진을 다시 넣어 주세요.";
+
 export class QuotePhotoDetailDto {
   @ApiPropertyOptional({
     type: String,
@@ -64,10 +67,11 @@ export class QuotePhotoDetailDto {
       "이 사진에서 따를 것. ALL(전체)이 있으면 전체만 남기고, 나머지는 모양·색·장식·글자 순서로 저장",
     example: ["DECORATION"],
   })
-  @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(QUOTE_PHOTO_PARTS.length)
-  @IsIn(QUOTE_PHOTO_PARTS, { each: true })
+  // 웹이 만든 값만 오지만, 틀리면 영어 기본 글 대신 손님이 알아볼 글로(11-14 상용 전 검토)
+  @IsArray({ message: PHOTO_DETAIL_INVALID })
+  @ArrayMinSize(1, { message: PHOTO_DETAIL_INVALID })
+  @ArrayMaxSize(QUOTE_PHOTO_PARTS.length, { message: PHOTO_DETAIL_INVALID })
+  @IsIn(QUOTE_PHOTO_PARTS, { each: true, message: PHOTO_DETAIL_INVALID })
   parts: QuotePhotoPart[];
 }
 
@@ -243,11 +247,11 @@ export class CreateQuoteRequestDto {
       "참고 사진마다 어디서 왔고 무엇을 따를지(photoUrls와 같은 순서·같은 개수, 기획 I-112). 없으면 사진마다 손님 사진·전체",
   })
   @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(QUOTE_REQUEST_LIMITS.MAX_PHOTOS)
+  @IsArray({ message: PHOTO_DETAIL_INVALID })
+  @ArrayMaxSize(QUOTE_REQUEST_LIMITS.MAX_PHOTOS, { message: PHOTO_DETAIL_INVALID })
   @ValidateNested({ each: true })
   @Type(() => QuotePhotoDetailDto)
-  photoDetails?: QuotePhotoDetailDto[];
+  photoDetails?: QuotePhotoDetailDto[] | null;
 
   @ApiProperty({ enum: QuoteCakeSize, example: QuoteCakeSize.NO1 })
   @IsEnum(QuoteCakeSize)

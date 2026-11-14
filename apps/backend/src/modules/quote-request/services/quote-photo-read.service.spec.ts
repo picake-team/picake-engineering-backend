@@ -193,7 +193,44 @@ describe("QuotePhotoReadService(견적 요청서 사진 읽기)", () => {
     await expect(service.read(IMAGE, { consumerId: "late" })).resolves.toHaveProperty("parts");
   });
 
-  it("Claude를 다시 시도하지 않고 25초 안에 끊는다(웹은 30초 기다림)", () => {
+  it("Claude가 사진을 받지 않은 4xx(깨진 사진)는 400으로 답하고 횟수를 센다, Sentry는 몇 번만", async () => {
+    const sentry = quiet();
+    const report = vi.mocked(ExternalApiErrorUtil.reportFailure);
+    const service = build();
+    create.mockRejectedValue(Object.assign(new Error("invalid image"), { status: 400 }));
+    for (let i = 0; i < 20; i += 1) {
+      await expect(service.read(IMAGE, { ip: "5.5.5.5" })).rejects.toThrow(
+        new BadRequestException(
+          "JPG나 PNG 사진만 읽을 수 있어요. 다른 사진으로 다시 시도해 주세요.",
+        ),
+      );
+    }
+    // 되돌리지 않아 21번째는 하루 한도(429), Claude는 20번만 불렸다
+    await expect(service.read(IMAGE, { ip: "5.5.5.5" })).rejects.toMatchObject({ status: 429 });
+    expect(create).toHaveBeenCalledTimes(20);
+    expect(report).not.toHaveBeenCalled();
+    expect(sentry).toHaveBeenCalledWith(
+      "quote-photo-read:claude-4xx",
+      expect.any(Number),
+      expect.any(Error),
+      "warning",
+      expect.objectContaining({ operation: "photo-read" }),
+      expect.objectContaining({ httpStatus: 400 }),
+    );
+  });
+
+  it("Claude 429(한도)는 우리 쪽 문제라 되돌린다", async () => {
+    quiet();
+    const service = build();
+    create.mockRejectedValueOnce(Object.assign(new Error("rate limited"), { status: 429 }));
+    await expect(service.read(IMAGE, { ip: "6.6.6.6" })).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+    for (let i = 0; i < 20; i += 1) await service.read(IMAGE, { ip: "6.6.6.6" });
+    expect(create).toHaveBeenCalledTimes(21);
+  });
+
+  it("Claude를 다시 시도하지 않고 20초 안에 끊는다(웹은 30초 기다림)", () => {
     build();
     expect(clientOptions).toHaveLength(1);
     const options = clientOptions[0] as { maxRetries: number; timeout: number };
