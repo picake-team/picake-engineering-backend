@@ -111,16 +111,31 @@ describe("isPickupReminderLeadEligible", () => {
 });
 
 describe("isPickupReminderDue", () => {
-  const pickupDate = new Date("2026-01-02T00:00:00.000Z");
+  // 한국 시각 1월 2일 14:00 픽업
+  const pickupDate = new Date("2026-01-02T05:00:00.000Z");
 
-  it("픽업 24시간 전 시점부터 픽업 시각 직전까지 true", () => {
+  it("픽업 24시간 전부터, 한국 날짜로 전날인 동안 true", () => {
     expect(isPickupReminderDue(pickupDate, new Date(pickupDate.getTime() - h(24)))).toBe(true);
-    expect(isPickupReminderDue(pickupDate, new Date(pickupDate.getTime() - h(1)))).toBe(true);
+    // 한국 1월 1일 23:59
+    expect(isPickupReminderDue(pickupDate, new Date("2026-01-01T14:59:00.000Z"))).toBe(true);
   });
 
   it("24시간보다 더 이르거나, 픽업 시각에 도달하면 false", () => {
     expect(isPickupReminderDue(pickupDate, new Date(pickupDate.getTime() - h(25)))).toBe(false);
     expect(isPickupReminderDue(pickupDate, pickupDate)).toBe(false);
+  });
+
+  it("한국 날짜로 픽업 당일이면 false(당일 확정에 '내일 픽업이에요'가 가지 않게)", () => {
+    // 한국 1월 2일 00:00·09:00·13:00
+    expect(isPickupReminderDue(pickupDate, new Date("2026-01-01T15:00:00.000Z"))).toBe(false);
+    expect(isPickupReminderDue(pickupDate, new Date("2026-01-02T00:00:00.000Z"))).toBe(false);
+    expect(isPickupReminderDue(pickupDate, new Date(pickupDate.getTime() - h(1)))).toBe(false);
+  });
+
+  it("한국 날짜로 본다(UTC 날짜가 같아도 한국으로 전날이면 보낸다)", () => {
+    // 한국 1월 2일 07:00 픽업(UTC 1월 1일 22:00), 한국 1월 1일 23:30(UTC 1월 1일 14:30)에 확인
+    const early = new Date("2026-01-01T22:00:00.000Z");
+    expect(isPickupReminderDue(early, new Date("2026-01-01T14:30:00.000Z"))).toBe(true);
   });
 });
 

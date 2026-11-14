@@ -30,6 +30,7 @@ import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 
 const USER_ORDER_NOTIFICATION_SELECT = {
   consumerId: true,
+  productId: true,
   storeId: true,
   orderNumber: true,
   storeName: true,
@@ -353,6 +354,8 @@ export class NotificationOrderDispatchService {
 
   private toAlimtalkOrderInfo(
     order: {
+      /** 견적으로 만든 예약은 상품이 없다(null) */
+      productId?: string | null;
       orderNumber: string;
       storeName: string | null;
       productName: string | null;
@@ -377,6 +380,7 @@ export class NotificationOrderDispatchService {
     orderId: string,
   ): UserOrderAlimtalkOrderInfo {
     return {
+      productId: order.productId,
       publicUserDomain: this.configService.get<string>("PUBLIC_USER_DOMAIN") ?? "",
       orderId,
       orderNumber: order.orderNumber,

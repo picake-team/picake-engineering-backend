@@ -26,6 +26,8 @@ export interface UserOrderAlimtalkOrderInfo {
   consumerName: string | null;
   /** 주문 시 입력한 예약자명 (`reservationContactName`) */
   reservationContactName: string | null;
+  /** 상품 ID. 견적으로 만든 예약은 null(후기를 받지 않아 후기 유도 알림톡을 보내지 않는다) */
+  productId?: string | null;
   productName: string | null;
   totalPrice: number;
   pickupDate: Date | null;
@@ -205,6 +207,9 @@ export function buildUserOrderAlimtalkPayload(
 
     // 템플릿5 픽업완료 (판매자 처리)
     case OrderStatus.PICKUP_COMPLETED: {
+      // M-05는 후기 유도([후기 작성하기])라, 후기를 받지 않는 견적 예약(상품 없음, 운영자 11-13)에는 보내지 않는다.
+      // 앱 안 알림 "픽업이 완료됐어요"는 그대로 간다
+      if (order.productId === null) return null;
       return emit(T.PICKUP_COMPLETED, { ...base });
     }
 

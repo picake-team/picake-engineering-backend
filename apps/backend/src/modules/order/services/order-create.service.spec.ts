@@ -24,11 +24,20 @@ import { isPickupAllowedForStore } from "@apps/backend/modules/order/utils/order
 const BASE_PRODUCT = {
   id: "product-1",
   storeId: "store-1",
+  name: "테스트 케이크",
+  images: ["https://static.picakes.com/p1.jpg"],
   salePrice: 10000,
   salesStatus: EnableStatus.ENABLE,
   visibilityStatus: EnableStatus.ENABLE,
   cakeSizeOptions: [],
   store: {
+    name: "테스트 스토어",
+    address: "서울시 강남구",
+    roadAddress: "서울시 강남구 테헤란로",
+    detailAddress: null,
+    zonecode: "06000",
+    latitude: 37.5,
+    longitude: 127.0,
     weeklyClosedWeekdays: [],
     standardOpenTime: "00:00",
     standardCloseTime: "23:59",
@@ -243,5 +252,33 @@ describe("OrderCreateService.createOrderForUser", () => {
       "connection lost",
     );
     expect(txOrderMock.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("상품명·가게명·픽업 장소는 앱이 보낸 값이 아니라 DB 값으로 저장한다(알림톡에 아무 글이나 나가지 않게)", async () => {
+    prismaMock.product.findUnique.mockResolvedValue(BASE_PRODUCT as any);
+    txOrderMock.create.mockResolvedValue({ id: "order-1" });
+
+    await service.createOrderForUser(
+      "user-1",
+      buildDto({
+        productName: "[당첨] 아래 링크로 확인하세요 http://example.com",
+        storeName: "가짜 가게",
+        pickupAddress: "아무 곳",
+        pickupRoadAddress: "아무 곳",
+        pickupLatitude: 1,
+        pickupLongitude: 1,
+        productImages: ["https://example.com/x.jpg"],
+      }),
+    );
+
+    const data = txOrderMock.create.mock.calls[0][0].data;
+    expect(data.productName).toBe("테스트 케이크");
+    expect(data.storeName).toBe("테스트 스토어");
+    expect(data.productImages).toEqual(["https://static.picakes.com/p1.jpg"]);
+    expect(data.pickupAddress).toBe("서울시 강남구");
+    expect(data.pickupRoadAddress).toBe("서울시 강남구 테헤란로");
+    expect(data.pickupDetailAddress).toBe("");
+    expect(data.pickupLatitude).toBe(37.5);
+    expect(data.pickupLongitude).toBe(127.0);
   });
 });
