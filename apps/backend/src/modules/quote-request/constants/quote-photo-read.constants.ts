@@ -23,29 +23,15 @@ export const QUOTE_PHOTO_READ_LIMITS = {
    * 그보다 넉넉히 짧게 끊어 웹이 포기한 뒤에도 서버가 Claude를 기다리지 않게 한다. 끊긴 번은 횟수에서 되돌린다
    */
   CLAUDE_TIMEOUT_MS: 20_000,
-  /** 읽은 줄 7개 + 문장 하나면 수백 토큰. 넘치면 잘린 응답 대신 못 읽음으로 */
+  /** 따를 것 4칸 + 크림·요청 사항이면 수백 토큰. 넘치면 잘린 응답 대신 못 읽음으로 */
   MAX_OUTPUT_TOKENS: 1024,
-  /** 요청서 설명 칸에 넣는 한 문장 */
-  DESCRIPTION_MAX_LENGTH: 180,
-  /** 읽은 줄·따를 것 한 칸 */
+  /** 따를 것 한 칸 */
   VALUE_MAX_LENGTH: 80,
   /** 요청 사항(요청서 요청 사항 칸 200자보다 짧게) */
   REQUEST_NOTE_MAX_LENGTH: 100,
   /** 큰 사진을 받는 이 경로만 JSON 본문 한도를 올린다(base64는 원래 크기의 4/3) */
   BODY_LIMIT: "4mb",
 } as const;
-
-/** 읽은 줄(이 순서·이 이름으로 웹에 보인다) */
-export const QUOTE_PHOTO_READ_ROWS = [
-  { key: "shape", label: "모양" },
-  { key: "creamColor", label: "크림 색" },
-  { key: "border", label: "테두리" },
-  { key: "decoration", label: "장식" },
-  { key: "lettering", label: "글자" },
-  { key: "candlesToppers", label: "초·토퍼" },
-  { key: "creamType", label: "크림 종류" },
-] as const;
-export type QuotePhotoReadRowKey = (typeof QUOTE_PHOTO_READ_ROWS)[number]["key"];
 
 export const QUOTE_PHOTO_READ_ERROR_MESSAGES = {
   INVALID_IMAGE: "JPG나 PNG 사진만 읽을 수 있어요. 다른 사진으로 다시 시도해 주세요.",

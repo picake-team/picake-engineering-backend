@@ -1,16 +1,14 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { QuoteCream } from "@apps/backend/infra/database/prisma/generated/client";
 import { thinkingFor } from "@apps/backend/modules/product-naver/utils/product-ai-draft.generator";
-import {
-  QUOTE_PHOTO_READ_LIMITS,
-  QUOTE_PHOTO_READ_ROWS,
-} from "@apps/backend/modules/quote-request/constants/quote-photo-read.constants";
+import { QUOTE_PHOTO_READ_LIMITS } from "@apps/backend/modules/quote-request/constants/quote-photo-read.constants";
 
-/** 읽은 결과(요청서 칸을 채울 값). 손님이 보고 고친 뒤 보낸다 */
+/**
+ * 읽은 결과(요청서 칸을 채울 값). 손님이 보고 고친 뒤 보낸다.
+ * 웹은 따를 것 4칸으로 설명을 "· 모양: …" 줄로 쓴다(11-14부터 읽은 줄 7개·설명 문장은 받지 않음 — 쓰지 않는 출력 토큰을 줄인다)
+ */
 export interface QuotePhotoReadResult {
-  read: { label: string; value: string | null }[];
   parts: { shape: string; color: string; decoration: string | null; lettering: string | null };
-  description: string;
   size: "LUNCHBOX" | "MINI" | null;
   creams: QuoteCream[];
   requestNote: string;
@@ -30,23 +28,11 @@ export const PHOTO_READ_SYSTEM_PROMPT = `당신은 케이크 주문 앱 Picake�
 
 isCake: 사진의 중심이 케이크(조각 케이크·컵케이크 포함)이고 모양을 읽을 수 있으면 true. 케이크가 아니거나 너무 흐리거나 작아 읽을 수 없으면 false로 하고 나머지는 빈 값으로 둡니다.
 
-rows(보이는 대로 짧은 명사구, 없거나 확실하지 않으면 null):
-- shape: 케이크 종류와 모양(예: "원형 1단 도시락 케이크", "하트 모양 케이크")
-- creamColor: 크림·바탕 색(예: "연분홍", "흰색에 하늘색 그러데이션")
-- border: 위·아래 테두리 파이핑(예: "위아래 조개 모양 파이핑")
-- decoration: 위에 올린 장식·그림·토핑(테두리와 글자는 빼고)
-- lettering: 케이크에 쓰인 글자를 큰따옴표 안에 쓰인 그대로, 그 뒤에 색·모양(예: "생일 축하해" 갈색 손글씨)
-- candlesToppers: 보이는 초·토퍼(예: "숫자 초 2개", "종이 토퍼 1개")
-- creamType: 사진만으로는 거의 알 수 없으니 거의 항상 null. 누가 봐도 분명할 때만
-
-parts(가게가 "무엇을 따를지" 볼 때 쓰는 명사구):
-- shape: 모양·종류(예: "흰 크림 도시락 케이크")
-- color: 크림·바탕 색
-- decoration: 테두리 파이핑과 위 장식을 합친 것, 없으면 null
-- lettering: 큰따옴표 안의 글자와 색·모양, 글자가 없으면 null
-
-description: 손님이 케이크 가게에 보낼 자연스러운 한 문장. "사진처럼"으로 시작하고 180자 안. 보이는 글자는 큰따옴표 안에 쓰인 그대로 넣습니다.
-(예: 사진처럼 흰 크림 도시락 케이크에 분홍 하트 테두리를 두르고 가운데에 "생일 축하해"를 갈색으로 써 주세요.)
+parts(가게가 사진에서 무엇을 따를지 볼 때 쓰는 짧은 명사구, 보이는 대로):
+- shape: 케이크 종류와 모양(예: "흰 크림 원형 도시락 케이크", "하트 모양 2단 케이크")
+- color: 크림·바탕 색(예: "연분홍", "흰색에 하늘색 그러데이션")
+- decoration: 테두리 파이핑과 위·옆에 올린 장식·그림·토핑을 합친 것(글자는 빼고), 없으면 null(예: "위아래 조개 모양 파이핑, 윗면 딸기 3개")
+- lettering: 케이크에 쓰인 글자를 한 글자씩 확인해 큰따옴표 안에 쓰인 그대로, 그 뒤에 색·모양(예: "생일 축하해" 갈색 손글씨). 글자가 없거나 읽을 수 없으면 null
 
 size: 누가 봐도 도시락(작은 상자에 담긴 작은 원형) 케이크면 "LUNCHBOX", 아주 작은 미니 케이크가 분명하면 "MINI", 그 밖에는 null. 1호·2호 같은 크기는 짐작하지 않습니다.
 creams: 크림 종류가 틀림없을 때만(FRESH_CREAM 생크림, BUTTER_CREAM 버터크림, CREAM_CHEESE 크림치즈), 아니면 빈 배열.
@@ -59,12 +45,6 @@ export const PHOTO_READ_OUTPUT_SCHEMA = {
   type: "object",
   properties: {
     isCake: { type: "boolean" },
-    rows: {
-      type: "object",
-      properties: Object.fromEntries(QUOTE_PHOTO_READ_ROWS.map((r) => [r.key, NULLABLE_STRING])),
-      required: QUOTE_PHOTO_READ_ROWS.map((r) => r.key),
-      additionalProperties: false,
-    },
     parts: {
       type: "object",
       properties: {
@@ -76,12 +56,11 @@ export const PHOTO_READ_OUTPUT_SCHEMA = {
       required: ["shape", "color", "decoration", "lettering"],
       additionalProperties: false,
     },
-    description: { type: "string" },
     size: { anyOf: [{ type: "string", enum: ["LUNCHBOX", "MINI"] }, { type: "null" }] },
     creams: { type: "array", items: { type: "string", enum: Object.values(QuoteCream) } },
     requestNote: { type: "string" },
   },
-  required: ["isCake", "rows", "parts", "description", "size", "creams", "requestNote"],
+  required: ["isCake", "parts", "size", "creams", "requestNote"],
   additionalProperties: false,
 };
 
@@ -131,30 +110,16 @@ function clean(value: unknown, max: number): string | null {
   return chars.length > max ? chars.slice(0, max).join("").trim() : text;
 }
 
-/**
- * 모델 응답(JSON)을 화면에 보낼 값으로. 케이크가 아니거나 설명이 비었으면 null(못 읽음).
- * 읽은 줄의 이름·순서는 서버가 정한다(모델이 바꾸지 못하게)
- */
+/** 모델 응답(JSON)을 화면에 보낼 값으로. 케이크가 아니거나 모양을 못 읽었으면 null(못 읽음) */
 export function toPhotoReadResult(raw: unknown): QuotePhotoReadResult | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, any>;
   if (r.isCake !== true) return null;
-  const { VALUE_MAX_LENGTH, DESCRIPTION_MAX_LENGTH, REQUEST_NOTE_MAX_LENGTH } =
-    QUOTE_PHOTO_READ_LIMITS;
-
-  const rows = r.rows && typeof r.rows === "object" ? r.rows : {};
-  const read = QUOTE_PHOTO_READ_ROWS.map(({ key, label }) => ({
-    label,
-    value: clean(rows[key], VALUE_MAX_LENGTH),
-  }));
-
-  let description = clean(r.description, DESCRIPTION_MAX_LENGTH);
-  if (!description) return null;
-  if (!description.startsWith("사진처럼")) {
-    description = clean(`사진처럼 ${description}`, DESCRIPTION_MAX_LENGTH)!;
-  }
+  const { VALUE_MAX_LENGTH, REQUEST_NOTE_MAX_LENGTH } = QUOTE_PHOTO_READ_LIMITS;
 
   const parts = r.parts && typeof r.parts === "object" ? r.parts : {};
+  const shape = clean(parts.shape, VALUE_MAX_LENGTH);
+  if (!shape) return null;
   const creams = Array.isArray(r.creams)
     ? [
         ...new Set(
@@ -166,14 +131,12 @@ export function toPhotoReadResult(raw: unknown): QuotePhotoReadResult | null {
     : [];
 
   return {
-    read,
     parts: {
-      shape: clean(parts.shape, VALUE_MAX_LENGTH) ?? read[0].value ?? "",
-      color: clean(parts.color, VALUE_MAX_LENGTH) ?? read[1].value ?? "",
+      shape,
+      color: clean(parts.color, VALUE_MAX_LENGTH) ?? "",
       decoration: clean(parts.decoration, VALUE_MAX_LENGTH),
       lettering: clean(parts.lettering, VALUE_MAX_LENGTH),
     },
-    description,
     size: r.size === "LUNCHBOX" || r.size === "MINI" ? r.size : null,
     creams,
     requestNote: clean(r.requestNote, REQUEST_NOTE_MAX_LENGTH) ?? "",

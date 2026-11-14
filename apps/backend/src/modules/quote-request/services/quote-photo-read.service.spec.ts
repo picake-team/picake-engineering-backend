@@ -30,23 +30,12 @@ const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x4
 const IMAGE = `data:image/jpeg;base64,${JPEG.toString("base64")}`;
 const OUTPUT = {
   isCake: true,
-  rows: {
-    shape: "하트 모양 케이크",
-    creamColor: "연분홍",
-    border: null,
-    decoration: "딸기 3개",
-    lettering: '"지민아 생일 축하해" 흰 글씨',
-    candlesToppers: null,
-    creamType: null,
-  },
   parts: {
     shape: "하트 모양 케이크",
     color: "연분홍",
     decoration: "딸기 3개",
     lettering: '"지민아 생일 축하해" 흰 글씨',
   },
-  description:
-    '사진처럼 연분홍 하트 케이크에 딸기 3개를 올리고 "지민아 생일 축하해"를 흰 글씨로 써 주세요.',
   size: null,
   creams: [],
   requestNote: "",
@@ -83,22 +72,12 @@ describe("QuotePhotoReadService(견적 요청서 사진 읽기)", () => {
 
   it("읽은 값을 돌려준다", async () => {
     const r = await build().read(IMAGE, { consumerId: "c1" });
-    expect(r).toMatchObject({
-      description: OUTPUT.description,
+    expect(r).toEqual({
       parts: OUTPUT.parts,
       size: null,
       creams: [],
       requestNote: "",
     });
-    expect("read" in r && r.read.map((x) => x.label)).toEqual([
-      "모양",
-      "크림 색",
-      "테두리",
-      "장식",
-      "글자",
-      "초·토퍼",
-      "크림 종류",
-    ]);
   });
 
   it("케이크가 아니면 { unreadable: true }만", async () => {
@@ -123,7 +102,7 @@ describe("QuotePhotoReadService(견적 요청서 사진 읽기)", () => {
       );
     }
     expect(create).not.toHaveBeenCalled();
-    await expect(service.read(IMAGE, { ip: "1.1.1.1" })).resolves.toHaveProperty("description");
+    await expect(service.read(IMAGE, { ip: "1.1.1.1" })).resolves.toHaveProperty("parts");
   });
 
   it("하루 20번: 로그인하면 손님마다, 아니면 접속 주소마다 따로 센다", async () => {
@@ -143,12 +122,12 @@ describe("QuotePhotoReadService(견적 요청서 사진 읽기)", () => {
       statusCode: 429,
     });
     // 같은 주소라도 로그인하지 않은 요청은 주소로 센다(손님 한도와 따로)
-    await expect(service.read(IMAGE, { ip: "1.1.1.1" })).resolves.toHaveProperty("description");
-    await expect(service.read(IMAGE, { consumerId: "c2" })).resolves.toHaveProperty("description");
+    await expect(service.read(IMAGE, { ip: "1.1.1.1" })).resolves.toHaveProperty("parts");
+    await expect(service.read(IMAGE, { consumerId: "c2" })).resolves.toHaveProperty("parts");
 
     for (let i = 0; i < 19; i += 1) await service.read(IMAGE, { ip: "1.1.1.1" });
     await expect(service.read(IMAGE, { ip: "1.1.1.1" })).rejects.toMatchObject({ status: 429 });
-    await expect(service.read(IMAGE, { ip: "3.3.3.3" })).resolves.toHaveProperty("description");
+    await expect(service.read(IMAGE, { ip: "3.3.3.3" })).resolves.toHaveProperty("parts");
     expect(create).toHaveBeenCalledTimes(20 + 2 + 19 + 1);
   });
 
@@ -160,7 +139,7 @@ describe("QuotePhotoReadService(견적 요청서 사진 읽기)", () => {
       BadGatewayException,
     );
     // 실패한 번은 세지 않아 한 번 더 쓸 수 있다
-    await expect(service.read(IMAGE, { ip: "9.9.9.9" })).resolves.toHaveProperty("description");
+    await expect(service.read(IMAGE, { ip: "9.9.9.9" })).resolves.toHaveProperty("parts");
     await expect(service.read(IMAGE, { ip: "9.9.9.9" })).rejects.toMatchObject({ status: 429 });
   });
 
@@ -174,9 +153,7 @@ describe("QuotePhotoReadService(견적 요청서 사진 읽기)", () => {
     await expect(
       service.read(IMAGE, { ip: "2001:db8:1:2:ffff:ffff:ffff:ffff" }),
     ).rejects.toMatchObject({ status: 429 });
-    await expect(service.read(IMAGE, { ip: "2001:db8:1:3::1" })).resolves.toHaveProperty(
-      "description",
-    );
+    await expect(service.read(IMAGE, { ip: "2001:db8:1:3::1" })).resolves.toHaveProperty("parts");
 
     for (let i = 0; i < 20; i += 1) await service.read(IMAGE, { ip: "198.51.100.4" });
     await expect(service.read(IMAGE, { ip: "::ffff:198.51.100.4" })).rejects.toMatchObject({
@@ -221,9 +198,7 @@ describe("QuotePhotoReadService(견적 요청서 사진 읽기)", () => {
     // 한국 시간 자정이 지나면 다시 쓴다
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(Date.now() + 24 * 3_600_000);
-    await expect(service.read(IMAGE, { consumerId: "late" })).resolves.toHaveProperty(
-      "description",
-    );
+    await expect(service.read(IMAGE, { consumerId: "late" })).resolves.toHaveProperty("parts");
   });
 
   it("Claude를 다시 시도하지 않고 25초 안에 끊는다(웹은 30초 기다림)", () => {
@@ -260,7 +235,7 @@ describe("QuotePhotoReadService(견적 요청서 사진 읽기)", () => {
     vi.useRealTimers();
 
     // 끊긴 번은 세지 않아 한 번 더 쓸 수 있다
-    await expect(service.read(IMAGE, { ip: "8.8.4.4" })).resolves.toHaveProperty("description");
+    await expect(service.read(IMAGE, { ip: "8.8.4.4" })).resolves.toHaveProperty("parts");
     await expect(service.read(IMAGE, { ip: "8.8.4.4" })).rejects.toMatchObject({ status: 429 });
   });
 

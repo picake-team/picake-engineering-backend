@@ -15,22 +15,6 @@ export class QuotePhotoReadRequestDto {
   image: string;
 }
 
-export class QuotePhotoReadRowDto {
-  @ApiProperty({
-    description: "읽은 줄 이름(모양·크림 색·테두리·장식·글자·초·토퍼·크림 종류, 이 순서)",
-    example: "모양",
-  })
-  label: string;
-
-  @ApiProperty({
-    type: String,
-    nullable: true,
-    description: "보이는 대로 쓴 값. 보이지 않거나 확실하지 않으면 null",
-    example: "원형 1단 도시락 케이크",
-  })
-  value: string | null;
-}
-
 export class QuotePhotoReadPartsDto {
   @ApiProperty({ description: "모양·종류", example: "흰 크림 도시락 케이크" })
   shape: string;
@@ -65,21 +49,11 @@ export class QuotePhotoReadResponseDto {
   })
   unreadable?: true;
 
-  @ApiPropertyOptional({ type: [QuotePhotoReadRowDto], description: "읽은 줄(7줄, 순서 고정)" })
-  read?: QuotePhotoReadRowDto[];
-
   @ApiPropertyOptional({
     type: QuotePhotoReadPartsDto,
-    description: "따를 것을 고를 때 보이는 이름",
+    description: '따를 것 4칸. 웹이 요청서 설명을 "· 모양: …" 줄로 쓴다',
   })
   parts?: QuotePhotoReadPartsDto;
-
-  @ApiPropertyOptional({
-    description: '요청서 디자인 설명 칸에 넣을 한 문장("사진처럼"으로 시작, 180자까지)',
-    example:
-      '사진처럼 흰 크림 도시락 케이크에 분홍 하트 테두리를 두르고 가운데에 "생일 축하해"를 갈색으로 써 주세요.',
-  })
-  description?: string;
 
   @ApiPropertyOptional({
     enum: ["LUNCHBOX", "MINI"],
