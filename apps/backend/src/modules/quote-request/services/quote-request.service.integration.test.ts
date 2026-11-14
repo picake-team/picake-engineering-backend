@@ -261,6 +261,109 @@ describe("견적 요청 (integration)", () => {
     expect(detail.entry).toBe("HOME");
     expect(detail.areaLatitude).toBeCloseTo(37.5662);
   });
+  it("디자인 모음 사진 정보(I-112): 따를 것을 정리해 저장하고, 고른 디자인 ID를 남긴다", async () => {
+    const prefix = getAllowedUploadUrlPrefixes()[0] ?? "https://cdn.example.com/";
+    const photos = [`${prefix}uploads/a.jpg`, `${prefix}uploads/b.jpg`, `${prefix}uploads/c.jpg`];
+    const { prisma, write, read, notifyNewRequest } = build();
+    const consumer = await createTestConsumer(prisma);
+
+    const res = await write.createForConsumer(
+      consumer.id,
+      baseDto({
+        entry: "DESIGN",
+        photoUrls: photos,
+        photoDetails: [
+          { designId: "bento-heart-lettering", parts: ["LETTERING", "DECORATION", "LETTERING"] },
+          { designId: null, parts: ["ALL"] },
+          { designId: "bento-heart-lettering", parts: ["COLOR", "ALL"] },
+        ],
+      }),
+      NOW,
+    );
+
+    const expected = [
+      { designId: "bento-heart-lettering", parts: ["DECORATION", "LETTERING"] },
+      { designId: null, parts: ["ALL"] },
+      { designId: "bento-heart-lettering", parts: ["ALL"] },
+    ];
+    const saved = await prisma.quoteRequest.findUniqueOrThrow({ where: { id: res.id } });
+    expect(saved.photoDetails).toEqual(expected);
+    expect(saved.designIds).toEqual(["bento-heart-lettering"]);
+    expect(saved.entry).toBe("DESIGN");
+
+    const detail = await read.getForConsumer(consumer.id, res.id, NOW);
+    expect(detail.photoUrls).toEqual(photos);
+    expect(detail.photoDetails).toEqual(expected);
+    expect(detail.designIds).toEqual(["bento-heart-lettering"]);
+    const admin = await read.getForAdmin(res.id, NOW);
+    expect(admin.photoDetails).toEqual(expected);
+    expect(admin.designIds).toEqual(["bento-heart-lettering"]);
+    // 운영자 알림에 넘기는 값에도 사진 정보가 있다(디스코드 "디자인 모음 n장")
+    expect(notifyNewRequest.mock.calls[0][0].photoDetails).toEqual(expected);
+  });
+
+  it("사진 정보 없이 보내면 사진마다 손님 사진·전체, 사진과 개수가 다르면 막는다", async () => {
+    const prefix = getAllowedUploadUrlPrefixes()[0] ?? "https://cdn.example.com/";
+    const photos = [`${prefix}uploads/a.jpg`, `${prefix}uploads/b.jpg`];
+    const { prisma, write, read } = build();
+    const consumer = await createTestConsumer(prisma);
+
+    const res = await write.createForConsumer(consumer.id, baseDto({ photoUrls: photos }), NOW);
+    const saved = await prisma.quoteRequest.findUniqueOrThrow({ where: { id: res.id } });
+    expect(saved.photoDetails).toEqual([
+      { designId: null, parts: ["ALL"] },
+      { designId: null, parts: ["ALL"] },
+    ]);
+    expect(saved.designIds).toEqual([]);
+
+    const noPhoto = await write.createForConsumer(consumer.id, baseDto(), NOW);
+    expect((await read.getForConsumer(consumer.id, noPhoto.id, NOW)).photoDetails).toEqual([]);
+
+    for (const photoDetails of [
+      [{ designId: "a", parts: ["ALL"] }],
+      [],
+      [
+        { designId: null, parts: ["ALL"] },
+        { designId: null, parts: ["ALL"] },
+        { designId: null, parts: ["ALL"] },
+      ],
+    ] as CreateQuoteRequestDto["photoDetails"][]) {
+      await expect(
+        write.createForConsumer(consumer.id, baseDto({ photoUrls: photos, photoDetails }), NOW),
+      ).rejects.toThrow("사진 정보가 맞지 않아요. 다시 시도해 주세요.");
+    }
+    await expect(
+      write.createForConsumer(
+        consumer.id,
+        baseDto({ photoDetails: [{ designId: "a", parts: ["ALL"] }] }),
+        NOW,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(await prisma.quoteRequest.count()).toBe(2);
+  });
+
+  it("사진 정보가 생기기 전 요청은 읽을 때 사진마다 손님 사진·전체로 본다", async () => {
+    const { prisma, write, read } = build();
+    const consumer = await createTestConsumer(prisma);
+    const res = await write.createForConsumer(consumer.id, baseDto(), NOW);
+    // 마이그레이션 전 행처럼: 사진은 있고 photo_details는 기본값 []
+    await prisma.quoteRequest.update({
+      where: { id: res.id },
+      data: {
+        photoUrls: ["https://example.com/a.jpg", "https://example.com/b.jpg"],
+        photoDetails: [],
+      },
+    });
+    const detail = await read.getForConsumer(consumer.id, res.id, NOW);
+    expect(detail.photoDetails).toEqual([
+      { designId: null, parts: ["ALL"] },
+      { designId: null, parts: ["ALL"] },
+    ]);
+    expect(detail.designIds).toEqual([]);
+    const admin = await read.getForAdmin(res.id, NOW);
+    expect(admin.photoDetails).toHaveLength(2);
+  });
+
   it("탈퇴하면 그 손님의 견적 요청(물어볼 가게 포함)과 참고 사진을 지운다", async () => {
     // 업로드 API가 발급한 주소만 받으므로 지금 환경의 업로드 주소 모양으로 만든다
     const photo = `${getAllowedUploadUrlPrefixes()[0] ?? "https://cdn.example.com/"}uploads/a.jpg`;

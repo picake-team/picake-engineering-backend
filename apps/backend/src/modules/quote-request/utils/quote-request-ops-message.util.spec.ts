@@ -22,6 +22,9 @@ const row: QuoteRequestRow = {
   onlyDesignatedStores: false,
   description: "하늘색 곰돌이\n레터링 '생일 축하해'",
   photoUrls: ["https://cdn.example.com/a.jpg"],
+  // 이 칸이 생기기 전 요청처럼 비어 있다(손님 사진으로 본다)
+  photoDetails: [],
+  designIds: [],
   size: "NO1",
   quantity: 1,
   creams: ["FRESH_CREAM"],
@@ -72,6 +75,35 @@ describe("새 견적 요청 디스코드 알림", () => {
     expect(JSON.stringify(msg)).not.toContain("cdn.example.com");
     expect(JSON.stringify(msg)).not.toContain("생일 축하해");
     expect(JSON.stringify(msg)).not.toContain("견과류");
+  });
+
+  it("디자인 모음에서 고른 사진은 장수만 덧붙이고, 디자인 ID·사진 주소는 보내지 않는다(I-112)", () => {
+    const msg = buildNewQuoteRequestDiscordMessage(
+      {
+        ...row,
+        description: null,
+        requestNote: null,
+        entry: "DESIGN",
+        photoUrls: [
+          "https://cdn.example.com/a.jpg",
+          "https://cdn.example.com/b.jpg",
+          "https://cdn.example.com/c.jpg",
+        ],
+        photoDetails: [
+          { designId: "bento-heart-lettering", parts: ["DECORATION"] },
+          { designId: null, parts: ["ALL"] },
+          { designId: "mini-ribbon", parts: ["SHAPE", "COLOR"] },
+        ],
+        designIds: ["bento-heart-lettering", "mini-ribbon"],
+      },
+      { adminDomain: null },
+    );
+    const fields = Object.fromEntries(msg.embeds[0].fields.map((f) => [f.name, f.value]));
+    expect(fields["디자인"]).toBe("참고 사진 3장 (디자인 모음 2장)");
+    expect(fields["들어온 곳"]).toBe("디자인 모음");
+    const text = JSON.stringify(msg);
+    expect(text).not.toContain("bento-heart-lettering");
+    expect(text).not.toContain("cdn.example.com");
   });
 
   it("Picake 가게는 판매자 앱으로 보냈다고, 입점 전 가게는 링크로 물어보라고 안내한다(견적 ②)", () => {

@@ -2,6 +2,7 @@ import { QuoteRequestEntry } from "@apps/backend/infra/database/prisma/generated
 import { QUOTE_REQUEST_ENTRY_LABELS } from "@apps/backend/modules/quote-request/constants/quote-request.constants";
 import type { QuoteRequestRow } from "@apps/backend/modules/quote-request/utils/quote-request-mapper.util";
 import { buildSummary } from "@apps/backend/modules/quote-request/utils/quote-request-mapper.util";
+import { readPhotoDetails } from "@apps/backend/modules/quote-request/utils/quote-photo-detail.util";
 
 /** 디스코드 embed 한 칸 최대 1,024자 */
 const FIELD_MAX = 1024;
@@ -41,8 +42,14 @@ export function buildNewQuoteRequestDiscordMessage(
       ? "손님이 지정한 Picake 가게에 판매자 앱으로 보냈어요."
       : "입점 전 가게는 관리자에서 견적 링크를 만들어 DM으로 물어봐 주세요.";
   // 손님이 쓴 설명·요청 사항은 디스코드에 보내지 않는다(다른 사람 이름이 들어갈 수 있다). 관리자 상세에서 본다
+  // 디자인 모음에서 고른 사진은 장수만 덧붙인다(기획 I-112, 사진·디자인 ID는 보내지 않음)
+  const fromGallery = readPhotoDetails(row.photoDetails, row.photoUrls.length).filter(
+    (d) => d.designId !== null,
+  ).length;
   const design = [
-    row.photoUrls.length > 0 ? `참고 사진 ${row.photoUrls.length}장` : null,
+    row.photoUrls.length > 0
+      ? `참고 사진 ${row.photoUrls.length}장${fromGallery > 0 ? ` (디자인 모음 ${fromGallery}장)` : ""}`
+      : null,
     row.description ? "설명 있음" : null,
     row.requestNote ? "요청 사항 있음" : null,
   ]

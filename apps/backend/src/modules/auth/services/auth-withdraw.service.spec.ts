@@ -58,6 +58,10 @@ describe("AuthWithdrawService.withdraw", () => {
       expect(quoteCleanupMock.deleteAllForConsumer).toHaveBeenCalledWith("consumer-1");
       // 채팅 글·사진도 탈퇴 즉시 지운다(기획 I-11)
       expect(chatCleanupMock.deleteAllForConsumer).toHaveBeenCalledWith("consumer-1");
+      // 디자인 모음 좋아요도 지운다(기획 I-112, 디자인별 좋아요 수에서 빠지게)
+      expect(prismaMock.designLike.deleteMany).toHaveBeenCalledWith({
+        where: { consumerId: "consumer-1" },
+      });
       expect(prismaMock.consumer.update).toHaveBeenCalled();
     });
 
@@ -74,6 +78,7 @@ describe("AuthWithdrawService.withdraw", () => {
       ).rejects.toThrow();
       expect(quoteCleanupMock.deleteAllForConsumer).not.toHaveBeenCalled();
       expect(chatCleanupMock.deleteAllForConsumer).not.toHaveBeenCalled();
+      expect(prismaMock.designLike.deleteMany).not.toHaveBeenCalled();
     });
 
     it("계정이 없으면 NotFoundException을 던진다", async () => {

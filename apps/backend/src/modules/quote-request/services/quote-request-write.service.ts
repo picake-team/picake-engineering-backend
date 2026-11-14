@@ -22,6 +22,7 @@ import {
   QuoteRequestStoreInputDto,
 } from "@apps/backend/modules/quote-request/dto/quote-request.dto";
 import { resolvePickupWindow } from "@apps/backend/modules/quote-request/utils/quote-request-time.util";
+import { buildPhotoDetailsForCreate } from "@apps/backend/modules/quote-request/utils/quote-photo-detail.util";
 import {
   QUOTE_REQUEST_SELECT,
   effectiveStatus,
@@ -61,6 +62,11 @@ export class QuoteRequestWriteService {
     if (photoUrls.some((url) => !isAllowedUploadUrl(url))) {
       throw new BadRequestException("참고 사진은 업로드한 사진만 넣을 수 있어요.");
     }
+    // 사진마다 디자인 모음에서 왔는지·무엇을 따를지(기획 I-112). 사진과 개수가 다르면 어느 사진의 정보인지 알 수 없다
+    const photo = buildPhotoDetailsForCreate(photoUrls.length, dto.photoDetails);
+    if (!photo) {
+      throw new BadRequestException(QUOTE_REQUEST_ERROR_MESSAGES.PHOTO_DETAILS_MISMATCH);
+    }
 
     const { budgetMin, budgetMax } = this.normalizeBudget(dto.budgetMin, dto.budgetMax);
     const area = this.resolveArea(dto);
@@ -87,6 +93,8 @@ export class QuoteRequestWriteService {
         ...area,
         description,
         photoUrls,
+        photoDetails: photo.photoDetails as unknown as Prisma.InputJsonValue,
+        designIds: photo.designIds,
         size: dto.size,
         quantity: dto.quantity,
         creams: [...new Set(dto.creams ?? [])],
