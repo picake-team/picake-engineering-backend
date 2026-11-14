@@ -44,7 +44,11 @@ import {
   QuotePhotoReadRequestDto,
   QuotePhotoReadResponseDto,
 } from "@apps/backend/modules/quote-request/dto/quote-photo-read.dto";
-import { QUOTE_PHOTO_READ_ERROR_MESSAGES } from "@apps/backend/modules/quote-request/constants/quote-photo-read.constants";
+import {
+  QUOTE_PHOTO_READ_ERROR_MESSAGES,
+  QUOTE_PHOTO_READ_LIMITS,
+} from "@apps/backend/modules/quote-request/constants/quote-photo-read.constants";
+import { ThrottleMessage } from "@apps/backend/common/decorators/throttle-message.decorator";
 
 /**
  * 견적 요청 컨트롤러 (손님용, 기획 I-46)
@@ -72,12 +76,16 @@ export class ConsumerQuoteRequestController {
   // 요청서는 로그인 전에도 쓴다(보낼 때 로그인). 로그인했으면 손님마다, 아니면 접속 주소마다 하루 한도
   @Auth({ isOptionalPublic: true, audiences: ["consumer"] })
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Throttle({ default: { limit: QUOTE_PHOTO_READ_LIMITS.PER_MINUTE, ttl: 60000 } })
+  // 하루 한도(429 "오늘은 다 썼어요")와 다른 글로 — 잠깐 기다리면 되는 것을 웹이 오늘 끝난 것으로 알리지 않게
+  @ThrottleMessage(QUOTE_PHOTO_READ_ERROR_MESSAGES.TOO_FAST)
   @ApiOperation({
     summary: "참고 사진 읽기(로그인 없이도, 기획 I-112 1-나)",
     description:
       "손님이 올린 케이크 사진(JPG·PNG data URL, 2.5MB까지)을 Claude가 읽어 요청서 칸을 채울 값을 돌려줍니다: 읽은 줄 7개(모양·크림 색·테두리·장식·글자·초·토퍼·크림 종류), 따를 것 이름, '사진처럼'으로 시작하는 설명 한 문장, 크기(도시락·미니일 때만), 크림, 요청 사항. " +
-      "케이크가 아니거나 읽지 못하면 `{ unreadable: true }`만 옵니다. 사진은 저장하지 않습니다. 하루 20번(로그인하면 손님마다, 아니면 접속 주소마다), 넘으면 429.",
+      "케이크가 아니거나 읽지 못하면 `{ unreadable: true }`만 옵니다. 사진은 저장하지 않습니다. " +
+      "한도: 하루 20번(로그인하면 손님마다, 아니면 접속 주소마다 — IPv6는 /64마다), 넘으면 429 '오늘은 사진 읽기를 다 썼어요. 직접 적어 주세요.' · 분당 10번(접속 주소마다), 넘으면 429 '잠시 후 다시 시도해 주세요.' · " +
+      "모든 손님을 합쳐 하루 1,000번, 넘으면 키가 없을 때와 같은 503. Claude는 20초까지만 기다리고 다시 시도하지 않으며, 실패·시간 초과는 502이고 한도에서 세지 않습니다.",
   })
   @SwaggerResponse(200, { dataDto: QuotePhotoReadResponseDto })
   @SwaggerResponse(400, {
@@ -88,6 +96,9 @@ export class ConsumerQuoteRequestController {
   })
   @SwaggerResponse(502, {
     dataExample: createMessageObject(QUOTE_PHOTO_READ_ERROR_MESSAGES.FAILED),
+  })
+  @SwaggerResponse(503, {
+    dataExample: createMessageObject(QUOTE_PHOTO_READ_ERROR_MESSAGES.UNAVAILABLE),
   })
   async photoRead(
     @Body() dto: QuotePhotoReadRequestDto,

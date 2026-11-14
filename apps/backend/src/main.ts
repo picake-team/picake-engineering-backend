@@ -109,7 +109,7 @@ async function bootstrap(): Promise<void> {
     maxAge: 86400,
   });
 
-  // 사진(data URL)을 받는 견적 요청서 사진 읽기만 JSON 한도를 올린다.
+  // 사진(data URL)을 받는 견적 요청서 사진 읽기(POST 그 경로 하나)만 JSON 한도를 올린다.
   // 기본 파서(listen 때 붙음)보다 먼저, CORS보다 뒤에(너무 큰 사진 413에도 CORS 헤더가 붙게)
   applyLargeJsonBodyRoutes(app);
 

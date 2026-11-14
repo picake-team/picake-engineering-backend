@@ -34,7 +34,7 @@ export async function createTestApp(): Promise<INestApplication> {
     .compile();
 
   app = moduleRef.createNestApplication();
-  // main.ts와 같게: 사진 읽기 경로만 JSON 한도를 올린다(app.init() 전에)
+  // main.ts와 같게: 사진 읽기(POST 그 경로 하나)만 JSON 한도를 올린다(app.init() 전에)
   applyLargeJsonBodyRoutes(app);
 
   // Sentry로 실제 이벤트가 나가지 않도록: nodeEnv만 등록해 SentryUtil.enabled()가 false를 반환하게 함.

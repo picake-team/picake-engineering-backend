@@ -157,4 +157,38 @@ describe("POST /v1/consumer/quote-requests/photo-read (e2e)", () => {
     expect(big.status).toBe(500);
     expect(big.body.success).toBe(false);
   });
+
+  it("큰 JSON은 POST 그 경로 하나만: 앞부분만 같은 경로·다른 메서드는 기본 한도(100kb)", async () => {
+    const server = getTestApp().getHttpServer();
+    const body = JSON.stringify({ image: jpegDataUrl(200 * 1024) });
+    // 요청은 하나씩 만든다(supertest는 만들 때 서버를 띄운다)
+    const cases = [
+      () => request(server).post("/v1/consumer/quote-requests/photo-read/extra"),
+      () => request(server).put("/v1/consumer/quote-requests/photo-read"),
+      () => request(server).patch("/v1/consumer/quote-requests/photo-read"),
+    ];
+    for (const make of cases) {
+      const res = await make().set("Content-Type", "application/json").send(body);
+      // 큰 사진 경로였다면 읽은 뒤 없는 경로(404)가 됐을 것. 기본 파서가 먼저 막는다(위와 같은 500)
+      expect(res.status).toBe(500);
+      expect(res.body.success).toBe(false);
+    }
+  });
+
+  // 분당 한도(10번)를 다 쓰므로 이 파일의 마지막에 둔다
+  it("분당 한도의 429는 '잠시 후 다시 시도해 주세요.'(하루 한도의 '오늘은 다 썼어요'와 다른 글)", async () => {
+    const create = stubClaude();
+    const server = getTestApp().getHttpServer();
+    let limited: request.Response | undefined;
+    // 앞의 테스트가 이미 몇 번 썼으므로 429가 날 때까지(한도 10번 + 1) 보낸다. 빈 본문은 400이어도 횟수에 든다
+    for (let i = 0; i < 11 && !limited; i += 1) {
+      const res = await request(server).post("/v1/consumer/quote-requests/photo-read").send({});
+      if (res.status === 429) limited = res;
+      else expect(res.status).toBe(400);
+    }
+    expect(limited?.body.success).toBe(false);
+    expect(limited?.body.data.message).toBe("잠시 후 다시 시도해 주세요.");
+    expect(limited?.headers["retry-after"]).toBeDefined();
+    expect(create).not.toHaveBeenCalled();
+  });
 });

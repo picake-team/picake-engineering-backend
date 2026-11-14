@@ -189,36 +189,41 @@ export type PhotoReadGeneration = {
 
 /**
  * 사진 한 장을 읽는다(저장하지 않음). effort low, 생각 끔, 출력 상한, JSON 스키마로 토큰을 아낀다.
- * 거절·출력 상한·형식이 틀린 응답은 못 읽음(result null)
+ * 거절·출력 상한·형식이 틀린 응답은 못 읽음(result null).
+ * `signal`이 끊기면(부르는 쪽의 마감) 응답을 받는 중이어도 그만두고 오류를 던진다
  */
 export async function readCakePhoto(
   client: Anthropic,
   model: string,
   image: { mediaType: "image/jpeg" | "image/png"; data: string },
+  options?: { signal?: AbortSignal },
 ): Promise<PhotoReadGeneration> {
   const thinking = thinkingFor(model);
-  const response = await client.messages.create({
-    model,
-    max_tokens: QUOTE_PHOTO_READ_LIMITS.MAX_OUTPUT_TOKENS,
-    system: PHOTO_READ_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: image.mediaType, data: image.data },
-          },
-          { type: "text", text: "이 참고 사진을 읽어 견적 요청서 칸을 채워 주세요." },
-        ],
+  const response = await client.messages.create(
+    {
+      model,
+      max_tokens: QUOTE_PHOTO_READ_LIMITS.MAX_OUTPUT_TOKENS,
+      system: PHOTO_READ_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: image.mediaType, data: image.data },
+            },
+            { type: "text", text: "이 참고 사진을 읽어 견적 요청서 칸을 채워 주세요." },
+          ],
+        },
+      ],
+      ...(thinking ? { thinking } : {}),
+      output_config: {
+        effort: "low",
+        format: { type: "json_schema", schema: PHOTO_READ_OUTPUT_SCHEMA },
       },
-    ],
-    ...(thinking ? { thinking } : {}),
-    output_config: {
-      effort: "low",
-      format: { type: "json_schema", schema: PHOTO_READ_OUTPUT_SCHEMA },
     },
-  });
+    options?.signal ? { signal: options.signal } : undefined,
+  );
 
   let result: QuotePhotoReadResult | null = null;
   if (response.stop_reason !== "refusal" && response.stop_reason !== "max_tokens") {

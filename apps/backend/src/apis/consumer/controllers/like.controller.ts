@@ -152,7 +152,7 @@ export class ConsumerLikeController {
   @ApiOperation({
     summary: "디자인 좋아요 수·내 좋아요",
     description:
-      "케이크 디자인 모음의 디자인 ID별 좋아요 수(1개 이상만)와 내가 좋아요한 디자인 ID(최근 누른 순)를 돌려줍니다. 로그인하지 않았으면 myLikes는 []입니다.",
+      "케이크 디자인 모음의 디자인 ID별 좋아요 수(1개 이상만, 많은 순 500개까지)와 내가 좋아요한 디자인 ID(최근 누른 순)를 돌려줍니다. 로그인하지 않았으면 myLikes는 []입니다.",
   })
   @SwaggerResponse(200, { dataDto: DesignLikesResponseDto })
   async getDesignLikes(@Request() req: { user?: JwtVerifiedPayload }) {
@@ -168,7 +168,8 @@ export class ConsumerLikeController {
   @ApiOperation({
     summary: "(로그인 필요) 디자인 좋아요 추가",
     description:
-      "케이크 디자인 모음의 디자인에 좋아요를 추가합니다. 디자인은 웹에 있어 ID 모양(소문자-하이픈, 80자까지)만 확인하고, 이미 눌렀으면 그대로 성공합니다.",
+      "케이크 디자인 모음의 디자인에 좋아요를 추가합니다. 디자인은 웹에 있어 ID 모양(소문자-하이픈, 80자까지)만 확인하고, 이미 눌렀으면 그대로 성공합니다. " +
+      '손님 한 명이 300개까지 누를 수 있고 넘으면 400("좋아요는 300개까지 할 수 있어요.")입니다.',
   })
   @SwaggerResponse(201, { dataDto: LikeDesignResponseDto })
   @SwaggerAuthResponses()

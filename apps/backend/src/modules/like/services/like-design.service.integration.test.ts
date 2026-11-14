@@ -103,6 +103,80 @@ describe("디자인 좋아요 (integration)", () => {
     });
   });
 
+  it("손님 한 명은 300개까지: 넘으면 400, 이미 누른 디자인은 한도에서도 성공, 하나 취소하면 다시 누를 수 있다", async () => {
+    const { prisma, create, remove } = build();
+    const consumer = await createTestConsumer(prisma);
+    const ids = Array.from({ length: 299 }, (_, i) => `cap-${i}`);
+    await prisma.designLike.createMany({
+      data: ids.map((designId) => ({ consumerId: consumer.id, designId })),
+    });
+
+    await create.addDesignLikeForUser(consumer.id, "cap-new-a");
+    await expect(create.addDesignLikeForUser(consumer.id, "cap-new-b")).rejects.toThrow(
+      new BadRequestException("좋아요는 300개까지 할 수 있어요."),
+    );
+    await create.addDesignLikeForUser(consumer.id, "cap-0");
+    expect(await prisma.designLike.count({ where: { consumerId: consumer.id } })).toBe(300);
+
+    await remove.removeDesignLikeForUser(consumer.id, "cap-0");
+    await create.addDesignLikeForUser(consumer.id, "cap-new-b");
+    expect(await prisma.designLike.count({ where: { consumerId: consumer.id } })).toBe(300);
+
+    // 다른 손님은 따로 센다
+    const other = await createTestConsumer(prisma);
+    await create.addDesignLikeForUser(other.id, "cap-new-b");
+  });
+
+  it("한도 바로 앞에서 동시에 여러 개를 눌러도 300개를 넘지 않는다", async () => {
+    const { prisma, create } = build();
+    const consumer = await createTestConsumer(prisma);
+    await prisma.designLike.createMany({
+      data: Array.from({ length: 299 }, (_, i) => ({
+        consumerId: consumer.id,
+        designId: `r-${i}`,
+      })),
+    });
+
+    const results = await Promise.allSettled(
+      ["race-a", "race-b", "race-c"].map((id) => create.addDesignLikeForUser(consumer.id, id)),
+    );
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    for (const r of results.filter((x) => x.status === "rejected")) {
+      expect((r as PromiseRejectedResult).reason).toBeInstanceOf(BadRequestException);
+    }
+    expect(await prisma.designLike.count({ where: { consumerId: consumer.id } })).toBe(300);
+  });
+
+  it("수는 많은 순 500개까지(같으면 ID 순), 내 좋아요는 300개까지만 돌려준다", async () => {
+    const { prisma, list } = build();
+    const heavy = await createTestConsumer(prisma);
+    const b = await createTestConsumer(prisma);
+    const c = await createTestConsumer(prisma);
+    // 한도가 생기기 전처럼 직접 넣어 501개를 만든다(서비스로는 300개까지라 못 만든다)
+    const ids = Array.from({ length: 501 }, (_, i) => `d-${String(i).padStart(3, "0")}`);
+    await prisma.designLike.createMany({
+      data: ids.map((designId) => ({ consumerId: heavy.id, designId })),
+    });
+    await prisma.designLike.createMany({
+      data: [
+        { consumerId: b.id, designId: "d-500" },
+        { consumerId: c.id, designId: "d-500" },
+        { consumerId: b.id, designId: "d-499" },
+      ],
+    });
+
+    const { counts, myLikes } = await list.getDesignLikes(heavy.id);
+    expect(Object.keys(counts)).toHaveLength(500);
+    expect(counts["d-500"]).toBe(3);
+    expect(counts["d-499"]).toBe(2);
+    expect(counts["d-000"]).toBe(1);
+    expect(counts["d-497"]).toBe(1);
+    // 1개짜리 499개 중 ID 순으로 뒤인 d-498이 잘린다
+    expect(counts).not.toHaveProperty("d-498");
+    expect(Object.values(counts).every((n) => n >= 1)).toBe(true);
+    expect(myLikes).toHaveLength(300);
+  });
+
   it("탈퇴하면 그 손님의 디자인 좋아요를 지우고 수에서도 빠진다(계정은 익명화만 해서 자동으로 지워지지 않음)", async () => {
     const { prisma, create, list } = build();
     const leaving = await createTestConsumer(prisma);

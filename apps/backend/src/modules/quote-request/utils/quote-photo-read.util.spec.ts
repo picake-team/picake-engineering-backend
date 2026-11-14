@@ -176,6 +176,15 @@ describe("readCakePhoto(Claude 부르기, 클라이언트는 가짜)", () => {
     expect(params.system).toContain("사진 속 인물 그림");
     expect(r.result?.size).toBe("LUNCHBOX");
     expect(r.usage).toEqual({ inputTokens: 900, outputTokens: 300 });
+    // 마감을 넘기지 않으면 요청 옵션도 없다(클라이언트 기본값)
+    expect((create.mock.calls[0] as unknown[])[1]).toBeUndefined();
+  });
+
+  it("부르는 쪽의 마감(signal)을 요청 옵션으로 넘긴다", async () => {
+    const { client, create } = fakeClient(reply(goodOutput));
+    const deadline = new AbortController();
+    await readCakePhoto(client, "claude-haiku-5-5", image, { signal: deadline.signal });
+    expect((create.mock.calls[0] as unknown[])[1]).toEqual({ signal: deadline.signal });
   });
 
   it("거절·출력 상한·형식이 틀린 응답·케이크 아님은 못 읽음", async () => {

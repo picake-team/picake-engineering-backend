@@ -19,14 +19,14 @@ export class DesignLikesResponseDto {
   @ApiProperty({
     type: "object",
     additionalProperties: { type: "number" },
-    description: "디자인 ID별 좋아요 수(1개 이상인 디자인만)",
+    description: "디자인 ID별 좋아요 수(1개 이상인 디자인만, 많은 순 500개까지)",
     example: { "bento-heart-lettering": 12, "mini-ribbon": 3 },
   })
   counts: Record<string, number>;
 
   @ApiProperty({
     type: [String],
-    description: "내가 좋아요한 디자인 ID(최근 누른 순). 로그인하지 않았으면 []",
+    description: "내가 좋아요한 디자인 ID(최근 누른 순, 300개까지). 로그인하지 않았으면 []",
     example: ["mini-ribbon"],
   })
   myLikes: string[];

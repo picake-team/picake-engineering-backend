@@ -82,4 +82,28 @@ describe("디자인 좋아요 /v1/consumer/designs (e2e)", () => {
     expect(bad.body.data.message).toBe("디자인을 찾을 수 없어요.");
     expect(await prisma.designLike.count()).toBe(0);
   });
+
+  it("300개를 넘는 좋아요는 400(한국어 안내), 이미 누른 디자인은 그대로 성공", async () => {
+    const { app, prisma, consumer, auth } = await setup();
+    const server = app.getHttpServer();
+    await prisma.designLike.createMany({
+      data: Array.from({ length: 300 }, (_, i) => ({
+        consumerId: consumer.id,
+        designId: `full-${i}`,
+      })),
+    });
+
+    const over = await request(server)
+      .post("/v1/consumer/designs/one-more/like")
+      .set("Authorization", auth);
+    expect(over.status).toBe(400);
+    expect(over.body.success).toBe(false);
+    expect(over.body.data.message).toBe("좋아요는 300개까지 할 수 있어요.");
+
+    const again = await request(server)
+      .post("/v1/consumer/designs/full-7/like")
+      .set("Authorization", auth);
+    expect(again.status).toBe(201);
+    expect(await prisma.designLike.count({ where: { consumerId: consumer.id } })).toBe(300);
+  });
 });
