@@ -149,6 +149,7 @@ model Consumer {
 
   productLikes            ProductLike[]
   storeLikes              StoreLike[]
+  designLikes             DesignLike[]
   productRecentViews      ProductRecentView[]
   reviews                 ProductReview[]
   chatThreads             ChatThread[]
@@ -242,6 +243,8 @@ enum QuoteRequestEntry {
   MAP
   STORE
   MYPAGE
+  /// 케이크 디자인 모음(기획 I-112)에서 디자인을 골라 연 요청서
+  DESIGN
 }
 
 /// 견적을 물어볼 가게를 넣은 사람
@@ -304,20 +307,26 @@ model QuoteRequest {
   onlyDesignatedStores Boolean @default(false) @map("only_designated_stores")
 
   /// 디자인 설명(레터링 포함, 500자까지). 참고 사진과 둘 중 하나는 꼭 있다
-  description String?       @db.VarChar(500)
-  photoUrls   String[]      @default([]) @map("photo_urls")
-  size        QuoteCakeSize
-  quantity    Int
-  creams      QuoteCream[]  @default([])
+  description  String?       @db.VarChar(500)
+  photoUrls    String[]      @default([]) @map("photo_urls")
+  /// 참고 사진마다 어디서 왔고 무엇을 따를지(기획 I-112) — photoUrls와 같은 순서·같은 개수.
+  /// 한 칸: { designId: 디자인 모음 ID | null(손님 사진), parts: ("ALL"|"SHAPE"|"COLOR"|"DECORATION"|"LETTERING")[] }.
+  /// 이 칸이 생기기 전 요청은 [](읽을 때 사진마다 { designId: null, parts: ["ALL"] }로 본다)
+  photoDetails Json          @default("[]") @map("photo_details")
+  /// 고른 디자인 ID(겹치지 않게, 사진 순서대로). 요청·주문·후기를 디자인과 이을 때 쓴다
+  designIds    String[]      @default([]) @map("design_ids")
+  size         QuoteCakeSize
+  quantity     Int
+  creams       QuoteCream[]  @default([])
   /// "직접 쓰기"로 적은 그 밖의 맛(예: 초코 시트)
-  flavorNote  String?       @map("flavor_note") @db.VarChar(30)
+  flavorNote   String?       @map("flavor_note") @db.VarChar(30)
   /// 예산(1개 기준, 원). 최대가 없으면 "10만원 이상"
-  budgetMin   Int           @map("budget_min")
-  budgetMax   Int?          @map("budget_max")
+  budgetMin    Int           @map("budget_min")
+  budgetMax    Int?          @map("budget_max")
   /// 요청 사항(알레르기·초·토퍼 등, 200자까지)
-  requestNote String?       @map("request_note") @db.VarChar(200)
+  requestNote  String?       @map("request_note") @db.VarChar(200)
   /// 보낼 때 "받는 가게에 이름·휴대폰 번호가 전달돼요" 안내를 보고 보냈는지(11-13). true일 때만 가게 쪽에 손님 이름·휴대폰을 보여 준다
-  shareContact Boolean      @default(false) @map("share_contact")
+  shareContact Boolean       @default(false) @map("share_contact")
 
   entry QuoteRequestEntry?
 
@@ -343,6 +352,7 @@ model QuoteRequest {
   @@index([consumerId, createdAt])
   @@index([status, deadlineAt])
   @@index([createdAt])
+  @@index([designIds], type: Gin)
   @@map("quote_requests")
 }
 
@@ -612,6 +622,21 @@ model ProductLike {
   @@index([consumerId])
   @@index([productId])
   @@map("product_likes")
+}
+
+/// 케이크 디자인 모음(기획 I-112) 좋아요. 디자인은 DB가 아니라 웹에 있어 designId는 웹의 디자인 ID(소문자-하이픈)다
+model DesignLike {
+  id         String   @id @default(cuid())
+  consumerId String   @map("consumer_id")
+  designId   String   @map("design_id") @db.VarChar(80)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  consumer Consumer @relation(fields: [consumerId], references: [id], onDelete: Cascade)
+
+  @@unique([consumerId, designId])
+  @@index([consumerId])
+  @@index([designId])
+  @@map("design_likes")
 }
 
 // Store model for seller store information

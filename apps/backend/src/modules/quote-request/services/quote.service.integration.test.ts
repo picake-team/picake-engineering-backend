@@ -403,13 +403,25 @@ describe("견적 ② (integration)", () => {
     const requestId = await t.createRequest();
     await t.prisma.quoteRequest.update({
       where: { id: requestId },
-      data: { photoUrls: ["https://example.com/a.jpg"], requestNote: "딸기 넣어 주세요" },
+      data: {
+        photoUrls: ["https://example.com/a.jpg", "https://example.com/b.jpg"],
+        photoDetails: [
+          { designId: "bento-heart-lettering", parts: ["DECORATION"] },
+          { designId: null, parts: ["ALL"] },
+        ],
+        requestNote: "딸기 넣어 주세요",
+      },
     });
     await t.quotes.sendNewRequestToApps(requestId);
     expect(await t.quotes.sellerView(t.seller.id, t.store.id, requestId)).toMatchObject({
       contentHidden: false,
       description: "하늘색 바탕에 곰돌이",
-      photoUrls: ["https://example.com/a.jpg"],
+      photoUrls: ["https://example.com/a.jpg", "https://example.com/b.jpg"],
+      // 가게에도 "1번 · 장식만"처럼 보이게 사진 정보를 같이 준다(기획 I-112)
+      photoDetails: [
+        { designId: "bento-heart-lettering", parts: ["DECORATION"] },
+        { designId: null, parts: ["ALL"] },
+      ],
     });
     // 고르면 고른 가게는 계속 본다
     await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, quoteInput(40000));
@@ -432,6 +444,7 @@ describe("견적 ② (integration)", () => {
       description: null,
       requestNote: null,
       photoUrls: [],
+      photoDetails: [],
     });
     // 채팅 카드 사진도 가게 쪽에는 주지 않는다
     const room = await t.chat.messagesForStore(t.seller.id, t.store.id, q.threadId!, {});

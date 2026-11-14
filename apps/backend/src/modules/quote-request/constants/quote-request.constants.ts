@@ -53,7 +53,29 @@ export const QUOTE_REQUEST_ENTRY_LABELS: Record<QuoteRequestEntry, string> = {
   MAP: "지도",
   STORE: "가게 상세",
   MYPAGE: "MY",
+  DESIGN: "디자인 모음",
 };
+
+/**
+ * 참고 사진에서 무엇을 따를지(기획 I-112). ALL은 "전체"이고 다른 것과 같이 오면 ALL만 남긴다.
+ * 나머지는 이 순서로 저장한다(가게 화면에 "모양·장식"처럼 늘 같은 순서로 보이게)
+ */
+export const QUOTE_PHOTO_PARTS = ["ALL", "SHAPE", "COLOR", "DECORATION", "LETTERING"] as const;
+export type QuotePhotoPart = (typeof QUOTE_PHOTO_PARTS)[number];
+
+export const QUOTE_PHOTO_PART_LABELS: Record<QuotePhotoPart, string> = {
+  ALL: "전체",
+  SHAPE: "모양",
+  COLOR: "색",
+  DECORATION: "장식",
+  LETTERING: "글자",
+};
+
+/** 참고 사진 한 장의 정보. designId가 null이면 손님이 올린 사진 */
+export interface QuotePhotoDetail {
+  designId: string | null;
+  parts: QuotePhotoPart[];
+}
 
 export const QUOTE_REQUEST_ERROR_MESSAGES = {
   NOT_FOUND: "견적 요청을 찾을 수 없어요.",
@@ -73,6 +95,7 @@ export const QUOTE_REQUEST_ERROR_MESSAGES = {
   BUDGET_INVALID: "예산은 1만원부터 10만원까지 1만원 단위로 골라 주세요.",
   TOO_MANY_OPEN: "진행 중인 견적 요청이 많아요. 지난 요청을 닫은 뒤 다시 보내 주세요.",
   NOT_OPEN: "견적을 받는 중인 요청만 닫을 수 있어요.",
+  PHOTO_DETAILS_MISMATCH: "사진 정보가 맞지 않아요. 다시 시도해 주세요.",
 } as const;
 
 export const QUOTE_REQUEST_SUCCESS_MESSAGES = {

@@ -159,7 +159,7 @@ export class SellerProductNaverController {
   @ApiOperation({
     summary: "(로그인 필요) 상품 상세설명 AI 초안",
     description:
-      "네이버 설명·판매자가 확인한 사실·옵션 요약만 근거로 상세설명 초안을 만듭니다. 근거가 없는 중요한 정보는 `[판매자 확인 필요]`로 남깁니다. 저장하지 않습니다. 판매자당 하루 사용 횟수가 정해져 있습니다.",
+      "네이버 설명·판매자가 확인한 사실·옵션 요약만 근거로 상세설명 초안을 만듭니다. 근거가 없는 중요한 정보는 `[판매자 확인 필요]`로 남깁니다. 저장하지 않습니다. 판매자당 하루 30번, 모든 판매자를 합쳐 하루 300번(넘으면 503).",
   })
   @SwaggerResponse(200, { dataDto: ProductDescriptionDraftResponseDto })
   @SwaggerAuthResponses()
@@ -170,7 +170,7 @@ export class SellerProductNaverController {
     dataExample: createMessageObject(PRODUCT_AI_DRAFT_ERROR_MESSAGES.DAILY_LIMIT),
   })
   @SwaggerResponse(503, {
-    dataExample: createMessageObject(PRODUCT_AI_DRAFT_ERROR_MESSAGES.NOT_CONFIGURED),
+    dataExample: createMessageObject(PRODUCT_AI_DRAFT_ERROR_MESSAGES.UNAVAILABLE_TODAY),
   })
   async descriptionDraft(
     @Param("storeId") storeId: string,

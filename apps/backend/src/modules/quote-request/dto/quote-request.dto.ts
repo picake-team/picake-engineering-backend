@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -27,11 +28,66 @@ import {
 import { IsYmdDateString } from "@apps/backend/common/decorators/date-query.decorator";
 import { PaginationMetaResponseDto } from "@apps/backend/common/dto/pagination-response.dto";
 import {
+  DESIGN_ID_MAX_LENGTH,
+  DESIGN_ID_PATTERN,
+} from "@apps/backend/common/constants/design-gallery.constants";
+import { LIKE_ERROR_MESSAGES } from "@apps/backend/modules/like/constants/like.constants";
+import {
+  QUOTE_PHOTO_PARTS,
   QUOTE_REQUEST_DISTANCE_KM,
   QUOTE_REQUEST_LIMITS,
   QUOTE_REQUEST_LIST_TABS,
+  type QuotePhotoPart,
   type QuoteRequestListTab,
 } from "@apps/backend/modules/quote-request/constants/quote-request.constants";
+
+/**
+ * 참고 사진 한 장의 정보(기획 I-112): 케이크 디자인 모음에서 온 사진인지, 무엇을 따를지
+ */
+/** 사진 정보 칸이 틀렸을 때(웹이 만든 값만 오므로 드묾) */
+const PHOTO_DETAIL_INVALID = "참고 사진 정보를 다시 확인해 주세요. 사진을 다시 넣어 주세요.";
+
+export class QuotePhotoDetailDto {
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: "케이크 디자인 모음의 디자인 ID(소문자-하이픈). 손님이 올린 사진이면 null",
+    example: "bento-heart-lettering",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(DESIGN_ID_MAX_LENGTH)
+  @Matches(DESIGN_ID_PATTERN, { message: LIKE_ERROR_MESSAGES.DESIGN_NOT_FOUND })
+  designId?: string | null;
+
+  @ApiProperty({
+    enum: QUOTE_PHOTO_PARTS,
+    isArray: true,
+    description:
+      "이 사진에서 따를 것. ALL(전체)이 있으면 전체만 남기고, 나머지는 모양·색·장식·글자 순서로 저장",
+    example: ["DECORATION"],
+  })
+  // 웹이 만든 값만 오지만, 틀리면 영어 기본 글 대신 손님이 알아볼 글로(11-14 상용 전 검토)
+  @IsArray({ message: PHOTO_DETAIL_INVALID })
+  @ArrayMinSize(1, { message: PHOTO_DETAIL_INVALID })
+  @ArrayMaxSize(QUOTE_PHOTO_PARTS.length, { message: PHOTO_DETAIL_INVALID })
+  @IsIn(QUOTE_PHOTO_PARTS, { each: true, message: PHOTO_DETAIL_INVALID })
+  parts: QuotePhotoPart[];
+}
+
+/** 참고 사진 한 장의 정보(응답). photoUrls와 같은 순서·같은 개수 */
+export class QuotePhotoDetailResponseDto {
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: "디자인 모음의 디자인 ID. 손님이 올린 사진이면 null",
+    example: "bento-heart-lettering",
+  })
+  designId: string | null;
+
+  @ApiProperty({ enum: QUOTE_PHOTO_PARTS, isArray: true, example: ["DECORATION"] })
+  parts: QuotePhotoPart[];
+}
 
 /**
  * 물어볼 가게 하나: Picake 가게(storeId)나 지도에서 찾은 입점 전 가게(kakaoPlaceId + 이름 등) 중 하나
@@ -185,6 +241,18 @@ export class CreateQuoteRequestDto {
   @MaxLength(500, { each: true })
   photoUrls?: string[];
 
+  @ApiPropertyOptional({
+    type: [QuotePhotoDetailDto],
+    description:
+      "참고 사진마다 어디서 왔고 무엇을 따를지(photoUrls와 같은 순서·같은 개수, 기획 I-112). 없으면 사진마다 손님 사진·전체",
+  })
+  @IsOptional()
+  @IsArray({ message: PHOTO_DETAIL_INVALID })
+  @ArrayMaxSize(QUOTE_REQUEST_LIMITS.MAX_PHOTOS, { message: PHOTO_DETAIL_INVALID })
+  @ValidateNested({ each: true })
+  @Type(() => QuotePhotoDetailDto)
+  photoDetails?: QuotePhotoDetailDto[] | null;
+
   @ApiProperty({ enum: QuoteCakeSize, example: QuoteCakeSize.NO1 })
   @IsEnum(QuoteCakeSize)
   size: QuoteCakeSize;
@@ -251,7 +319,7 @@ export class QuoteRequestSummaryDto {
   @ApiProperty({ example: "연남동 3km 안" })
   area: string;
 
-  @ApiProperty({ example: "1호 케이크 1개 · 생크림" })
+  @ApiProperty({ example: "1호 케이크 · 생크림" })
   cake: string;
 
   @ApiProperty({ example: "3만~5만원" })
@@ -339,6 +407,19 @@ export class QuoteRequestDetailDto extends QuoteRequestListItemDto {
 
   @ApiProperty({ type: [String] })
   photoUrls: string[];
+
+  @ApiProperty({
+    type: [QuotePhotoDetailResponseDto],
+    description: "참고 사진마다 어디서 왔고 무엇을 따를지(photoUrls와 같은 순서·같은 개수)",
+  })
+  photoDetails: QuotePhotoDetailResponseDto[];
+
+  @ApiProperty({
+    type: [String],
+    description: "고른 디자인 모음 ID(겹치지 않게, 사진 순서대로)",
+    example: ["bento-heart-lettering"],
+  })
+  designIds: string[];
 
   @ApiProperty({ enum: QuoteCream, isArray: true })
   creams: QuoteCream[];

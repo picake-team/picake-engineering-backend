@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
-import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { DatabaseModule } from "@apps/backend/infra/database/database.module";
 import { ConsumerApiModule } from "@apps/backend/apis/consumer/consumer-api.module";
 import { SellerApiModule } from "@apps/backend/apis/seller/seller-api.module";
@@ -9,6 +9,7 @@ import { AdminApiModule } from "@apps/backend/apis/admin/admin-api.module";
 import { SuccessResponseInterceptor } from "@apps/backend/common/interceptors/success-response.interceptor";
 import { ErrorResponseInterceptor } from "@apps/backend/common/interceptors/error-response.interceptor";
 import { MaintenanceGuard } from "@apps/backend/common/guards/maintenance.guard";
+import { AppThrottlerGuard } from "@apps/backend/common/guards/app-throttler.guard";
 
 /**
  * NestJS 애플리케이션의 루트 모듈
@@ -64,10 +65,10 @@ import { MaintenanceGuard } from "@apps/backend/common/guards/maintenance.guard"
       provide: APP_GUARD,
       useClass: MaintenanceGuard,
     },
-    // 전역 Rate Limiting Guard 등록
+    // 전역 Rate Limiting Guard 등록 (ThrottlerGuard + @ThrottleMessage로 경로별 429 안내 글)
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: AppThrottlerGuard,
     },
   ],
 })

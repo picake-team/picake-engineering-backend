@@ -1,0 +1,56 @@
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsNotEmpty, IsString } from "class-validator";
+import { QUOTE_PHOTO_READ_ERROR_MESSAGES } from "@apps/backend/modules/quote-request/constants/quote-photo-read.constants";
+
+/** 견적 요청서 참고 사진 읽기(기획 I-112 1-나) */
+export class QuotePhotoReadRequestDto {
+  @ApiProperty({
+    description:
+      "JPG·PNG 사진의 data URL(data:image/jpeg;base64,…). 웹이 1280px 안·품질 0.8로 줄여 보낸다. 풀었을 때 2.5MB까지. 저장하지 않는다",
+    example: "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+  })
+  @IsString({ message: QUOTE_PHOTO_READ_ERROR_MESSAGES.INVALID_IMAGE })
+  @IsNotEmpty({ message: QUOTE_PHOTO_READ_ERROR_MESSAGES.INVALID_IMAGE })
+  image: string;
+}
+
+export class QuotePhotoReadPartsDto {
+  @ApiProperty({ description: "모양·종류", example: "흰 크림 도시락 케이크" })
+  shape: string;
+
+  @ApiProperty({ description: "크림·바탕 색", example: "흰색" })
+  color: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: "테두리 파이핑과 위 장식",
+    example: "분홍 하트 테두리",
+  })
+  decoration: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: "큰따옴표 안의 글자와 색·모양",
+    example: '"생일 축하해" 갈색 손글씨',
+  })
+  lettering: string | null;
+}
+
+/**
+ * 읽은 결과. 케이크가 아니거나 읽지 못하면 `{ unreadable: true }`만 온다(나머지 칸 없음)
+ */
+export class QuotePhotoReadResponseDto {
+  @ApiPropertyOptional({
+    description: "케이크가 아니거나 읽지 못했을 때만 true(이때 다른 칸은 오지 않음)",
+    example: true,
+  })
+  unreadable?: true;
+
+  @ApiPropertyOptional({
+    type: QuotePhotoReadPartsDto,
+    description: '따를 것 4칸. 웹이 요청서 설명을 "· 모양: …" 줄로 쓴다',
+  })
+  parts?: QuotePhotoReadPartsDto;
+}

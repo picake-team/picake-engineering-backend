@@ -8,10 +8,13 @@ import { LikeStoreCreateService } from "@apps/backend/modules/like/services/like
 import { LikeStoreDeleteService } from "@apps/backend/modules/like/services/like-store-delete.service";
 import { LikeStoreDetailService } from "@apps/backend/modules/like/services/like-store-detail.service";
 import { LikeUserListService } from "@apps/backend/modules/like/services/like-user-list.service";
+import { LikeDesignCreateService } from "@apps/backend/modules/like/services/like-design-create.service";
+import { LikeDesignDeleteService } from "@apps/backend/modules/like/services/like-design-delete.service";
+import { LikeDesignListService } from "@apps/backend/modules/like/services/like-design-list.service";
 
 /**
  * 좋아요 모듈
- * 상품 및 스토어 좋아요 관련 기능을 제공합니다.
+ * 상품·스토어·케이크 디자인(디자인 모음, 기획 I-112) 좋아요 관련 기능을 제공합니다.
  */
 @Module({
   imports: [DatabaseModule],
@@ -24,6 +27,9 @@ import { LikeUserListService } from "@apps/backend/modules/like/services/like-us
     LikeStoreDeleteService,
     LikeStoreDetailService,
     LikeUserListService,
+    LikeDesignCreateService,
+    LikeDesignDeleteService,
+    LikeDesignListService,
   ],
   exports: [LikeService, LikeProductDetailService, LikeStoreDetailService],
 })

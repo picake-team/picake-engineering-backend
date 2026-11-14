@@ -29,6 +29,11 @@ export const PRODUCT_AI_DRAFT_LIMITS = {
   MAX_OUTPUT_TOKENS: 1500,
   /** 판매자 1명이 하루에 만들 수 있는 초안 수 */
   DAILY_PER_SELLER: 30,
+  /**
+   * 모든 판매자를 합쳐 하루(한국 시간)에 만들 수 있는 초안 수. 판매자 계정을 여러 개 만들어 부르거나
+   * 판매자가 갑자기 많아져도 Claude 비용이 하루 이 횟수(Haiku 한 번 최대 2원 안팎)를 넘지 않게 한다(11-14 운영자)
+   */
+  DAILY_TOTAL: 300,
 };
 
 export const PRODUCT_AI_DRAFT_ERROR_MESSAGES = {
@@ -36,4 +41,6 @@ export const PRODUCT_AI_DRAFT_ERROR_MESSAGES = {
   NO_SOURCE: "AI가 참고할 내용이 없어요. 네이버 설명이나 확인한 사실을 먼저 적어 주세요.",
   DAILY_LIMIT: "오늘 만들 수 있는 AI 초안을 모두 썼어요. 내일 다시 시도하거나 직접 입력해 주세요.",
   FAILED: "AI 초안을 만들지 못했어요. 잠시 후 다시 시도하거나 직접 입력해 주세요.",
+  /** 모든 판매자를 합친 하루 한도(DAILY_TOTAL)를 다 씀 */
+  UNAVAILABLE_TODAY: "오늘은 AI 초안을 더 만들 수 없어요. 상세정보를 직접 입력해 주세요.",
 };

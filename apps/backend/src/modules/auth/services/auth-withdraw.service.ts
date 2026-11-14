@@ -26,6 +26,7 @@ import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-
  *   비활성(정지)과 달리 동일 OAuth·휴대폰으로 즉시 재가입이 가능하도록 유지합니다.
  * - `name`/`nickname`/`profileImageUrl` 등 더 이상 필요 없는 개인정보는 null 처리합니다.
  * - 견적 요청(사진 포함)은 계약이 아니라 보관 의무가 없어 지웁니다(QuoteRequestCleanupService).
+ * - 케이크 디자인 모음 좋아요(DesignLike)도 지웁니다(디자인별 좋아요 수에서 빠지게).
  * - 주문(Order)·주문상품(OrderItem)·약관동의이력은 그대로 보존됩니다(법정 보존기간 경과 후 별도
  *   배치로 파기 필요 — 현재 미구현, 후속 작업).
  */
@@ -64,6 +65,9 @@ export class AuthWithdrawService {
       await this.quoteRequestCleanup.deleteAllForConsumer(accountId);
       // 채팅 글·사진도 바로 지운다(기획 I-11, 운영자 결정 11-11). 방은 가게 쪽에 "탈퇴한 손님"으로 남는다
       await this.chatCleanup.deleteAllForConsumer(accountId);
+      // 디자인 모음 좋아요는 웹에서 디자인별 수로 보이므로 탈퇴한 손님 것은 지운다(기획 I-112).
+      // 계정을 익명화만 해서 onDelete: Cascade로는 지워지지 않는다
+      await this.prisma.designLike.deleteMany({ where: { consumerId: accountId } });
 
       // Apple 가이드라인 5.1.1(v) — 계정 삭제 시 Sign in with Apple 인가를 revoke. 실패해도 탈퇴는 계속 진행.
       if (row.appleRefreshToken) {
