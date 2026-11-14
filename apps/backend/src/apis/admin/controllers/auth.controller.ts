@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Body, HttpCode, HttpStatus, Request } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiExtraModels } from "@nestjs/swagger";
 import { AuthService } from "@apps/backend/modules/auth/auth.service";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
@@ -27,7 +28,9 @@ import {
 export class AdminAuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // 공개 API라 한 곳에서 계정을 많이 만들지 못하게(시간당 5번). 승인 설정이 꺼져 있으면 가입 즉시 관리자라 더 조인다
   @Post("register")
+  @Throttle({ default: { limit: 5, ttl: 3600000 } })
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "관리자 회원가입 (ID/비밀번호)" })
   @SwaggerResponse(201, { dataDto: AdminRegisterResponseDto })
@@ -38,7 +41,9 @@ export class AdminAuthController {
     return await this.authService.adminRegister(dto);
   }
 
+  // 비밀번호·인증 앱 6자리를 마구 넣어 보지 못하게(분당 10번, 전체 기본은 100번)
   @Post("login")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "관리자 로그인",
@@ -59,6 +64,7 @@ export class AdminAuthController {
   }
 
   @Post("login/totp-verify")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "로그인 2단계: TOTP 코드 검증 후 최종 토큰 발급" })
   @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })

@@ -44,7 +44,8 @@ export class AdminConfigService {
   private async upsertDefault() {
     return this.prisma.adminConfig.upsert({
       where: { id: ADMIN_CONFIG_ID },
-      create: { id: ADMIN_CONFIG_ID, requireApproval: false },
+      // 설정 행이 없으면 "승인 필요"로 만든다(가입 API가 공개라 꺼진 채로 시작하면 누구나 바로 관리자가 된다)
+      create: { id: ADMIN_CONFIG_ID, requireApproval: true },
       update: {},
     });
   }
