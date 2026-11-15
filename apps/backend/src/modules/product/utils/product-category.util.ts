@@ -12,10 +12,19 @@ const C = ProductCategoryType;
 export const PRODUCT_CATEGORY_GROUPS: readonly (readonly ProductCategoryType[])[] = [
   // 상황: 무슨 날, 누구에게
   [C.BIRTHDAY, C.COUPLE, C.THANKS, C.BABY, C.CONGRATS, C.WEDDING, C.SEASON],
-  // 디자인: 어떻게 꾸몄나
-  [C.LETTERING, C.DRAWING, C.PHOTO, C.CHARACTER, C.FLOWER, C.RIBBON, C.FRUIT, C.VINTAGE, C.SIMPLE],
-  // 모양: 기본 원형이 아닐 때
-  [C.HEART, C.SCULPTED, C.TWO_TIER],
+  // 디자인: 어떻게 꾸몄나(하트·2단 같은 모양도 여기, 11-15 "모양" 묶음을 합침)
+  [
+    C.LETTERING,
+    C.DRAWING,
+    C.PHOTO,
+    C.CHARACTER,
+    C.FLOWER,
+    C.RIBBON,
+    C.FRUIT,
+    C.HEART,
+    C.TWO_TIER,
+    C.SIMPLE,
+  ],
   // 서비스
   [C.SAME_DAY_PICKUP],
 ];
@@ -32,13 +41,20 @@ export const LEGACY_PRODUCT_CATEGORY_MAP: Readonly<Record<string, ProductCategor
 };
 
 /**
- * 요청 값의 옛 카테고리를 새 값으로 바꾸고 겹친 것을 지운다. 모르는 값은 그대로 두어 검사(IsEnum)가 막게 한다.
+ * 없앤 값(11-15 저녁 운영자: 빈티지·입체). 공유된 옛 주소·배포 사이 옛 화면이 보내면 조용히 뺀다
+ * (DB 값은 migration 20261115180000에서 지웠다).
+ */
+export const REMOVED_PRODUCT_CATEGORIES: ReadonlySet<string> = new Set(["VINTAGE", "SCULPTED"]);
+
+/**
+ * 요청 값의 옛 카테고리를 새 값으로 바꾸고, 없앤 값은 빼고, 겹친 것을 지운다. 모르는 값은 그대로 두어 검사(IsEnum)가 막게 한다.
  */
 export function normalizeProductCategoryTypes(value: unknown): unknown {
   if (!Array.isArray(value)) return value;
   // Set으로 겹친 것을 지운다(긴 배열이 와도 한 번만 훑는다). 처음 나온 순서는 지킨다
   const out = new Set<unknown>();
   for (const item of value) {
+    if (typeof item === "string" && REMOVED_PRODUCT_CATEGORIES.has(item)) continue;
     const isLegacy =
       typeof item === "string" &&
       Object.prototype.hasOwnProperty.call(LEGACY_PRODUCT_CATEGORY_MAP, item);
@@ -150,10 +166,8 @@ const KEYWORD_CATEGORY: ReadonlyArray<readonly [ProductCategoryType, readonly st
   [C.FLOWER, ["꽃", "플라워"]],
   [C.RIBBON, ["리본"]],
   [C.FRUIT, ["과일", "생과일"]],
-  [C.VINTAGE, ["빈티지"]],
   [C.SIMPLE, ["심플"]],
   [C.HEART, ["하트"]],
-  [C.SCULPTED, ["입체", "3d"]],
   [C.TWO_TIER, ["2단", "이단"]],
   [C.SAME_DAY_PICKUP, ["당일픽업", "당일"]],
 ];

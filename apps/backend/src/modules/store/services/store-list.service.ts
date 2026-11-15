@@ -443,7 +443,7 @@ export class StoreListService {
         (productSome.salePrice as Prisma.IntFilter).lte = params.maxPrice;
       }
     }
-    // 카테고리: 한 상품이 묶음(상황·디자인·모양·서비스)마다 맞아야 한다(묶음 안은 또는)
+    // 카테고리: 한 상품이 묶음(상황·디자인·서비스)마다 맞아야 한다(묶음 안은 또는)
     const categoryConditions = productCategoryWhereConditions(params.productCategoryTypes);
     if (categoryConditions.length > 0) {
       productSome.AND = categoryConditions;

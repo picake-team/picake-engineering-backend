@@ -129,7 +129,7 @@ export class ProductListService {
       conditions.push(Prisma.sql`p.product_type::text = ${params.productType}`);
     }
 
-    // 카테고리: 묶음(상황·디자인·모양·서비스) 안은 또는, 묶음끼리는 그리고
+    // 카테고리: 묶음(상황·디자인·서비스) 안은 또는, 묶음끼리는 그리고
     conditions.push(...productCategorySqlConditions(params.productCategoryTypes));
 
     if (params.sizes && params.sizes.length > 0) {
@@ -250,7 +250,7 @@ export class ProductListService {
       where.productType = productType;
     }
 
-    // 카테고리: 묶음(상황·디자인·모양·서비스) 안은 또는, 묶음끼리는 그리고
+    // 카테고리: 묶음(상황·디자인·서비스) 안은 또는, 묶음끼리는 그리고
     const categoryConditions = productCategoryWhereConditions(productCategoryTypes);
     if (categoryConditions.length > 0) {
       where.AND = where.AND || [];
