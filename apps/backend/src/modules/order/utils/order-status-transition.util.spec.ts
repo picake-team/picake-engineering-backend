@@ -148,10 +148,12 @@ describe("withCanceledAt (취소 일시, 11-16)", () => {
         now,
       ),
     ).toEqual({ orderStatus: OrderStatus.PAYMENT_COMPLETED });
-    expect(withCanceledAt(OrderStatus.CANCEL_REFUND_PENDING, { refundBankName: "X" }, now)).toEqual(
-      {
-        refundBankName: "X",
-      },
-    );
+    // 상태를 바꾸지 않는 저장(환불 계좌 고치기 등)은 그대로
+    const accountOnly: { orderStatus?: OrderStatus; refundBankName: string } = {
+      refundBankName: "X",
+    };
+    expect(withCanceledAt(OrderStatus.CANCEL_REFUND_PENDING, accountOnly, now)).toEqual({
+      refundBankName: "X",
+    });
   });
 });
