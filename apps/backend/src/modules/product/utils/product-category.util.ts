@@ -64,8 +64,9 @@ export function normalizeProductCategoryTypes(value: unknown): unknown {
 }
 
 /**
- * 요청 DTO의 카테고리 배열 변환: 하나만 오면(쿼리 ?productCategoryTypes=BIRTHDAY) 배열로, 옛 값은 새 값으로.
- * 빈 배열은 그대로 둔다(상품 수정에서 "전부 지우기").
+ * 요청 DTO의 카테고리 배열 변환: 하나만 오면(쿼리 ?productCategoryTypes=BIRTHDAY) 배열로, 옛 값은 새 값으로,
+ * 없앤 값(빈티지·입체)은 뺀다. 빈 배열은 그대로 둔다(상품 수정에서 "전부 지우기").
+ * 상품 등록·수정, 상품·스토어·좋아요·판매자 스토어 목록이 같이 쓴다.
  */
 export function ProductCategoryTypesTransform() {
   return Transform(({ value }) => {
