@@ -34,6 +34,13 @@ describe("카테고리 묶음", () => {
     expect(groupProductCategoryTypes(undefined)).toEqual([]);
   });
 
+  it("하트·2단은 디자인 묶음(11-15 모양 묶음을 합침)", () => {
+    expect(groupProductCategoryTypes([C.HEART, C.LETTERING, C.TWO_TIER, C.BIRTHDAY])).toEqual([
+      [C.BIRTHDAY],
+      [C.HEART, C.LETTERING, C.TWO_TIER],
+    ]);
+  });
+
   it("Prisma 조건: 묶음마다 hasSome, 묶음끼리 AND(목록)", () => {
     expect(productCategoryWhereConditions([C.BIRTHDAY, C.CHARACTER, C.FLOWER])).toEqual([
       { productCategoryTypes: { hasSome: [C.BIRTHDAY] } },
@@ -47,6 +54,15 @@ describe("옛 카테고리 값", () => {
     expect(
       normalizeProductCategoryTypes(["LOVER", "ANNIVERSARY", "FAMILY", "FRIEND", "BIRTHDAY"]),
     ).toEqual([C.COUPLE, C.THANKS, C.BIRTHDAY]);
+  });
+
+  it("없앤 값(빈티지·입체)은 조용히 뺀다", async () => {
+    expect(normalizeProductCategoryTypes(["VINTAGE", "SCULPTED", "BIRTHDAY"])).toEqual([
+      C.BIRTHDAY,
+    ]);
+    const dto = plainToInstance(GetProductsRequestDto, { productCategoryTypes: "VINTAGE" });
+    expect(dto.productCategoryTypes).toEqual([]);
+    expect((await validate(dto)).filter((e) => e.property === "productCategoryTypes")).toEqual([]);
   });
 
   it("Object 기본 이름(constructor 등)은 옛 값으로 보지 않는다", () => {
@@ -99,7 +115,6 @@ describe("검색어 → 같은 뜻 카테고리", () => {
     ["프로포즈", C.WEDDING],
     ["크리스마스", C.SEASON],
     ["2단", C.TWO_TIER],
-    ["3D", C.SCULPTED],
   ])("%s → %s", (keyword, category) => {
     expect(productCategoryFromKeyword(keyword)).toBe(category);
   });
@@ -107,6 +122,9 @@ describe("검색어 → 같은 뜻 카테고리", () => {
   it("카테고리와 상관없는 말은 잇지 않는다", () => {
     expect(productCategoryFromKeyword("곰돌이")).toBeUndefined();
     expect(productCategoryFromKeyword("케이크")).toBeUndefined();
+    // 없앤 카테고리 말은 이름 검색으로만 찾는다
+    expect(productCategoryFromKeyword("빈티지")).toBeUndefined();
+    expect(productCategoryFromKeyword("입체")).toBeUndefined();
     expect(productCategoryFromKeyword("  ")).toBeUndefined();
   });
 });

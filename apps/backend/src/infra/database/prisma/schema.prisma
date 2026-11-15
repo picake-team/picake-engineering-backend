@@ -1413,12 +1413,9 @@ enum ProductCategoryType {
   FLOWER // 꽃
   RIBBON // 리본
   FRUIT // 과일
-  VINTAGE // 빈티지
-  SIMPLE // 심플
-  // 모양(기본 원형이 아닐 때)
   HEART // 하트
-  SCULPTED // 입체
   TWO_TIER // 2단
+  SIMPLE // 심플
   // 서비스
   SAME_DAY_PICKUP // 당일픽업
 }
