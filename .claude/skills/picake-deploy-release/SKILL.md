@@ -77,6 +77,9 @@ git log --oneline "$REMOTE"/main.."$REMOTE"/staging
 ```
 
 - 비어 있으면 배포할 게 없다는 뜻이니 알리고 멈춥니다.
+- **호환 안 되는 migration**(enum 값 빼기, 열 지우기·이름 바꾸기, 열 형식 바꾸기)이 들어 있는지 `git diff --stat "$REMOTE"/main.."$REMOTE"/staging -- apps/backend/prisma/migrations`로 봅니다. 있으면 보고에 적고 아래를 지킵니다(2026-11-15 카테고리 enum에서 배움).
+  - 값·열을 지우는 것은 **두 번에 나눠 냅니다**: 먼저 코드에서만 안 쓰게 내보내고(DB는 그대로), 다음 배포에서 DB를 지웁니다. 한 번에 내면 새 서버가 켜지다 실패해 이전 버전으로 되돌아갈 때 이전 서버가 DB에 없는 값을 써서 500이 납니다(다음 배포가 성공해 되돌릴 곳이 새 버전이 될 때까지).
+  - 열 형식을 바꾸면(enum 다시 만들기 포함) migration부터 옛 서버가 내려갈 때까지 몇 초 동안 옛 서버의 그 표 조회가 `cached plan must not change result type`으로 실패할 수 있습니다. 손님이 적은 시간에 내고, 배포 뒤 상용 서버 로그를 운영자에게 확인받습니다.
 - **스테이징에 먼저 올라갔는지 확인합니다.** 해당 커밋을 담은 staging 태그가 없으면 알리고 staging 배포를 먼저 할지 확인합니다.
 
 ### 6-2. `staging → main` PR 생성
