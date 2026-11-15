@@ -3,6 +3,7 @@ import {
   IsDateString,
   IsEnum,
   IsNotEmpty,
+  IsBoolean,
   IsOptional,
   IsString,
   Matches,
@@ -122,5 +123,6 @@ export class CreateTermsDocumentDto {
     description: "등록 즉시 활성화 여부. true면 같은 타입의 기존 활성 버전이 비활성화됩니다.",
   })
   @IsOptional()
+  @IsBoolean()
   activateNow?: boolean;
 }

@@ -94,9 +94,20 @@ export class ChatCleanupService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async deleteAllForConsumer(consumerId: string): Promise<{ messages: number; photos: number }> {
+  async deleteAllForConsumer(
+    consumerId: string,
+    now: Date = new Date(),
+  ): Promise<{ messages: number; photos: number }> {
+    // 신고된 대화는 처리 전이거나 처리 뒤 1년이 안 됐으면 남긴다(P-83, purgeExpired와 같은 규칙).
+    // 전에는 탈퇴하면 운영자가 확인하기 전에 증거가 지워졌다(11-15 검토)
+    const reportCutoff = yearsBefore(now, CHAT_RETENTION.YEARS_AFTER_REPORT_RESOLVED);
     const threads = await this.prisma.chatThread.findMany({
-      where: { consumerId },
+      where: {
+        consumerId,
+        reports: {
+          none: { OR: [{ status: "OPEN" }, { resolvedAt: { gte: reportCutoff } }] },
+        },
+      },
       select: { id: true },
     });
     if (threads.length === 0) return { messages: 0, photos: 0 };

@@ -156,7 +156,14 @@ export class OrderMapperUtil {
     };
   }
 
-  static mapToOrderResponse(order: OrderWithItems): OrderResponseDto {
+  /**
+   * @param options.includeAdminNotes 관리자 응답에만 true. 되돌린 사유는 운영자가 쓴 감사 기록이라(입금자·계좌를 적기 쉬움)
+   *   손님·사장님 응답에는 비운다(11-15 검토)
+   */
+  static mapToOrderResponse(
+    order: OrderWithItems,
+    options: { includeAdminNotes?: boolean } = {},
+  ): OrderResponseDto {
     return {
       id: order.id,
       userId: order.consumerId,
@@ -201,7 +208,9 @@ export class OrderMapperUtil {
       refundBankAccountNumber: order.refundBankAccountNumber ?? null,
       refundAccountHolderName: order.refundAccountHolderName ?? null,
       sellerCancelRefundPendingReason: order.sellerCancelRefundPendingReason ?? null,
-      adminRefundRevertReason: order.adminRefundRevertReason ?? null,
+      adminRefundRevertReason: options.includeAdminNotes
+        ? (order.adminRefundRevertReason ?? null)
+        : null,
       adminRefundRevertedAt: order.adminRefundRevertedAt ?? null,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
