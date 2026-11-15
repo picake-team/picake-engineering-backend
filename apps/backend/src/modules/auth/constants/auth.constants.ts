@@ -139,12 +139,13 @@ export function getAppleRedirectBaseUrl(nodeEnv: string | undefined): string {
 export const ADMIN_BCRYPT_SALT_ROUNDS = 12;
 
 /**
- * 앱스토어/플레이스토어 심사(리뷰) 전용 로그인 코드 (하드코딩).
- * env 설정 없이 바로 동작하도록 소스에 고정값으로 둡니다.
- * ⚠️ 저장소 접근 권한이 있으면 누구나 볼 수 있는 값이므로, 심사가 끝나면 다른 값으로 교체하거나
- * `AuthReviewLoginService`/`review-login` 라우트 자체를 제거하는 걸 권장합니다.
+ * 손님 앱 심사(리뷰) 전용 로그인 코드를 확인하는 서버 환경값 이름.
+ * 값은 6자리 코드의 SHA-256(16진수 64자)이고 GitHub Actions 비밀값으로만 넣는다(판매자와 같은 방식).
+ * 코드도, 이 값도 공개 레포에 적지 않는다(6자리라 해시만 보여도 바로 풀린다). 값이 없으면 손님 심사용 로그인은 꺼진다.
+ * 2026-11-15 전까지는 코드가 이 파일에 그대로 있어(공개 레포) 누구나 심사용 손님 계정으로 들어올 수 있었다 → 코드를 바꾸고 비밀값으로 옮김.
+ * 테스트(CI·로컬 .env.test)는 테스트 전용 코드 000000의 해시를 쓴다(`scripts/ci/create-env-test.sh`).
  */
-export const REVIEW_LOGIN_CODE = "482915";
+export const CONSUMER_REVIEW_LOGIN_CODE_HASH_ENV = "CONSUMER_REVIEW_LOGIN_CODE_SHA256";
 
 /**
  * 심사용 계정을 식별하는 전용 마커 (`Consumer.phone`에 저장).
