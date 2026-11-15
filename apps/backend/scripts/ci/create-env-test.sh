@@ -50,6 +50,8 @@ DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/pica
   cat <<EOF
 DATABASE_URL="$DATABASE_URL"
 JWT_SECRET=ci-test-jwt-secret-do-not-use-in-real-env
+# 손님 심사용 로그인 테스트 전용 코드 000000의 SHA-256(상용·staging은 GitHub 비밀값, 이 값은 테스트에서만 맞는다)
+CONSUMER_REVIEW_LOGIN_CODE_SHA256=91b4d142823f7d20c5f08df69122de43f35f057a988d9619f6d3138485c9a203
 DATA_GO_KR_API_KEY=ci-test-fake-key
 AWS_REGION=ap-northeast-2
 AWS_ACCESS_KEY_ID=ci-test-fake-access-key-id

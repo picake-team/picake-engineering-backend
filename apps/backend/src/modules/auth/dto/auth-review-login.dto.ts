@@ -8,7 +8,8 @@ import { SWAGGER_EXAMPLES } from "@apps/backend/modules/auth/constants/auth.cons
  */
 export class ReviewLoginRequestDto {
   @ApiProperty({
-    description: "심사용 로그인 코드 (6자리 숫자, `APP_REVIEW_LOGIN_CODE`와 일치해야 함)",
+    description:
+      "심사용 로그인 코드 (6자리 숫자, 서버 비밀값 `CONSUMER_REVIEW_LOGIN_CODE_SHA256`의 원래 코드와 같아야 함)",
     example: SWAGGER_EXAMPLES.VERIFICATION_CODE,
   })
   @IsString()
