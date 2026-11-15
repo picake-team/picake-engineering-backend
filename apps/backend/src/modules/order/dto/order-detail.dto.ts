@@ -320,6 +320,14 @@ export class OrderResponseDto extends PickupAddressDto {
   paymentPendingExpiredAt: Date | null;
 
   @ApiPropertyOptional({
+    description:
+      "취소한 시각(손님 취소·환불 요청, 사장님 취소, 입금 마감 자동 취소 — 처음 취소 상태가 될 때). 취소 전이거나 2026-11-16 전에 취소된 주문은 null",
+    example: "2024-01-15T14:00:00.000Z",
+    nullable: true,
+  })
+  canceledAt: Date | null;
+
+  @ApiPropertyOptional({
     description: "주문 시 선택 입력한 예약자명. 미입력 시 null",
     example: SWAGGER_EXAMPLES.ORDER_DATA.reservationContactName,
     nullable: true,

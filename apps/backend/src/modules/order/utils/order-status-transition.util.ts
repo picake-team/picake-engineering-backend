@@ -85,6 +85,29 @@ export const RESERVATION_USER_EDIT_ALLOWED_STATUSES: ReadonlySet<OrderStatus> = 
   OrderStatus.RESERVATION_REQUESTED,
 ]);
 
+/** 취소 상태(취소완료·취소환불대기·취소환불완료) */
+export const ORDER_CANCEL_STATUSES: ReadonlySet<OrderStatus> = new Set([
+  OrderStatus.CANCEL_COMPLETED,
+  OrderStatus.CANCEL_REFUND_PENDING,
+  OrderStatus.CANCEL_REFUND_COMPLETED,
+]);
+
+/**
+ * 취소 상태로 처음 들어가는 바꾸기면 취소한 시각(`canceledAt`)을 같이 쓴다(취소 상세 "취소 일시", 11-16 운영자).
+ * 취소 상태끼리 옮길 때(환불 완료, 관리자 되돌리기)는 처음 시각을 그대로 둔다.
+ */
+export function withCanceledAt<T extends { orderStatus?: unknown }>(
+  fromStatus: OrderStatus,
+  data: T,
+  now: Date = new Date(),
+): T & { canceledAt?: Date } {
+  const toStatus = data.orderStatus as OrderStatus | undefined;
+  if (!toStatus || !ORDER_CANCEL_STATUSES.has(toStatus) || ORDER_CANCEL_STATUSES.has(fromStatus)) {
+    return data;
+  }
+  return { ...data, canceledAt: now };
+}
+
 export function isSellerSettableOrderStatus(status: OrderStatus): boolean {
   return SELLER_SETTABLE_ORDER_STATUSES.has(status);
 }

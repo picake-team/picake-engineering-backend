@@ -7,7 +7,10 @@ import {
 } from "@apps/backend/modules/order/constants/order.constants";
 import { OrderOwnershipUtil } from "@apps/backend/modules/order/utils/order-ownership.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
-import { isSellerTransitionAllowed } from "@apps/backend/modules/order/utils/order-status-transition.util";
+import {
+  isSellerTransitionAllowed,
+  withCanceledAt,
+} from "@apps/backend/modules/order/utils/order-status-transition.util";
 import { OrderAutomationService } from "@apps/backend/modules/order/services/order-automation.service";
 import { OrderLifecycleHookService } from "@apps/backend/modules/order/services/order-lifecycle-hook.service";
 import { ORDER_STATUS_TRANSITION_SOURCE } from "@apps/backend/modules/order/types/order-lifecycle.types";
@@ -144,7 +147,7 @@ export class OrderSellerActionService {
     // "그사이 주문 상태가 바뀌어 처리하지 못했어요"로 보여 준다(web-seller useOrderMutation)
     const { count } = await this.prisma.order.updateMany({
       where: { id: orderId, orderStatus: current },
-      data,
+      data: withCanceledAt(current, data),
     });
     if (count === 0) {
       LoggerUtil.log(

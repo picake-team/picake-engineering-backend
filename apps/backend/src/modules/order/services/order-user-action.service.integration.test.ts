@@ -63,6 +63,9 @@ describe("주문 상태 전이 (취소/환불) (integration)", () => {
     const saved = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
     expect(saved.orderStatus).toBe(OrderStatus.CANCEL_COMPLETED);
     expect(saved.userCancelReason).toBe("일정이 변경됐어요");
+    // 취소 상세 "취소 일시"(11-16): 취소한 시각이 남는다
+    expect(saved.canceledAt).not.toBeNull();
+    expect(Math.abs(saved.canceledAt!.getTime() - Date.now())).toBeLessThan(60_000);
   });
 
   it("입금대기 단계에서 입금했다고 신고하며 취소하면 취소환불대기로 전환되고 환불계좌가 저장된다", async () => {
@@ -117,6 +120,7 @@ describe("주문 상태 전이 (취소/환불) (integration)", () => {
 
     const saved = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
     expect(saved.orderStatus).toBe(OrderStatus.CANCEL_COMPLETED);
+    expect(saved.canceledAt).not.toBeNull();
     expect(lifecycleHook.afterOrderStatusTransition).toHaveBeenCalledTimes(1);
   });
 
@@ -141,5 +145,30 @@ describe("주문 상태 전이 (취소/환불) (integration)", () => {
     expect(lifecycleHook.afterRefundAccountSubmitted).toHaveBeenNthCalledWith(2, order.id, true);
     // 상태는 그대로라 상태 알림은 없다
     expect(lifecycleHook.afterOrderStatusTransition).not.toHaveBeenCalled();
+  });
+
+  it("환불을 요청한 시각이 취소 시각으로 남고, 그 뒤 손님이 계좌를 고쳐도 그대로다(11-16)", async () => {
+    const { prisma, order } = await setupOrder({ orderStatus: OrderStatus.PAYMENT_COMPLETED });
+    const { service } = buildUserActionService();
+    const account = {
+      bankName: StoreBankName.TOSS_BANK,
+      bankAccountNumber: "1000-1234-5678",
+      accountHolderName: "김철수",
+    };
+
+    await service.requestRefund(order.id, order.consumerId, {
+      reason: "마음이 바뀌었어요",
+      ...account,
+    });
+    const requested = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(requested.canceledAt).not.toBeNull();
+
+    await service.submitRefundAccount(order.id, order.consumerId, {
+      ...account,
+      bankAccountNumber: "1000-9999-0000",
+    } as any);
+    const after = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(after.refundBankAccountNumber).toBe("1000-9999-0000");
+    expect(after.canceledAt?.toISOString()).toBe(requested.canceledAt?.toISOString());
   });
 });

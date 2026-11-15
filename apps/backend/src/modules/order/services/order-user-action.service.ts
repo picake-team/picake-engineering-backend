@@ -10,6 +10,7 @@ import { isPaymentPendingExpired } from "@apps/backend/modules/order/utils/order
 import {
   ORDER_PRE_PAYMENT_WINDOW_STATUSES,
   USER_CANCEL_REFUND_REQUEST_SOURCE_STATUSES,
+  withCanceledAt,
 } from "@apps/backend/modules/order/utils/order-status-transition.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
@@ -308,7 +309,7 @@ export class OrderUserActionService {
   ): Promise<boolean> {
     const { count } = await this.prisma.order.updateMany({
       where: { id: orderId, orderStatus: expected },
-      data,
+      data: withCanceledAt(expected, data),
     });
     if (count === 0) {
       LoggerUtil.log(
