@@ -17,6 +17,7 @@ import {
   ProductType,
   CUSTOM_OPTION_LIMITS,
 } from "@apps/backend/modules/product/constants/product.constants";
+import { ProductCategoryTypesTransform } from "@apps/backend/modules/product/utils/product-category.util";
 import { SWAGGER_EXAMPLES as PRODUCT_SWAGGER_EXAMPLES } from "@apps/backend/modules/product/constants/product.constants";
 import {
   CreateCakeSizeOptionDto,
@@ -138,12 +139,15 @@ export class UpdateProductRequestDto {
 
   @ApiPropertyOptional({
     description:
-      "상품 카테고리 타입 (없거나 여러 개) - 생일, 연인, 친구, 가족, 기념일, 당일픽업, 캐릭터, 심플, 꽃, 사진. 빈 배열이면 전체 제거. 커스텀(LETTERING)은 상품 유형에 따라 서버가 자동으로 넣고 뺍니다",
+      "상품 카테고리(없거나 여러 개, 묶음마다 여러 개 가능). " +
+      "상황: 생일·연인·기념일·부모님·감사·백일·돌·축하·결혼·프로포즈·시즌 / 디자인: 레터링·드로잉·사진·캐릭터·꽃·리본·과일·빈티지·심플 / " +
+      "모양(기본 원형이 아닐 때): 하트·입체·2단 / 서비스: 당일픽업. 옛 값(LOVER 등)은 새 값으로 바꿔 저장한다. 빈 배열이면 전체 제거",
     enum: ProductCategoryType,
     isArray: true,
     example: [ProductCategoryType.BIRTHDAY, ProductCategoryType.SIMPLE],
   })
   @IsOptional()
+  @ProductCategoryTypesTransform()
   @IsArray()
   @IsEnum(ProductCategoryType, { each: true })
   productCategoryTypes?: ProductCategoryType[];

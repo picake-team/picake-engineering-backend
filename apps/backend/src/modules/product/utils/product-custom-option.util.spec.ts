@@ -4,8 +4,6 @@ import { describe, expect, it } from "vitest";
 import {
   CustomOptionType,
   EnableStatus,
-  ProductCategoryType,
-  ProductType,
 } from "@apps/backend/modules/product/constants/product.constants";
 import { CustomOptionDto } from "@apps/backend/modules/product/dto/product-create.dto";
 
@@ -13,7 +11,6 @@ import {
   canonicalJson,
   deriveLegacyOptionFields,
   normalizeCustomOptionsForSave,
-  syncCustomCategory,
   toVisibleCustomOptions,
 } from "./product-custom-option.util";
 
@@ -201,21 +198,6 @@ describe("deriveLegacyOptionFields", () => {
       letteringMaxLength: 12,
       imageUploadEnabled: EnableStatus.DISABLE,
     });
-  });
-});
-
-describe("syncCustomCategory", () => {
-  it("상품 유형이 커스텀이면 카테고리 '커스텀'을 넣고, 기본이면 뺀다", () => {
-    expect(syncCustomCategory([ProductCategoryType.BIRTHDAY], ProductType.CUSTOM_CAKE)).toEqual([
-      ProductCategoryType.BIRTHDAY,
-      ProductCategoryType.LETTERING,
-    ]);
-    expect(
-      syncCustomCategory(
-        [ProductCategoryType.LETTERING, ProductCategoryType.BIRTHDAY],
-        ProductType.BASIC_CAKE,
-      ),
-    ).toEqual([ProductCategoryType.BIRTHDAY]);
   });
 });
 

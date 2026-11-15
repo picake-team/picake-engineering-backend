@@ -1,5 +1,6 @@
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { EnableStatus } from "@apps/backend/modules/product/constants/product.constants";
+import { productCategoryFromKeyword } from "@apps/backend/modules/product/utils/product-category.util";
 
 /**
  * 검색어와 search_tags exact match 시 비교할 변형 목록.
@@ -26,7 +27,7 @@ export const enabledProductListWhere: Prisma.ProductWhereInput = {
 };
 
 /**
- * 상품명(부분 일치) 또는 검색 태그(exact, # 변형 포함) OR 조건
+ * 상품명(부분 일치) 또는 검색 태그(exact, # 변형 포함) 또는 같은 뜻 카테고리(연인·남친 → 연인·기념일 등) OR 조건
  * product-list.service addCommonFilters와 동일 의미
  */
 export function buildProductKeywordOrConditions(keyword: string): Prisma.ProductWhereInput[] {
@@ -40,6 +41,11 @@ export function buildProductKeywordOrConditions(keyword: string): Prisma.Product
 
   if (tagVariants.length > 0) {
     conditions.push({ searchTags: { hasSome: tagVariants } });
+  }
+
+  const category = productCategoryFromKeyword(trimmed);
+  if (category) {
+    conditions.push({ productCategoryTypes: { has: category } });
   }
 
   return conditions;
@@ -71,7 +77,7 @@ export function buildStoreKeywordSearchWhere(keyword: string): Prisma.StoreWhere
 }
 
 /**
- * Raw SQL 상품 검색 조건 (이름 ILIKE + search_tags 배열 overlap)
+ * Raw SQL 상품 검색 조건 (이름 ILIKE + search_tags 배열 overlap + 같은 뜻 카테고리)
  */
 export function buildProductKeywordSearchSqlCondition(
   keyword: string,
@@ -80,13 +86,17 @@ export function buildProductKeywordSearchSqlCondition(
   const trimmed = keyword.trim();
   const tagVariants = getProductSearchTagVariants(trimmed);
   const nameColumn = Prisma.raw(`${tableAlias}.name`);
+  const category = productCategoryFromKeyword(trimmed);
+  const categoryCondition = category
+    ? Prisma.sql` OR ${Prisma.raw(`${tableAlias}.product_category_types`)}::text[] && ARRAY[${category}]::text[]`
+    : Prisma.empty;
 
   if (tagVariants.length === 0) {
-    return Prisma.sql`${nameColumn} ILIKE ${`%${trimmed}%`}`;
+    return Prisma.sql`(${nameColumn} ILIKE ${`%${trimmed}%`}${categoryCondition})`;
   }
 
   return Prisma.sql`(
     ${nameColumn} ILIKE ${`%${trimmed}%`}
-    OR ${Prisma.raw(`${tableAlias}.search_tags`)} && ARRAY[${Prisma.join(tagVariants)}]::text[]
+    OR ${Prisma.raw(`${tableAlias}.search_tags`)} && ARRAY[${Prisma.join(tagVariants)}]::text[]${categoryCondition}
   )`;
 }

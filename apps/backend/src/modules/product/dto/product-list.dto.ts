@@ -14,6 +14,7 @@ import {
   OptionalStringToNumber,
   OptionalStringToArray,
 } from "@apps/backend/common/decorators/transform.decorator";
+import { ProductCategoryTypesTransform } from "@apps/backend/modules/product/utils/product-category.util";
 import { IsValidRegionsParam } from "@apps/backend/modules/store/decorators/validators.decorator";
 import {
   SortBy,
@@ -82,13 +83,16 @@ export class GetProductsRequestDto extends PaginationRequestDto {
 
   @ApiPropertyOptional({
     description:
-      "(필터) 상품 카테고리 타입 - 1개 또는 여러 개. 해당 타입 중 하나라도 가지면 조회 (생일, 연인, 친구, 가족, 기념일, 당일픽업, 커스텀, 캐릭터, 심플, 꽃, 사진)",
+      "(필터) 상품 카테고리 - 1개 또는 여러 개. 묶음(상황·디자인·모양·서비스) 안은 하나라도 맞으면, 묶음끼리는 모두 맞아야 조회한다(생일 + 캐릭터 = 생일에 맞는 캐릭터 케이크). " +
+      "상황: 생일 BIRTHDAY·연인·기념일 COUPLE·부모님·감사 THANKS·백일·돌 BABY·축하 CONGRATS·결혼·프로포즈 WEDDING·시즌 SEASON / " +
+      "디자인: 레터링 LETTERING·드로잉 DRAWING·사진 PHOTO·캐릭터 CHARACTER·꽃 FLOWER·리본 RIBBON·과일 FRUIT·빈티지 VINTAGE·심플 SIMPLE / " +
+      "모양: 하트 HEART·입체 SCULPTED·2단 TWO_TIER / 서비스: 당일픽업 SAME_DAY_PICKUP. 옛 값(LOVER·ANNIVERSARY→COUPLE, FAMILY→THANKS, FRIEND→BIRTHDAY)도 받는다",
     enum: ProductCategoryType,
     isArray: true,
     example: [ProductCategoryType.BIRTHDAY],
   })
   @IsOptional()
-  @OptionalStringToArray()
+  @ProductCategoryTypesTransform()
   @IsArray()
   @IsEnum(ProductCategoryType, { each: true })
   productCategoryTypes?: ProductCategoryType[];
