@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import {
   CHAT_ERROR_MESSAGES,
@@ -178,9 +183,11 @@ export class ChatAdminService {
   async resolveReport(adminId: string, reportId: string, dto: AdminChatReportResolveDto) {
     const report = await this.prisma.chatReport.findUnique({
       where: { id: reportId },
-      select: { id: true, messageId: true, threadId: true },
+      select: { id: true, messageId: true, threadId: true, status: true },
     });
     if (!report) throw new NotFoundException(CHAT_ERROR_MESSAGES.REPORT_NOT_FOUND);
+    // 이미 처리한 신고를 다시 보내면(응답이 늦어 두 번 누름 등) 처리 결과·처리한 사람이 "0개 가림"으로 덮이던 것(11-15 검토)
+    if (report.status !== "OPEN") throw new ConflictException("이미 처리한 신고예요.");
     let hidden = 0;
     if (dto.action === "HIDE_MESSAGE") {
       const ids = dto.messageIds?.length
@@ -212,8 +219,8 @@ export class ChatAdminService {
         }
       }
     }
-    await this.prisma.chatReport.update({
-      where: { id: report.id },
+    const { count: resolved } = await this.prisma.chatReport.updateMany({
+      where: { id: report.id, status: "OPEN" },
       data: {
         status: "RESOLVED",
         resolution: [
@@ -227,6 +234,7 @@ export class ChatAdminService {
         resolvedAt: new Date(),
       },
     });
+    if (resolved === 0) throw new ConflictException("이미 처리한 신고예요.");
     return this.getReport(adminId, reportId);
   }
 }

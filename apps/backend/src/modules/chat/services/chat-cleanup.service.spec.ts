@@ -25,3 +25,22 @@ describe("ChatCleanupService 켜질 때 정리", () => {
     service.onModuleDestroy();
   });
 });
+
+/** 탈퇴: 신고된 대화는 처리 전·처리 뒤 1년 동안 남긴다(P-83, 11-15 검토 전에는 모두 지웠음) */
+describe("ChatCleanupService.deleteAllForConsumer", () => {
+  it("열린 신고나 1년 안에 처리한 신고가 있는 방은 지우지 않는다", async () => {
+    const prisma = mockDeep<PrismaService>();
+    prisma.chatThread.findMany.mockResolvedValue([]);
+    const service = new ChatCleanupService(prisma, {} as UploadService);
+    const now = new Date("2026-11-15T00:00:00Z");
+
+    await service.deleteAllForConsumer("consumer-1", now);
+
+    const where = prisma.chatThread.findMany.mock.calls[0][0]?.where;
+    expect(where?.consumerId).toBe("consumer-1");
+    expect(where?.reports).toEqual({
+      none: { OR: [{ status: "OPEN" }, { resolvedAt: { gte: new Date("2025-11-15T00:00:00Z") } }] },
+    });
+    expect(prisma.chatMessage.deleteMany).not.toHaveBeenCalled();
+  });
+});
