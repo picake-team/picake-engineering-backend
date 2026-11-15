@@ -5,8 +5,6 @@ import {
   CustomOptionType,
   EnableStatus,
   PRODUCT_ERROR_MESSAGES,
-  ProductCategoryType,
-  ProductType,
   RESERVED_CUSTOM_OPTION_NAMES,
 } from "@apps/backend/modules/product/constants/product.constants";
 import { CustomOptionDto } from "@apps/backend/modules/product/dto/product-create.dto";
@@ -275,19 +273,6 @@ export function deriveLegacyOptionFields(options: CustomOption[]): {
     letteringMaxLength: textOption?.maxLength ?? 0,
     imageUploadEnabled: imageOption ? EnableStatus.ENABLE : EnableStatus.DISABLE,
   };
-}
-
-/**
- * 카테고리 '커스텀'(LETTERING)을 상품 유형에 맞춥니다. 판매자가 직접 넣은 값은 무시합니다.
- */
-export function syncCustomCategory(
-  categories: ProductCategoryType[],
-  productType: ProductType,
-): ProductCategoryType[] {
-  const withoutCustom = categories.filter((category) => category !== ProductCategoryType.LETTERING);
-  return productType === ProductType.CUSTOM_CAKE
-    ? [...withoutCustom, ProductCategoryType.LETTERING]
-    : withoutCustom;
 }
 
 /**

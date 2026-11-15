@@ -1397,17 +1397,30 @@ enum ProductType {
 
 // 상품 카테고리 타입
 enum ProductCategoryType {
+  // 상황(무슨 날·누구에게)
   BIRTHDAY // 생일
-  LOVER // 연인
-  FRIEND // 친구
-  FAMILY // 가족
-  ANNIVERSARY // 기념일
-  SAME_DAY_PICKUP // 당일픽업
-  LETTERING // 커스텀
-  CHARACTER // 캐릭터
-  SIMPLE // 심플
-  FLOWER // 꽃
+  COUPLE // 연인·기념일
+  THANKS // 부모님·감사
+  BABY // 백일·돌
+  CONGRATS // 축하
+  WEDDING // 결혼·프로포즈
+  SEASON // 시즌(크리스마스 등)
+  // 디자인(어떻게 꾸몄나)
+  LETTERING // 레터링
+  DRAWING // 드로잉
   PHOTO // 사진
+  CHARACTER // 캐릭터
+  FLOWER // 꽃
+  RIBBON // 리본
+  FRUIT // 과일
+  VINTAGE // 빈티지
+  SIMPLE // 심플
+  // 모양(기본 원형이 아닐 때)
+  HEART // 하트
+  SCULPTED // 입체
+  TWO_TIER // 2단
+  // 서비스
+  SAME_DAY_PICKUP // 당일픽업
 }
 
 /// 미입점 스토어 입점 요청 처리 상태

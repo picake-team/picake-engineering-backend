@@ -33,7 +33,7 @@ export function StringToArray() {
  * 사용법:
  * - undefined / null / "" → undefined
  * - "BIRTHDAY" → ["BIRTHDAY"]
- * - ["BIRTHDAY", "LOVER"] → ["BIRTHDAY", "LOVER"]
+ * - ["BIRTHDAY", "COUPLE"] → ["BIRTHDAY", "COUPLE"]
  */
 export function OptionalStringToArray() {
   return Transform(({ value }) => {

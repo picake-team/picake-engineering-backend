@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, Store } from "@apps/backend/infra/database/prisma/generated/client";
+import { productCategoryWhereConditions } from "@apps/backend/modules/product/utils/product-category.util";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import {
   STORE_ERROR_MESSAGES,
@@ -442,8 +443,10 @@ export class StoreListService {
         (productSome.salePrice as Prisma.IntFilter).lte = params.maxPrice;
       }
     }
-    if (params.productCategoryTypes && params.productCategoryTypes.length > 0) {
-      productSome.productCategoryTypes = { hasSome: params.productCategoryTypes };
+    // 카테고리: 한 상품이 묶음(상황·디자인·모양·서비스)마다 맞아야 한다(묶음 안은 또는)
+    const categoryConditions = productCategoryWhereConditions(params.productCategoryTypes);
+    if (categoryConditions.length > 0) {
+      productSome.AND = categoryConditions;
     }
     conditions.push({ products: { some: productSome } });
 

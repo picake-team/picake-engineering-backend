@@ -1,18 +1,13 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { UpdateProductRequestDto } from "@apps/backend/modules/product/dto/product-update.dto";
-import {
-  PRODUCT_ERROR_MESSAGES,
-  ProductCategoryType,
-  ProductType,
-} from "@apps/backend/modules/product/constants/product.constants";
+import { PRODUCT_ERROR_MESSAGES } from "@apps/backend/modules/product/constants/product.constants";
 import {
   canonicalJson,
   deriveLegacyOptionFields,
   hasVisibleOption,
   normalizeCustomOptionsForSave,
   parseCustomOptions,
-  syncCustomCategory,
 } from "@apps/backend/modules/product/utils/product-custom-option.util";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
@@ -95,8 +90,6 @@ export class ProductUpdateService {
         salePrice: true,
         cakeSizeOptions: true,
         customOptions: true,
-        productType: true,
-        productCategoryTypes: true,
       },
     });
 
@@ -161,15 +154,9 @@ export class ProductUpdateService {
     if (updateProductDto.productType !== undefined) {
       updateData.productType = updateProductDto.productType;
     }
-    if (
-      updateProductDto.productType !== undefined ||
-      updateProductDto.productCategoryTypes !== undefined
-    ) {
-      updateData.productCategoryTypes = syncCustomCategory(
-        updateProductDto.productCategoryTypes ??
-          (product!.productCategoryTypes as ProductCategoryType[]),
-        updateProductDto.productType ?? (product!.productType as ProductType),
-      );
+    // 사장님이 고른 그대로(11-15부터 레터링도 직접 고르는 디자인 값. 상품 유형과 묶지 않는다)
+    if (updateProductDto.productCategoryTypes !== undefined) {
+      updateData.productCategoryTypes = updateProductDto.productCategoryTypes;
     }
     if (updateProductDto.detailDescription !== undefined) {
       updateData.detailDescription = updateProductDto.detailDescription;

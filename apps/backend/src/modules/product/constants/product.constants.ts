@@ -90,18 +90,37 @@ export enum ProductType {
   CUSTOM_CAKE = "CUSTOM_CAKE", // 커스텀 케이크
 }
 
+/**
+ * 상품 카테고리(2026-11-15 다시 나눔: 질문 하나에 묶음 하나).
+ * 상황(무슨 날·누구에게) / 디자인(어떻게 꾸몄나) / 모양 / 서비스. 묶음 안은 "또는", 묶음끼리는 "그리고"로 거른다
+ * (묶음은 utils/product-category.util.ts의 PRODUCT_CATEGORY_GROUPS). 크기(도시락·미니·1~3호)는 사이즈로 따로 고른다.
+ * 옛 값(연인·친구·가족·기념일)은 LEGACY_PRODUCT_CATEGORY_MAP으로 새 값으로 받는다.
+ */
 export enum ProductCategoryType {
+  // 상황
   BIRTHDAY = "BIRTHDAY", // 생일
-  LOVER = "LOVER", // 연인
-  FRIEND = "FRIEND", // 친구
-  FAMILY = "FAMILY", // 가족
-  ANNIVERSARY = "ANNIVERSARY", // 기념일
-  SAME_DAY_PICKUP = "SAME_DAY_PICKUP", // 당일픽업
-  LETTERING = "LETTERING", // 커스텀
-  CHARACTER = "CHARACTER", // 캐릭터
-  SIMPLE = "SIMPLE", // 심플
-  FLOWER = "FLOWER", // 꽃
+  COUPLE = "COUPLE", // 연인·기념일
+  THANKS = "THANKS", // 부모님·감사
+  BABY = "BABY", // 백일·돌
+  CONGRATS = "CONGRATS", // 축하(합격·승진·전역 등)
+  WEDDING = "WEDDING", // 결혼·프로포즈
+  SEASON = "SEASON", // 시즌(크리스마스 등)
+  // 디자인
+  LETTERING = "LETTERING", // 레터링(10-27~11-15에는 "커스텀" 표시였음)
+  DRAWING = "DRAWING", // 드로잉
   PHOTO = "PHOTO", // 사진
+  CHARACTER = "CHARACTER", // 캐릭터
+  FLOWER = "FLOWER", // 꽃
+  RIBBON = "RIBBON", // 리본
+  FRUIT = "FRUIT", // 과일
+  VINTAGE = "VINTAGE", // 빈티지
+  SIMPLE = "SIMPLE", // 심플
+  // 모양(기본 원형이 아닐 때)
+  HEART = "HEART", // 하트
+  SCULPTED = "SCULPTED", // 입체
+  TWO_TIER = "TWO_TIER", // 2단
+  // 서비스
+  SAME_DAY_PICKUP = "SAME_DAY_PICKUP", // 당일픽업
 }
 
 /**

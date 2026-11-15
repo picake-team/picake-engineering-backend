@@ -11,6 +11,7 @@ import {
   Matches,
 } from "class-validator";
 import { IsValidRegionsParam } from "@apps/backend/modules/store/decorators/validators.decorator";
+import { ProductCategoryTypesTransform } from "@apps/backend/modules/product/utils/product-category.util";
 import {
   OptionalStringToNumber,
   OptionalStringToArray,
@@ -100,14 +101,16 @@ export class GetStoresRequestDto extends PaginationRequestDto {
 
   @ApiPropertyOptional({
     description:
-      "(필터) 상품 카테고리 유형. 상품 목록 조회(GetProductsRequestDto)와 동일한 ProductCategoryType enum. " +
-      "해당 유형 중 하나라도 가지는 상품이 있는 스토어만 조회 (커스텀, 캐릭터 등).",
+      "(필터) 상품 카테고리 - 1개 또는 여러 개. 묶음(상황·디자인·모양·서비스) 안은 하나라도 맞으면, 묶음끼리는 모두 맞아야 조회한다(생일 + 캐릭터 = 생일에 맞는 캐릭터 케이크). " +
+      "상황: 생일 BIRTHDAY·연인·기념일 COUPLE·부모님·감사 THANKS·백일·돌 BABY·축하 CONGRATS·결혼·프로포즈 WEDDING·시즌 SEASON / " +
+      "디자인: 레터링 LETTERING·드로잉 DRAWING·사진 PHOTO·캐릭터 CHARACTER·꽃 FLOWER·리본 RIBBON·과일 FRUIT·빈티지 VINTAGE·심플 SIMPLE / " +
+      "모양: 하트 HEART·입체 SCULPTED·2단 TWO_TIER / 서비스: 당일픽업 SAME_DAY_PICKUP. 옛 값(LOVER·ANNIVERSARY→COUPLE, FAMILY→THANKS, FRIEND→BIRTHDAY)도 받는다",
     enum: ProductCategoryType,
     isArray: true,
     example: [ProductCategoryType.LETTERING, ProductCategoryType.CHARACTER],
   })
   @IsOptional()
-  @OptionalStringToArray()
+  @ProductCategoryTypesTransform()
   @IsArray()
   @IsEnum(ProductCategoryType, { each: true })
   productCategoryTypes?: ProductCategoryType[];

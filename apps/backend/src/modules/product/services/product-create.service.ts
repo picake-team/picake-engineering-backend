@@ -6,7 +6,6 @@ import {
   deriveLegacyOptionFields,
   hasVisibleOption,
   normalizeCustomOptionsForSave,
-  syncCustomCategory,
 } from "@apps/backend/modules/product/utils/product-custom-option.util";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
@@ -97,10 +96,8 @@ export class ProductCreateService {
             customOptions: customOptions as unknown as Prisma.InputJsonValue,
             ...deriveLegacyOptionFields(customOptions),
             productType: createProductDto.productType,
-            productCategoryTypes: syncCustomCategory(
-              createProductDto.productCategoryTypes ?? [],
-              createProductDto.productType,
-            ),
+            // 사장님이 고른 그대로(11-15부터 레터링도 직접 고르는 디자인 값. 상품 유형과 묶지 않는다)
+            productCategoryTypes: createProductDto.productCategoryTypes ?? [],
             searchTags: createProductDto.searchTags ?? [],
             detailDescription: createProductDto.detailDescription,
             ...(createProductDto.naverBizItemId

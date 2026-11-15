@@ -623,7 +623,7 @@ async function upsertProducts(stores: Awaited<ReturnType<typeof upsertStores>>) 
         letteringMaxLength: SEED_PRODUCT_BASE.LETTERING.MAX_LENGTH,
         imageUploadEnabled,
         productType,
-        // 카테고리 '커스텀'은 상품 유형을 따라간다 (서버 저장 규칙과 동일)
+        // 커스텀 케이크 시드에는 디자인 '레터링'을 붙인다(11-15부터 사장님이 고르는 값, 상품 유형과 자동으로 묶지 않음)
         productCategoryTypes:
           productType === "CUSTOM_CAKE"
             ? [...SEED_PRODUCT_BASE.PRODUCT_CATEGORY_TYPES, ProductCategoryType.LETTERING]

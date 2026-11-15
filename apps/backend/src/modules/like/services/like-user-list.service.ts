@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
+import { productCategoryWhereConditions } from "@apps/backend/modules/product/utils/product-category.util";
 import {
   GetStoresRequestDto,
   StoreListResponseDto,
@@ -253,8 +254,10 @@ export class LikeUserListService {
         (productSome.salePrice as Prisma.IntFilter).lte = params.maxPrice;
       }
     }
-    if (params.productCategoryTypes && params.productCategoryTypes.length > 0) {
-      productSome.productCategoryTypes = { hasSome: params.productCategoryTypes };
+    // 카테고리: 한 상품이 묶음(상황·디자인·모양·서비스)마다 맞아야 한다(묶음 안은 또는)
+    const categoryConditions = productCategoryWhereConditions(params.productCategoryTypes);
+    if (categoryConditions.length > 0) {
+      productSome.AND = categoryConditions;
     }
     conditions.push({ products: { some: productSome } });
 
@@ -357,8 +360,10 @@ export class LikeUserListService {
       where.productType = productType;
     }
 
-    if (productCategoryTypes?.length) {
-      where.productCategoryTypes = { hasSome: productCategoryTypes };
+    // 카테고리: 묶음(상황·디자인·모양·서비스) 안은 또는, 묶음끼리는 그리고
+    const categoryConditions = productCategoryWhereConditions(productCategoryTypes);
+    if (categoryConditions.length > 0) {
+      where.AND = [...(where.AND ?? []), ...categoryConditions];
     }
 
     if (searchConditions.length > 0) {
