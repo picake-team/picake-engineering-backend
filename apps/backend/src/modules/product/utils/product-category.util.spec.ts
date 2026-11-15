@@ -4,6 +4,9 @@ import { validate } from "class-validator";
 
 import { ProductCategoryType as C } from "@apps/backend/modules/product/constants/product.constants";
 import { GetProductsRequestDto } from "@apps/backend/modules/product/dto/product-list.dto";
+import { CreateProductRequestDto } from "@apps/backend/modules/product/dto/product-create.dto";
+import { UpdateProductRequestDto } from "@apps/backend/modules/product/dto/product-update.dto";
+import { ProductCategoryType as PrismaProductCategoryType } from "@apps/backend/infra/database/prisma/generated/client";
 import {
   PRODUCT_CATEGORY_GROUPS,
   groupProductCategoryTypes,
@@ -13,6 +16,10 @@ import {
 } from "@apps/backend/modules/product/utils/product-category.util";
 
 describe("카테고리 묶음", () => {
+  it("코드의 카테고리 값과 DB(Prisma) enum 값이 같다", () => {
+    expect(Object.values(C).sort()).toEqual(Object.values(PrismaProductCategoryType).sort());
+  });
+
   it("모든 카테고리 값이 묶음 하나에만 들어 있다", () => {
     const flat = PRODUCT_CATEGORY_GROUPS.flat();
     expect(new Set(flat).size).toBe(flat.length);
@@ -42,10 +49,29 @@ describe("옛 카테고리 값", () => {
     ).toEqual([C.COUPLE, C.THANKS, C.BIRTHDAY]);
   });
 
+  it("Object 기본 이름(constructor 등)은 옛 값으로 보지 않는다", () => {
+    expect(normalizeProductCategoryTypes(["constructor", "toString"])).toEqual([
+      "constructor",
+      "toString",
+    ]);
+  });
+
   it("모르는 값은 그대로 두어 검사에서 막힌다", async () => {
     const dto = plainToInstance(GetProductsRequestDto, { productCategoryTypes: ["NOPE"] });
     const errors = await validate(dto);
     expect(errors.some((e) => e.property === "productCategoryTypes")).toBe(true);
+  });
+
+  it("상품 등록·수정 본문의 옛 값도 새 값으로 바꾸고 겹친 것을 지운다(레터링은 보낸 그대로)", () => {
+    const created = plainToInstance(CreateProductRequestDto, {
+      productCategoryTypes: ["LOVER", "ANNIVERSARY", "LETTERING", "LETTERING"],
+    });
+    expect(created.productCategoryTypes).toEqual([C.COUPLE, C.LETTERING]);
+    // 수정: 빈 배열은 "전부 지우기"로 그대로, 안 보내면 바꾸지 않음(undefined)
+    expect(
+      plainToInstance(UpdateProductRequestDto, { productCategoryTypes: [] }).productCategoryTypes,
+    ).toEqual([]);
+    expect(plainToInstance(UpdateProductRequestDto, {}).productCategoryTypes).toBeUndefined();
   });
 
   it("목록 요청에 옛 값 하나가 와도(쿼리 문자열) 새 값 배열로 받는다", async () => {

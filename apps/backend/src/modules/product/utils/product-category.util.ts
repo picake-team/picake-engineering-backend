@@ -36,12 +36,15 @@ export const LEGACY_PRODUCT_CATEGORY_MAP: Readonly<Record<string, ProductCategor
  */
 export function normalizeProductCategoryTypes(value: unknown): unknown {
   if (!Array.isArray(value)) return value;
-  const out: unknown[] = [];
+  // Set으로 겹친 것을 지운다(긴 배열이 와도 한 번만 훑는다). 처음 나온 순서는 지킨다
+  const out = new Set<unknown>();
   for (const item of value) {
-    const mapped = typeof item === "string" ? (LEGACY_PRODUCT_CATEGORY_MAP[item] ?? item) : item;
-    if (!out.includes(mapped)) out.push(mapped);
+    const isLegacy =
+      typeof item === "string" &&
+      Object.prototype.hasOwnProperty.call(LEGACY_PRODUCT_CATEGORY_MAP, item);
+    out.add(isLegacy ? LEGACY_PRODUCT_CATEGORY_MAP[item as string] : item);
   }
-  return out;
+  return [...out];
 }
 
 /**
