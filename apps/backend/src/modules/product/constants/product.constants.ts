@@ -92,7 +92,7 @@ export enum ProductType {
 
 /**
  * 상품 카테고리(2026-11-15 다시 나눔: 질문 하나에 묶음 하나).
- * 상황(무슨 날·누구에게) / 디자인(어떻게 꾸몄나) / 모양 / 서비스. 묶음 안은 "또는", 묶음끼리는 "그리고"로 거른다
+ * 상황(무슨 날·누구에게) / 디자인(어떻게 꾸몄나, 하트·2단 같은 모양 포함) / 서비스. 묶음 안은 "또는", 묶음끼리는 "그리고"로 거른다
  * (묶음은 utils/product-category.util.ts의 PRODUCT_CATEGORY_GROUPS). 크기(도시락·미니·1~3호)는 사이즈로 따로 고른다.
  * 옛 값(연인·친구·가족·기념일)은 LEGACY_PRODUCT_CATEGORY_MAP으로 새 값으로 받는다.
  */
@@ -113,12 +113,9 @@ export enum ProductCategoryType {
   FLOWER = "FLOWER", // 꽃
   RIBBON = "RIBBON", // 리본
   FRUIT = "FRUIT", // 과일
-  VINTAGE = "VINTAGE", // 빈티지
-  SIMPLE = "SIMPLE", // 심플
-  // 모양(기본 원형이 아닐 때)
   HEART = "HEART", // 하트
-  SCULPTED = "SCULPTED", // 입체
   TWO_TIER = "TWO_TIER", // 2단
+  SIMPLE = "SIMPLE", // 심플
   // 서비스
   SAME_DAY_PICKUP = "SAME_DAY_PICKUP", // 당일픽업
 }
