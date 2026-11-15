@@ -78,7 +78,9 @@ export class OrderAdminActionService {
     });
 
     return {
-      data: orders.map((order) => OrderMapperUtil.mapToOrderResponse(order)),
+      data: orders.map((order) =>
+        OrderMapperUtil.mapToOrderResponse(order, { includeAdminNotes: true }),
+      ),
       meta: calculatePaginationMeta(page, limit, totalItems),
     };
   }
@@ -97,7 +99,7 @@ export class OrderAdminActionService {
     if (!order) {
       throw new NotFoundException(ORDER_ERROR_MESSAGES.NOT_FOUND);
     }
-    return OrderMapperUtil.mapToOrderResponse(order);
+    return OrderMapperUtil.mapToOrderResponse(order, { includeAdminNotes: true });
   }
 
   /**
