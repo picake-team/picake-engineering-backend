@@ -90,6 +90,21 @@ describe("옛 카테고리 값", () => {
     expect(plainToInstance(UpdateProductRequestDto, {}).productCategoryTypes).toBeUndefined();
   });
 
+  it("상품 등록·수정 본문의 없앤 값(빈티지·입체)도 빼고 검사를 통과한다(배포 사이 옛 사장님 화면)", async () => {
+    const created = plainToInstance(CreateProductRequestDto, {
+      productCategoryTypes: ["VINTAGE", "HEART", "SCULPTED"],
+    });
+    expect(created.productCategoryTypes).toEqual([C.HEART]);
+    const updated = plainToInstance(UpdateProductRequestDto, { productCategoryTypes: ["VINTAGE"] });
+    // 없앤 값만 오면 빈 배열(수정에서는 "전부 지우기"와 같다)
+    expect(updated.productCategoryTypes).toEqual([]);
+    for (const dto of [created, updated]) {
+      expect((await validate(dto)).filter((e) => e.property === "productCategoryTypes")).toEqual(
+        [],
+      );
+    }
+  });
+
   it("목록 요청에 옛 값 하나가 와도(쿼리 문자열) 새 값 배열로 받는다", async () => {
     const dto = plainToInstance(GetProductsRequestDto, { productCategoryTypes: "LOVER" });
     expect(dto.productCategoryTypes).toEqual([C.COUPLE]);
