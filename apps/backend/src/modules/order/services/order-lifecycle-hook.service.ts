@@ -19,6 +19,11 @@ export class OrderLifecycleHookService {
     void this.notificationOrderDispatchService.handleOrderStatusTransition(payload);
   }
 
+  /** 손님이 환불 계좌를 넣거나 고친 뒤(상태는 그대로). 사장님에게 알린다 */
+  afterRefundAccountSubmitted(orderId: string, changed: boolean): void {
+    void this.notificationOrderDispatchService.handleRefundAccountSubmitted(orderId, changed);
+  }
+
   private async dispatchAsync(payload: OrderStatusTransitionPayload): Promise<void> {
     LoggerUtil.log(
       `[OrderLifecycle] ${payload.source} order=${payload.orderId} ${payload.fromStatus} → ${payload.toStatus}`,

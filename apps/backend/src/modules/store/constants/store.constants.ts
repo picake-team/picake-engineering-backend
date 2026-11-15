@@ -12,9 +12,13 @@ export { StoreBankName };
  */
 export const REVIEW_STORE_BUSINESS_NO = "REVIEW-STORE";
 
-/** 손님 목록에서 심사용 가게를 빼는 스토어 조건 */
-export const EXCLUDE_REVIEW_STORE_WHERE: Prisma.StoreWhereInput = {
+/**
+ * 손님 목록(검색·지도·지역별 수·사이트맵)에 보이는 가게 조건. 심사용 가게와 정지·탈퇴한 사장님(`isActive: false`)
+ * 가게를 뺀다. 정지한 사장님은 로그인할 수 없어 예약이 묵히므로 목록과 예약에서 뺀다(11-15 운영자).
+ */
+export const CUSTOMER_LISTED_STORE_WHERE: Prisma.StoreWhereInput = {
   businessNo: { not: REVIEW_STORE_BUSINESS_NO },
+  seller: { isActive: true },
 };
 
 /** 스토어 설명 최대 글자 수 (P-46). 네이버 플레이스 소개글 한도와 같다 */

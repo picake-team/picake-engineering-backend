@@ -125,6 +125,22 @@ export function buildSellerOrderNotificationCopy(
 }
 
 /**
+ * 손님이 환불 계좌를 넣었을 때 사장님 알림(11-15 운영자). 사장님이 환불 대기로 바꾼 주문·관리자가 되돌린 주문은
+ * 손님이 계좌를 나중에 넣는데, 전에는 넣어도 사장님이 알 길이 없었다. `changed`면 이미 넣은 계좌를 고친 것.
+ */
+export function buildSellerRefundAccountNotificationCopy(changed: boolean): OrderNotificationCopy {
+  return changed
+    ? {
+        title: "손님이 환불 계좌를 고쳤어요",
+        body: "주문 상세에서 바뀐 계좌를 확인하고 환불해 주세요.",
+      }
+    : {
+        title: "손님이 환불 계좌를 알려 줬어요",
+        body: "주문 상세에서 계좌를 확인하고 환불해 주세요.",
+      };
+}
+
+/**
  * 판매자 앱 휴대폰 푸시를 보낼지 (기획 I-48).
  * 판매자가 직접 바꾼 상태는 이미 알고 있으므로 보내지 않고, 손님·자동 처리·관리자가 만든 변화만 보냅니다
  * (새 예약신청, 입금완료, 손님 취소·환불 요청, 입금 기한 만료 취소, 관리자 변경).

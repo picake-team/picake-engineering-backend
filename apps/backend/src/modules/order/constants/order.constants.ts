@@ -16,6 +16,8 @@ export const ORDER_ERROR_MESSAGES = {
   PRODUCT_INACTIVE: "판매중지된 상품이에요.",
   PRODUCT_NOT_AVAILABLE: "구매할 수 없는 상품이에요.",
   STORE_NOT_FOUND: "스토어를 찾을 수 없어요.",
+  /** 정지·탈퇴한 사장님 가게(11-15 운영자: 손님 목록·주문 만들기에서 뺀다) */
+  STORE_NOT_ORDERABLE: "지금은 이 가게에 예약할 수 없어요.",
   STORE_NOT_OWNED: "해당 스토어에 대한 권한이 없어요.",
   INVALID_ORDER_ITEMS: "주문 항목이 올바르지 않아요.",
   INVALID_TOTAL_QUANTITY: "총 수량이 올바르지 않아요.",

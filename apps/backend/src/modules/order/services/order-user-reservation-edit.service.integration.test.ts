@@ -141,3 +141,49 @@ describe("OrderUserReservationEditService.updateOrderItem (integration)", () => 
     expect(saved!.totalPrice).toBe(62000);
   });
 });
+
+describe("OrderUserReservationEditService.updatePickupDate — 그사이 사장님이 확인한 예약 (integration)", () => {
+  it("상태를 읽은 뒤 사장님이 예약을 확인하면 픽업 일시를 바꾸지 않고 400(11-15 검토)", async () => {
+    const prisma = getTestPrisma();
+    const seller = await createTestSeller(prisma);
+    const store = await createTestStore(prisma, seller.id);
+    const product = await createTestProduct(prisma, store.id);
+    const consumer = await createTestConsumer(prisma);
+    const before = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const order = await createTestOrder(
+      prisma,
+      { consumerId: consumer.id, productId: product.id, storeId: store.id },
+      { pickupDate: before },
+    );
+
+    // 상태를 읽은 다음(가게 영업시간을 읽을 때) 사장님이 예약을 확인한 것처럼 상태를 바꾼다
+    const racing = new Proxy(prisma, {
+      get(target, prop) {
+        if (prop === "store") {
+          return {
+            findUnique: async (args: Parameters<typeof prisma.store.findUnique>[0]) => {
+              await target.order.update({
+                where: { id: order.id },
+                data: { orderStatus: "CONFIRMED" },
+              });
+              return target.store.findUnique(args);
+            },
+          };
+        }
+        const value = Reflect.get(target, prop);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    const automation = { syncOrderLifecycleById: vi.fn() } as unknown as OrderAutomationService;
+    const service = new OrderUserReservationEditService(racing, automation);
+
+    const after = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+    await expect(
+      service.updatePickupDate(order.id, consumer.id, { pickupDate: after.toISOString() } as any),
+    ).rejects.toThrow(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
+
+    const saved = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(saved.orderStatus).toBe("CONFIRMED");
+    expect(saved.pickupDate?.toISOString()).toBe(before.toISOString());
+  });
+});

@@ -257,7 +257,8 @@ export class OrderUserActionService {
    * 그 주문의 환불을 진행하려면 손님이 계좌를 알려줘야 하는데, 기존 `requestRefund`는 입금완료
    * 이후 상태에서만 호출할 수 있어 이 경로가 필요합니다.
    *
-   * 환불이 끝나기 전까지는 다시 입력할 수 있습니다(오타 정정). 상태 전이가 없어 훅도 호출하지 않습니다.
+   * 환불이 끝나기 전까지는 다시 입력할 수 있습니다(오타 정정). 상태 전이가 없어 상태 훅은 부르지 않고,
+   * 사장님 알림 훅(`afterRefundAccountSubmitted`)만 부릅니다.
    */
   async submitRefundAccount(
     orderId: string,
@@ -268,7 +269,7 @@ export class OrderUserActionService {
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { orderStatus: true },
+      select: { orderStatus: true, refundBankAccountNumber: true },
     });
     if (!order) {
       throw new NotFoundException(ORDER_ERROR_MESSAGES.NOT_FOUND);
@@ -288,6 +289,11 @@ export class OrderUserActionService {
       throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
     }
     LoggerUtil.log(`[OrderUserAction] 환불 계좌 입력 - orderId: ${orderId}`);
+    // 사장님이 계좌가 들어온 것을 알게 알린다(11-15 운영자). 이미 넣은 계좌를 고친 것이면 "고쳤어요"
+    this.orderLifecycleHookService.afterRefundAccountSubmitted(
+      orderId,
+      Boolean(order.refundBankAccountNumber),
+    );
     return { id: orderId };
   }
 

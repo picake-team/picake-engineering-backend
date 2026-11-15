@@ -42,6 +42,16 @@ export class ProductDetailService {
       throw new NotFoundException(PRODUCT_ERROR_MESSAGES.NOT_FOUND);
     }
 
+    // 정지·탈퇴한 사장님 가게 상품은 목록에서 빠지고 예약도 막힌다. 링크로 열면 판매중지로 보여
+    // 예약 창을 끝까지 채운 뒤에야 막히지 않게 한다(11-15 운영자)
+    const sellerActive =
+      (await this.prisma.store.count({
+        where: { id: product.storeId, seller: { isActive: true } },
+      })) > 0;
+    const productForUser = sellerActive
+      ? product
+      : { ...product, salesStatus: EnableStatus.DISABLE };
+
     let isLiked: boolean | null = null;
     if (user?.sub) {
       try {
@@ -54,7 +64,7 @@ export class ProductDetailService {
       }
     }
 
-    return ProductMapperUtil.mapToProductResponse(product, isLiked, "consumerDetail");
+    return ProductMapperUtil.mapToProductResponse(productForUser, isLiked, "consumerDetail");
   }
 
   /**
