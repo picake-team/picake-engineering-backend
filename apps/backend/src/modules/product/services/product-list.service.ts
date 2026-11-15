@@ -1,6 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import {
+  productCategorySqlConditions,
+  productCategoryWhereConditions,
+} from "@apps/backend/modules/product/utils/product-category.util";
+import {
   GetProductsRequestDto,
   GetSellerProductsRequestDto,
 } from "@apps/backend/modules/product/dto/product-list.dto";
@@ -125,11 +129,8 @@ export class ProductListService {
       conditions.push(Prisma.sql`p.product_type::text = ${params.productType}`);
     }
 
-    if (params.productCategoryTypes && params.productCategoryTypes.length > 0) {
-      conditions.push(
-        Prisma.sql`p.product_category_types::text[] && ARRAY[${Prisma.join(params.productCategoryTypes)}]::text[]`,
-      );
-    }
+    // 카테고리: 묶음(상황·디자인·모양·서비스) 안은 또는, 묶음끼리는 그리고
+    conditions.push(...productCategorySqlConditions(params.productCategoryTypes));
 
     if (params.sizes && params.sizes.length > 0) {
       conditions.push(
@@ -249,8 +250,11 @@ export class ProductListService {
       where.productType = productType;
     }
 
-    if (productCategoryTypes?.length) {
-      where.productCategoryTypes = { hasSome: productCategoryTypes };
+    // 카테고리: 묶음(상황·디자인·모양·서비스) 안은 또는, 묶음끼리는 그리고
+    const categoryConditions = productCategoryWhereConditions(productCategoryTypes);
+    if (categoryConditions.length > 0) {
+      where.AND = where.AND || [];
+      where.AND.push(...categoryConditions);
     }
 
     if (searchConditions.length > 0) {
