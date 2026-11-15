@@ -78,7 +78,7 @@ export class OrderCreateService {
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
       include: {
-        store: true,
+        store: { include: { seller: { select: { isActive: true } } } },
       },
     });
 
@@ -101,6 +101,14 @@ export class OrderCreateService {
         `주문 생성 실패: 상품 비공개 상태 - productId: ${productId}, userId: ${userId}, visibilityStatus: ${product.visibilityStatus}`,
       );
       throw new BadRequestException(ORDER_ERROR_MESSAGES.PRODUCT_NOT_AVAILABLE);
+    }
+
+    // 정지·탈퇴한 사장님 가게는 예약을 받지 않는다(사장님이 로그인할 수 없어 예약이 묵힌다)
+    if (!product.store.seller.isActive) {
+      LoggerUtil.log(
+        `주문 생성 실패: 정지·탈퇴한 사장님 가게 - productId: ${productId}, userId: ${userId}, storeId: ${product.storeId}`,
+      );
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.STORE_NOT_ORDERABLE);
     }
 
     // 주문 항목 검증
@@ -329,9 +337,13 @@ export class OrderCreateService {
         standardOpenTime: true,
         standardCloseTime: true,
         businessCalendarOverrides: true,
+        seller: { select: { isActive: true } },
       },
     });
     if (!store) throw new NotFoundException(ORDER_ERROR_MESSAGES.STORE_NOT_FOUND);
+    if (!store.seller.isActive) {
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.STORE_NOT_ORDERABLE);
+    }
     if (input.pickupAt.getTime() <= Date.now()) {
       throw new BadRequestException(ORDER_ERROR_MESSAGES.PICKUP_IN_PAST);
     }

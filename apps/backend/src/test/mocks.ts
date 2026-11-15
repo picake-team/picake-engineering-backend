@@ -18,5 +18,6 @@ export function createNotificationOrderDispatchNoopMock(): NotificationOrderDisp
     handlePickupReminder: vi.fn().mockResolvedValue(undefined),
     handlePaymentReminder: vi.fn().mockResolvedValue(undefined),
     handlePaymentFinalReminder: vi.fn().mockResolvedValue(undefined),
+    handleRefundAccountSubmitted: vi.fn().mockResolvedValue(undefined),
   } as unknown as NotificationOrderDispatchService;
 }

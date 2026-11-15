@@ -847,8 +847,9 @@ export class QuoteService {
     let data: Prisma.QuoteRequestStoreUncheckedCreateInput;
     const sortOrder = Math.max(-1, ...r.stores.map((s) => s.sortOrder)) + 1;
     if (dto.storeId) {
-      const s = await this.prisma.store.findUnique({
-        where: { id: dto.storeId },
+      // 정지·탈퇴한 사장님 가게는 넣지 않는다(답할 수 없음)
+      const s = await this.prisma.store.findFirst({
+        where: { id: dto.storeId, seller: { isActive: true } },
         select: {
           id: true,
           name: true,

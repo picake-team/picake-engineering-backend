@@ -42,6 +42,7 @@ const BASE_PRODUCT = {
     standardOpenTime: "00:00",
     standardCloseTime: "23:59",
     businessCalendarOverrides: null,
+    seller: { isActive: true },
   },
 };
 

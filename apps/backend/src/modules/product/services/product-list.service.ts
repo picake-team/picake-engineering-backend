@@ -29,7 +29,7 @@ import {
   buildProductKeywordSearchSqlCondition,
 } from "@apps/backend/modules/product/utils/product-search.util";
 import {
-  EXCLUDE_REVIEW_STORE_WHERE,
+  CUSTOMER_LISTED_STORE_WHERE,
   REVIEW_STORE_BUSINESS_NO,
 } from "@apps/backend/modules/store/constants/store.constants";
 
@@ -65,8 +65,8 @@ export class ProductListService {
 
   private buildReviewSortFilterSql(params: {
     onlyVisible?: boolean;
-    /** 판매자 앱 심사용 가게 상품 빼기 (손님 목록에서 가게를 정하지 않았을 때) */
-    excludeReviewStore?: boolean;
+    /** 심사용 가게·정지·탈퇴한 사장님 가게 상품 빼기 (손님 목록에서 가게를 정하지 않았을 때) */
+    onlyListedStores?: boolean;
     userStoreIds?: string[];
     storeIds?: string[];
     storeId?: string;
@@ -85,9 +85,9 @@ export class ProductListService {
       conditions.push(Prisma.sql`p.visibility_status::text = ${EnableStatus.ENABLE}`);
     }
 
-    if (params.excludeReviewStore) {
+    if (params.onlyListedStores) {
       conditions.push(
-        Prisma.sql`p.store_id NOT IN (SELECT st.id FROM stores st WHERE st.business_no = ${REVIEW_STORE_BUSINESS_NO})`,
+        Prisma.sql`p.store_id NOT IN (SELECT st.id FROM stores st JOIN sellers se ON se.id = st.seller_id WHERE st.business_no = ${REVIEW_STORE_BUSINESS_NO} OR se.is_active = FALSE)`,
       );
     }
 
@@ -304,11 +304,11 @@ export class ProductListService {
       visibilityStatus: EnableStatus.ENABLE,
     };
 
-    // 판매자 앱 심사용 가게 상품은 손님 목록·검색·사이트맵에 보이지 않게 한다(I-48).
+    // 판매자 앱 심사용 가게(I-48)와 정지·탈퇴한 사장님 가게 상품은 손님 목록·검색·사이트맵에 보이지 않게 한다.
     // 가게를 정해 연 목록(스토어 상세의 상품)은 링크로 연 경우라 그대로 보여 준다.
-    const excludeReviewStore = !storeId;
-    if (excludeReviewStore) {
-      where.store = EXCLUDE_REVIEW_STORE_WHERE;
+    const onlyListedStores = !storeId;
+    if (onlyListedStores) {
+      where.store = CUSTOMER_LISTED_STORE_WHERE;
     }
 
     if (storeIdsFromRegion !== undefined) {
@@ -344,7 +344,7 @@ export class ProductListService {
     if (needsReviewData || needsDistanceSort) {
       const filterSql = this.buildReviewSortFilterSql({
         onlyVisible: true,
-        excludeReviewStore,
+        onlyListedStores,
         storeIds: storeIdsFromRegion,
         storeId: storeIdsFromRegion === undefined ? storeId : undefined,
         search,

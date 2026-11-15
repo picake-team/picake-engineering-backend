@@ -23,7 +23,10 @@ import { createNotificationOrderDispatchNoopMock } from "@apps/backend/test/mock
  */
 describe("주문 상태 전이 (취소/환불) (integration)", () => {
   function buildLifecycleHookMock() {
-    return { afterOrderStatusTransition: vi.fn() } as unknown as OrderLifecycleHookService;
+    return {
+      afterOrderStatusTransition: vi.fn(),
+      afterRefundAccountSubmitted: vi.fn(),
+    } as unknown as OrderLifecycleHookService;
   }
 
   async function setupOrder(overrides: Parameters<typeof createTestOrder>[2] = {}) {
@@ -115,5 +118,28 @@ describe("주문 상태 전이 (취소/환불) (integration)", () => {
     const saved = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
     expect(saved.orderStatus).toBe(OrderStatus.CANCEL_COMPLETED);
     expect(lifecycleHook.afterOrderStatusTransition).toHaveBeenCalledTimes(1);
+  });
+
+  it("사장님이 바꾼 환불 대기에 손님이 계좌를 넣으면 저장되고 사장님 알림 훅이 불린다(고치면 '고쳤어요')", async () => {
+    const { prisma, order } = await setupOrder({ orderStatus: OrderStatus.CANCEL_REFUND_PENDING });
+    const { service, lifecycleHook } = buildUserActionService();
+    const account = {
+      bankName: StoreBankName.KB_KOOKMIN,
+      bankAccountNumber: "12345678901234",
+      accountHolderName: "김손님",
+    };
+
+    await service.submitRefundAccount(order.id, order.consumerId, account as any);
+    await service.submitRefundAccount(order.id, order.consumerId, {
+      ...account,
+      bankAccountNumber: "99998888777766",
+    } as any);
+
+    const saved = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(saved.refundBankAccountNumber).toBe("99998888777766");
+    expect(lifecycleHook.afterRefundAccountSubmitted).toHaveBeenNthCalledWith(1, order.id, false);
+    expect(lifecycleHook.afterRefundAccountSubmitted).toHaveBeenNthCalledWith(2, order.id, true);
+    // 상태는 그대로라 상태 알림은 없다
+    expect(lifecycleHook.afterOrderStatusTransition).not.toHaveBeenCalled();
   });
 });

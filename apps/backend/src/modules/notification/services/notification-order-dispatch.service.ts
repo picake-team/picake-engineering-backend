@@ -5,6 +5,8 @@ import type { OrderStatusTransitionPayload } from "@apps/backend/modules/order/t
 import {
   buildSellerOrderNotificationCopy,
   buildSellerOrderSummaryBody,
+  buildSellerRefundAccountNotificationCopy,
+  type OrderNotificationCopy,
   shouldSendSellerOrderPush,
   withSellerStorePrefix,
 } from "@apps/backend/modules/notification/utils/seller-order-notification-copy.util";
@@ -224,50 +226,7 @@ export class NotificationOrderDispatchService {
     try {
       const copy = buildSellerOrderNotificationCopy(payload);
       if (!copy) return;
-
-      const order = await this.prisma.order.findUnique({
-        where: { id: payload.orderId },
-        select: {
-          storeId: true,
-          productName: true,
-          totalQuantity: true,
-          pickupDate: true,
-          store: { select: { sellerId: true, name: true } },
-        },
-      });
-      if (!order?.store?.sellerId) return;
-      // 내용은 상품·픽업 일시(휴대폰 알림과 같은 문구). 상품 이름이 없으면 예전 안내 문구
-      const body = buildSellerOrderSummaryBody(order) ?? copy.body;
-
-      const sellerUserId = order.store.sellerId;
-      const prefs = await this.notificationService.getOrCreatePreferenceSellerWeb(
-        sellerUserId,
-        order.storeId,
-      );
-      if (!prefs.orderNotificationsEnabled) return;
-
-      const item = await this.notificationService.createSellerWebOrderNotification({
-        recipientUserId: sellerUserId,
-        title: copy.title,
-        body,
-        storeId: order.storeId,
-        orderId: payload.orderId,
-      });
-
-      this.notificationGateway.emitSellerNotification(sellerUserId, item);
-
-      if (shouldSendSellerOrderPush(payload)) {
-        const sellerStoreCount = await this.prisma.store.count({
-          where: { sellerId: sellerUserId },
-        });
-        await this.sellerFcmPushService.sendOrderPush({
-          sellerId: sellerUserId,
-          storeId: order.storeId,
-          orderId: payload.orderId,
-          title: withSellerStorePrefix(copy.title, order.store.name, sellerStoreCount),
-          body,
-        });
-      }
+      await this.notifySellerAboutOrder(payload.orderId, copy, shouldSendSellerOrderPush(payload));
     } catch (e) {
       LoggerUtil.log(
         `[NotificationOrderDispatch/seller] 실패 order=${payload.orderId}: ${e instanceof Error ? e.message : String(e)}`,
@@ -277,6 +236,83 @@ export class NotificationOrderDispatchService {
         channel: "seller",
         orderId: payload.orderId,
         source: payload.source,
+      });
+    }
+  }
+
+  /**
+   * 손님이 환불 계좌를 넣거나 고쳤을 때 사장님에게 알립니다(사장님이 바꾼 환불 대기·관리자가 되돌린 주문).
+   * 상태가 바뀌지 않아 상태 알림과 따로 보내고, 같은 주문 알림 설정을 따릅니다. 사장님이 모르는 변화라 휴대폰 푸시도 보냅니다.
+   */
+  async handleRefundAccountSubmitted(orderId: string, changed: boolean): Promise<void> {
+    try {
+      await this.notifySellerAboutOrder(
+        orderId,
+        buildSellerRefundAccountNotificationCopy(changed),
+        true,
+      );
+    } catch (e) {
+      LoggerUtil.log(
+        `[NotificationOrderDispatch/seller-refund-account] 실패 order=${orderId}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      SentryUtil.captureException(e, "error", {
+        module: "notification-order-dispatch",
+        channel: "seller",
+        orderId,
+        source: "REFUND_ACCOUNT_SUBMITTED",
+      });
+    }
+  }
+
+  /**
+   * 판매자 페이지 안 알림(SELLER_WEB)을 만들고, `sendPush`면 판매자 앱 휴대폰 푸시도 보냅니다.
+   * 내용은 상품·픽업 일시(휴대폰 알림과 같은 문구), 상품 이름이 없으면 `copy.body`.
+   */
+  private async notifySellerAboutOrder(
+    orderId: string,
+    copy: OrderNotificationCopy,
+    sendPush: boolean,
+  ): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        storeId: true,
+        productName: true,
+        totalQuantity: true,
+        pickupDate: true,
+        store: { select: { sellerId: true, name: true } },
+      },
+    });
+    if (!order?.store?.sellerId) return;
+    const body = buildSellerOrderSummaryBody(order) ?? copy.body;
+
+    const sellerUserId = order.store.sellerId;
+    const prefs = await this.notificationService.getOrCreatePreferenceSellerWeb(
+      sellerUserId,
+      order.storeId,
+    );
+    if (!prefs.orderNotificationsEnabled) return;
+
+    const item = await this.notificationService.createSellerWebOrderNotification({
+      recipientUserId: sellerUserId,
+      title: copy.title,
+      body,
+      storeId: order.storeId,
+      orderId,
+    });
+
+    this.notificationGateway.emitSellerNotification(sellerUserId, item);
+
+    if (sendPush) {
+      const sellerStoreCount = await this.prisma.store.count({
+        where: { sellerId: sellerUserId },
+      });
+      await this.sellerFcmPushService.sendOrderPush({
+        sellerId: sellerUserId,
+        storeId: order.storeId,
+        orderId,
+        title: withSellerStorePrefix(copy.title, order.store.name, sellerStoreCount),
+        body,
       });
     }
   }

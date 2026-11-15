@@ -6,6 +6,7 @@ import { ORDER_STATUS_TRANSITION_SOURCE } from "@apps/backend/modules/order/type
 import {
   buildSellerOrderNotificationCopy,
   buildSellerOrderSummaryBody,
+  buildSellerRefundAccountNotificationCopy,
   formatSellerPickupDateTime,
   shouldSendSellerOrderPush,
   withSellerStorePrefix,
@@ -149,6 +150,15 @@ describe("withSellerStorePrefix", () => {
     );
     expect(withSellerStorePrefix("새 예약 신청이 왔어요", "달콤케이크 2호점", 2)).toBe(
       "[달콤케이크 2호점] 새 예약 신청이 왔어요",
+    );
+  });
+
+  it("손님이 환불 계좌를 넣으면 '알려 줬어요', 고치면 '고쳤어요'", () => {
+    expect(buildSellerRefundAccountNotificationCopy(false).title).toBe(
+      "손님이 환불 계좌를 알려 줬어요",
+    );
+    expect(buildSellerRefundAccountNotificationCopy(true).title).toBe(
+      "손님이 환불 계좌를 고쳤어요",
     );
   });
 });
