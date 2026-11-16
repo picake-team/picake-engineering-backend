@@ -148,6 +148,11 @@ export class OrderCreateService {
     }
 
     const pickupAt = new Date(pickupDate);
+    // 지난 시각으로는 만들지 않는다(견적 예약과 같게). 로그인 전에 남긴 예약 초안(I-59)을 다녀와 복원하면 지난 시각이
+    // 그대로 오기도 해, 사장님은 확인할 수 없는 예약이 다음 날 자동 취소되던 것(11-16 검토)
+    if (Number.isNaN(pickupAt.getTime()) || pickupAt.getTime() <= Date.now()) {
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.PICKUP_IN_PAST);
+    }
     if (!isPickupAllowedForStore(pickupAt, product.store)) {
       LoggerUtil.log(
         `주문 생성 실패: 픽업 일시가 스토어 영업 시간 밖 - productId: ${productId}, userId: ${userId}, pickupDate: ${pickupDate}`,

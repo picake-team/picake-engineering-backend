@@ -93,6 +93,17 @@ describe("OrderCreateService (integration)", () => {
     expect(item.sizeDisplayName).toBe("1호");
   });
 
+  it("지난 픽업 시각으로는 예약을 만들지 않는다(로그인 다녀온 초안 복원 등, 11-16 검토)", async () => {
+    const { prisma, product, consumer } = await setupProduct();
+    const service = buildService(prisma);
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    await expect(
+      service.createOrderForUser(consumer.id, buildDto(product.id, { pickupDate: yesterday })),
+    ).rejects.toThrow(ORDER_ERROR_MESSAGES.PICKUP_IN_PAST);
+    expect(await prisma.order.count({ where: { consumerId: consumer.id } })).toBe(0);
+  });
+
   it("같은 날짜에 동시에 여러 건이 들어와도 주문번호 unique 제약을 재시도로 통과해 전부 성공한다", async () => {
     const { prisma, product, consumer } = await setupProduct();
     const service = buildService(prisma);
