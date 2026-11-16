@@ -475,7 +475,10 @@ export class AuthNaverOauthService {
    * 다시 가입할 때 정보 제공 동의부터 새로 본다. 저장해 둔 갱신 토큰으로 폐기한다(짝인 접근 토큰도 같이).
    * 상용에서만 끊는다(staging·로컬은 같은 네이버 앱이라). 실패해도 탈퇴는 그대로 진행한다(카카오·애플과 같게).
    */
-  async revoke(encryptedRefreshToken: string | null | undefined): Promise<void> {
+  async revoke(
+    audience: AudienceConst,
+    encryptedRefreshToken: string | null | undefined,
+  ): Promise<void> {
     if (!encryptedRefreshToken) return;
     if (!this.revokeOnWithdraw) {
       LoggerUtil.log("네이버 연결 끊기 건너뜀: 상용이 아님(같은 네이버 앱을 써서)");
@@ -492,8 +495,9 @@ export class AuthNaverOauthService {
       const res = await this.httpClient.post(
         NAVER_REVOKE_URL,
         new URLSearchParams({
-          client_id: this.clientId,
-          client_secret: this.clientSecret,
+          // 토큰을 받은 앱의 키로(사장님 앱을 나누면 _SELLER)
+          client_id: audience === AUDIENCE.SELLER ? this.clientIdSeller : this.clientId,
+          client_secret: audience === AUDIENCE.SELLER ? this.clientSecretSeller : this.clientSecret,
           token: refreshToken,
           token_type_hint: "refresh_token",
         }),

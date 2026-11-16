@@ -503,7 +503,7 @@ describe("AuthNaverOauthService.revoke — 탈퇴 때 네이버 연결 끊기", 
     ).encrypt("plain-refresh");
     httpClientMock.post.mockResolvedValue({ status: 200, data: "" });
 
-    await service.revoke(enc);
+    await service.revoke("consumer", enc);
 
     const [url, body] = httpClientMock.post.mock.calls[0];
     expect(url).toBe("https://nid.naver.com/oauth2.0/revoke");
@@ -515,9 +515,33 @@ describe("AuthNaverOauthService.revoke — 탈퇴 때 네이버 연결 끊기", 
     });
   });
 
+  it("사장님 탈퇴는 사장님 키로 끊는다(사장님 앱을 나눴을 때)", async () => {
+    const service = await createService({
+      prisma: prismaMock,
+      jwtUtil: {},
+      config: {
+        NODE_ENV: "production",
+        NAVER_CLIENT_ID_SELLER: "seller-id",
+        NAVER_CLIENT_SECRET_SELLER: "seller-secret",
+      },
+    });
+    const enc = new TokenEncryptionUtil(
+      buildConfig({ APPLE_REFRESH_TOKEN_ENCRYPTION_KEY: ENCRYPTION_KEY }) as ConfigService,
+    ).encrypt("plain-refresh");
+    httpClientMock.post.mockResolvedValue({ status: 200, data: "" });
+
+    await service.revoke("seller", enc);
+
+    const params = Object.fromEntries(
+      new URLSearchParams(httpClientMock.post.mock.calls[0][1] as URLSearchParams),
+    );
+    expect(params.client_id).toBe("seller-id");
+    expect(params.client_secret).toBe("seller-secret");
+  });
+
   it("상용이 아니면 끊지 않는다(staging·로컬도 같은 네이버 앱)", async () => {
     const service = await createService({ prisma: prismaMock, jwtUtil: {} });
-    await service.revoke("anything");
+    await service.revoke("consumer", "anything");
     expect(httpClientMock.post).not.toHaveBeenCalled();
   });
 
@@ -527,16 +551,16 @@ describe("AuthNaverOauthService.revoke — 탈퇴 때 네이버 연결 끊기", 
       jwtUtil: {},
       config: { NODE_ENV: "production" },
     });
-    await expect(service.revoke(null)).resolves.toBeUndefined();
-    await expect(service.revoke("not-encrypted")).resolves.toBeUndefined();
+    await expect(service.revoke("consumer", null)).resolves.toBeUndefined();
+    await expect(service.revoke("consumer", "not-encrypted")).resolves.toBeUndefined();
     expect(httpClientMock.post).not.toHaveBeenCalled();
 
     const enc = new TokenEncryptionUtil(
       buildConfig({ APPLE_REFRESH_TOKEN_ENCRYPTION_KEY: ENCRYPTION_KEY }) as ConfigService,
     ).encrypt("plain-refresh");
     httpClientMock.post.mockRejectedValue(new Error("network"));
-    await expect(service.revoke(enc)).resolves.toBeUndefined();
+    await expect(service.revoke("consumer", enc)).resolves.toBeUndefined();
     httpClientMock.post.mockResolvedValue({ status: 401, data: { error: "unauthorized_client" } });
-    await expect(service.revoke(enc)).resolves.toBeUndefined();
+    await expect(service.revoke("consumer", enc)).resolves.toBeUndefined();
   });
 });

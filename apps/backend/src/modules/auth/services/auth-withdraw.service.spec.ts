@@ -379,7 +379,10 @@ describe("AuthWithdrawService.withdraw", () => {
 
       await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
 
-      expect(authNaverOauthServiceMock.revoke).toHaveBeenCalledWith("enc-naver-refresh");
+      expect(authNaverOauthServiceMock.revoke).toHaveBeenCalledWith(
+        AUDIENCE.CONSUMER,
+        "enc-naver-refresh",
+      );
       expect(authNaverOauthServiceMock.revoke.mock.invocationCallOrder[0]).toBeGreaterThan(
         prismaMock.consumer.update.mock.invocationCallOrder[0],
       );
@@ -403,7 +406,10 @@ describe("AuthWithdrawService.withdraw", () => {
         where: { id: "seller-1" },
         data: expect.objectContaining({ naverId: null, naverRefreshToken: null }),
       });
-      expect(authNaverOauthServiceMock.revoke).toHaveBeenCalledWith("enc-seller-refresh");
+      expect(authNaverOauthServiceMock.revoke).toHaveBeenCalledWith(
+        AUDIENCE.SELLER,
+        "enc-seller-refresh",
+      );
     });
 
     it("같은 네이버로 가입한 다른 역할 계정이 있으면 끊지 않는다(같은 네이버 앱)", async () => {

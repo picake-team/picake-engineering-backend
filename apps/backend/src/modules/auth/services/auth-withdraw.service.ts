@@ -108,7 +108,7 @@ export class AuthWithdrawService {
       }
       // 네이버 연결 끊기 — 같은 네이버로 가입한 사장님 계정이 있으면 끊지 않는다(같은 네이버 앱이라 사장님 연결도 같이 끊긴다)
       if (row.naverId && !(await this.hasOtherRoleWithNaverId(AUDIENCE.SELLER, row.naverId))) {
-        await this.authNaverOauthService.revoke(row.naverRefreshToken);
+        await this.authNaverOauthService.revoke(AUDIENCE.CONSUMER, row.naverRefreshToken);
       }
       return;
     }
@@ -153,7 +153,7 @@ export class AuthWithdrawService {
       }
       // 네이버 연결 끊기. 같은 네이버로 가입한 손님 계정이 있으면 끊지 않는다
       if (row.naverId && !(await this.hasOtherRoleWithNaverId(AUDIENCE.CONSUMER, row.naverId))) {
-        await this.authNaverOauthService.revoke(row.naverRefreshToken);
+        await this.authNaverOauthService.revoke(AUDIENCE.SELLER, row.naverRefreshToken);
       }
       return;
     }
