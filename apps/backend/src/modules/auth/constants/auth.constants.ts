@@ -201,6 +201,24 @@ export const TOKEN_TYPES = {
 } as const;
 
 /**
+ * 카카오 간편가입(카카오싱크, 기획 I-59 B) 약관 태그 — 카카오 콘솔 [카카오 로그인] > [간편가입]에 같은 태그로 등록한다.
+ * 손님·사장님이 카카오 앱 하나를 같이 써서, 로그인 요청의 service_terms로 각자 약관만 보여 준다(웹 oauth-login-url).
+ * type은 우리 약관 종류 — 동의하면 그 종류의 지금 활성 버전으로 동의 이력을 남긴다.
+ */
+export const KAKAO_SERVICE_TERMS = {
+  consumer: [
+    { tag: "picake_c_tos", type: "CONSUMER_TERMS_OF_SERVICE", required: true },
+    { tag: "picake_c_privacy", type: "CONSUMER_PRIVACY_POLICY", required: true },
+    { tag: "picake_c_third_party", type: "CONSUMER_THIRD_PARTY_CONSENT", required: true },
+    { tag: "picake_c_location", type: "CONSUMER_LOCATION_TERMS", required: false },
+  ],
+  seller: [
+    { tag: "picake_s_tos", type: "SELLER_TERMS_OF_SERVICE", required: true },
+    { tag: "picake_s_privacy", type: "SELLER_PRIVACY_POLICY", required: true },
+  ],
+} as const;
+
+/**
  * JWT 토큰 만료 시간 상수
  */
 export const JWT_EXPIRATION = {
@@ -300,7 +318,9 @@ export const SWAGGER_DESCRIPTIONS = {
   KAKAO_EMAIL: "카카오 계정 이메일 (동의 항목에 따라 없을 수 있음)",
   APPLE_CODE: "애플 OAuth Authorization Code (Return URL·Services ID와 짝이 맞아야 함)",
   REGISTER_TOKEN:
-    "가입표 — 로그인 API가 400 PHONE_VERIFICATION_REQUIRED와 함께 준 registerToken(30분). 서버가 소셜 서비스에 확인한 ID·이메일이 들어 있어 가입은 이 값으로만 한다",
+    "가입표 — 로그인 API가 400 PHONE_VERIFICATION_REQUIRED와 함께 준 registerToken(30분). 서버가 소셜 서비스에 확인한 ID·이메일(카카오는 받은 경우 전화번호·이름·간편가입 약관 동의)이 들어 있어 가입은 이 값으로만 한다",
+  USE_TICKET_PHONE:
+    "카카오가 준 전화번호(가입표 안)를 손님·사장님이 '맞아요'로 확인했으면 true — phone·문자 인증 없이 그 번호로 가입. false나 없으면 phone + 문자 인증",
   APPLE_ID: "애플 사용자 ID (id_token `sub`)",
   APPLE_EMAIL:
     "애플 계정 이메일 (id_token `email`, 릴레이 이메일 `@privaterelay.appleid.com` 포함 가능)",
