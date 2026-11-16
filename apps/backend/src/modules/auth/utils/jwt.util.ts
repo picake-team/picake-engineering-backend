@@ -1,9 +1,17 @@
 import { JwtService } from "@nestjs/jwt";
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { TOKEN_TYPES, JWT_EXPIRATION } from "@apps/backend/modules/auth/constants/auth.constants";
+import {
+  AUTH_ERROR_MESSAGES,
+  TOKEN_TYPES,
+  JWT_EXPIRATION,
+} from "@apps/backend/modules/auth/constants/auth.constants";
 import { AuthTokenPairResponseDto } from "@apps/backend/modules/auth/dto/auth-token.dto";
-import { JwtPayload, JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
+import {
+  JwtPayload,
+  JwtVerifiedPayload,
+  RegisterTicketPayload,
+} from "@apps/backend/modules/auth/types/auth.types";
 @Injectable()
 export class JwtUtil {
   constructor(
@@ -75,6 +83,71 @@ export class JwtUtil {
       { ...payload, type: TOKEN_TYPES.TOTP_SETUP_PENDING },
       { expiresIn: "30m" },
     );
+  }
+
+  /**
+   * 소셜 회원가입 가입표(30분)를 만듭니다.
+   * 로그인 때 서버가 소셜 서비스에 직접 확인한 ID·이메일만 담아, 가입 API가 화면이 보낸 ID를 믿지 않게 한다.
+   * `type=register`라 액세스·리프레시 토큰으로는 쓸 수 없다(전략·리프레시가 type을 확인).
+   */
+  async generateRegisterTicket(payload: RegisterTicketPayload): Promise<string> {
+    return await this.jwtService.signAsync(
+      {
+        type: TOKEN_TYPES.REGISTER,
+        aud: payload.aud,
+        provider: payload.provider,
+        providerId: payload.providerId,
+        email: payload.email,
+      },
+      { expiresIn: JWT_EXPIRATION.REGISTER_TICKET },
+    );
+  }
+
+  /**
+   * 가입표를 확인하고 그 안의 소셜 ID·이메일을 돌려줍니다.
+   * 서명·만료·용도(type)·대상(aud: 손님/사장님)·소셜 종류가 모두 맞아야 한다. 하나라도 어긋나면 400.
+   */
+  async verifyRegisterTicket(
+    token: string,
+    expected: Pick<RegisterTicketPayload, "aud" | "provider">,
+  ): Promise<Pick<RegisterTicketPayload, "providerId" | "email">> {
+    let payload: Partial<RegisterTicketPayload> & { type?: string };
+    try {
+      payload = await this.jwtService.verifyAsync(token);
+    } catch {
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID);
+    }
+    const { type, aud, provider, providerId, email } = payload ?? {};
+    if (
+      type !== TOKEN_TYPES.REGISTER ||
+      aud !== expected.aud ||
+      provider !== expected.provider ||
+      typeof providerId !== "string" ||
+      providerId.length === 0 ||
+      typeof email !== "string" ||
+      email.length === 0
+    ) {
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID);
+    }
+    return { providerId, email };
+  }
+
+  /**
+   * 소셜 회원가입에서 쓸 소셜 ID·이메일을 정합니다.
+   * 가입표가 있으면 가입표 안의 값만 쓴다(화면이 같이 보낸 ID는 무시).
+   * 가입표가 없으면 옛 화면 호환으로 화면이 보낸 ID를 쓴다 — 웹이 가입표를 보내도록 바뀐 뒤 이 길은 없앤다(2026-11-16 계정 보강 ②).
+   */
+  async resolveRegisterIdentity(
+    input: { registerToken?: string; legacyProviderId?: string; legacyEmail?: string },
+    expected: Pick<RegisterTicketPayload, "aud" | "provider">,
+  ): Promise<Pick<RegisterTicketPayload, "providerId" | "email">> {
+    if (input.registerToken) {
+      return await this.verifyRegisterTicket(input.registerToken, expected);
+    }
+    if (input.legacyProviderId && input.legacyEmail) {
+      return { providerId: input.legacyProviderId, email: input.legacyEmail };
+    }
+    throw new BadRequestException(AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID);
   }
 
   /**

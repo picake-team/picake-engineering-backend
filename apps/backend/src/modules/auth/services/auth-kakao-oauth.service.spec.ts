@@ -21,7 +21,7 @@ vi.mock("axios", () => ({
 describe("AuthKakaoOauthService.consumerKakaoLoginWithCode", () => {
   const httpClientMock = { post: vi.fn(), get: vi.fn() };
   const prismaMock = mockDeep<PrismaService>();
-  const jwtUtilMock = { generateTokenPair: vi.fn() };
+  const jwtUtilMock = { generateTokenPair: vi.fn(), generateRegisterTicket: vi.fn() };
 
   let service: AuthKakaoOauthService;
 
@@ -29,6 +29,7 @@ describe("AuthKakaoOauthService.consumerKakaoLoginWithCode", () => {
     vi.clearAllMocks();
     vi.mocked(axios.create).mockReturnValue(httpClientMock as any);
     prismaMock.$transaction.mockImplementation((fn: any) => fn(prismaMock));
+    jwtUtilMock.generateRegisterTicket.mockResolvedValue("test-register-ticket");
     jwtUtilMock.generateTokenPair.mockResolvedValue({
       accessToken: "test-access-token",
       refreshToken: "test-refresh-token",
@@ -123,8 +124,13 @@ describe("AuthKakaoOauthService.consumerKakaoLoginWithCode", () => {
     await expect(service.consumerKakaoLoginWithCode({ code: "auth-code" })).rejects.toMatchObject({
       response: expect.objectContaining({
         message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
+        registerToken: "test-register-ticket",
       }),
     });
+    // 가입표에는 서버가 카카오에 확인한 값만 담는다(손님용)
+    expect(jwtUtilMock.generateRegisterTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ aud: "consumer", provider: "kakao" }),
+    );
   });
 
   it("비활성화된 계정은 로그인이 거부된다", async () => {

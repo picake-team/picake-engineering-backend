@@ -12,6 +12,7 @@ import axios, { AxiosInstance } from "axios";
 import {
   AUTH_ERROR_MESSAGES,
   AUDIENCE,
+  AudienceConst,
   OAUTH_REDIRECT_PATHS,
   PhoneVerificationPurpose,
 } from "@apps/backend/modules/auth/constants/auth.constants";
@@ -191,6 +192,30 @@ export class AuthKakaoOauthService {
     }
   }
 
+  /**
+   * 가입이 필요할 때(400 PHONE_VERIFICATION_REQUIRED) 화면에 줄 응답.
+   * 서버가 카카오에 직접 확인한 ID·이메일을 가입표(registerToken, 30분)에 담는다 — 가입 API는 이 가입표로만 가입시킨다.
+   * kakaoId·kakaoEmail은 옛 화면 호환으로 같이 준다.
+   */
+  private async buildRegisterRequiredError(
+    aud: AudienceConst,
+    kakaoId: string,
+    kakaoEmail: string,
+  ): Promise<BadRequestException> {
+    const registerToken = await this.jwtUtil.generateRegisterTicket({
+      aud,
+      provider: "kakao",
+      providerId: kakaoId,
+      email: kakaoEmail,
+    });
+    return new BadRequestException({
+      message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
+      kakaoId,
+      kakaoEmail,
+      registerToken,
+    });
+  }
+
   private async kakaoLogin(kakaoUserInfo: KakaoUserInfo) {
     const {
       userInfo: { kakaoId, kakaoEmail },
@@ -201,11 +226,7 @@ export class AuthKakaoOauthService {
     });
 
     if (!consumer) {
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        kakaoId,
-        kakaoEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, kakaoId, kakaoEmail);
     }
 
     // 관리자 비활성 계정은 로그인·재가입 모두 불가 (계정·데이터 유지)
@@ -214,11 +235,7 @@ export class AuthKakaoOauthService {
     }
 
     if (!consumer.phone || !consumer.isPhoneVerified) {
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        kakaoId,
-        kakaoEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, kakaoId, kakaoEmail);
     }
     return await this.prisma.$transaction(async (tx) => {
       const tokenPair = await this.jwtUtil.generateTokenPair({
@@ -249,11 +266,7 @@ export class AuthKakaoOauthService {
     });
 
     if (!seller) {
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        kakaoId,
-        kakaoEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, kakaoId, kakaoEmail);
     }
 
     // 관리자 비활성 계정은 로그인·재가입 모두 불가 (계정·데이터 유지)
@@ -262,11 +275,7 @@ export class AuthKakaoOauthService {
     }
 
     if (!seller.phone || !seller.isPhoneVerified) {
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        kakaoId,
-        kakaoEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, kakaoId, kakaoEmail);
     }
     return await this.prisma.$transaction(async (tx) => {
       const tokenPair = await this.jwtUtil.generateTokenPair({
@@ -282,8 +291,15 @@ export class AuthKakaoOauthService {
   }
 
   async consumerKakaoRegisterWithPhone(kakaoRegisterDto: KakaoRegisterRequestDto) {
-    const { kakaoId, kakaoEmail, phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } =
-      kakaoRegisterDto;
+    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = kakaoRegisterDto;
+    const { providerId: kakaoId, email: kakaoEmail } = await this.jwtUtil.resolveRegisterIdentity(
+      {
+        registerToken: kakaoRegisterDto.registerToken,
+        legacyProviderId: kakaoRegisterDto.kakaoId,
+        legacyEmail: kakaoRegisterDto.kakaoEmail,
+      },
+      { aud: AUDIENCE.CONSUMER, provider: "kakao" },
+    );
     const trimmedName = name.trim();
     const normalizedPhone = PhoneUtil.normalizePhone(phone);
 
@@ -363,7 +379,15 @@ export class AuthKakaoOauthService {
   }
 
   async sellerKakaoRegisterWithPhone(kakaoRegisterDto: KakaoRegisterRequestDto) {
-    const { kakaoId, kakaoEmail, phone, name, agreedToTerms, agreedToPrivacy } = kakaoRegisterDto;
+    const { phone, name, agreedToTerms, agreedToPrivacy } = kakaoRegisterDto;
+    const { providerId: kakaoId, email: kakaoEmail } = await this.jwtUtil.resolveRegisterIdentity(
+      {
+        registerToken: kakaoRegisterDto.registerToken,
+        legacyProviderId: kakaoRegisterDto.kakaoId,
+        legacyEmail: kakaoRegisterDto.kakaoEmail,
+      },
+      { aud: AUDIENCE.SELLER, provider: "kakao" },
+    );
     const trimmedName = name.trim();
     const normalizedPhone = PhoneUtil.normalizePhone(phone);
 

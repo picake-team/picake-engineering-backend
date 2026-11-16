@@ -12,6 +12,7 @@ import axios, { AxiosInstance } from "axios";
 import {
   AUTH_ERROR_MESSAGES,
   AUDIENCE,
+  AudienceConst,
   OAUTH_REDIRECT_PATHS,
   PhoneVerificationPurpose,
 } from "@apps/backend/modules/auth/constants/auth.constants";
@@ -208,6 +209,30 @@ export class AuthGoogleOauthService {
   }
 
   /**
+   * 가입이 필요할 때(400 PHONE_VERIFICATION_REQUIRED) 화면에 줄 응답.
+   * 서버가 구글에 직접 확인한 ID·이메일을 가입표(registerToken, 30분)에 담는다 — 가입 API는 이 가입표로만 가입시킨다.
+   * googleId·googleEmail은 옛 화면 호환으로 같이 준다.
+   */
+  private async buildRegisterRequiredError(
+    aud: AudienceConst,
+    googleId: string,
+    googleEmail: string,
+  ): Promise<BadRequestException> {
+    const registerToken = await this.jwtUtil.generateRegisterTicket({
+      aud,
+      provider: "google",
+      providerId: googleId,
+      email: googleEmail,
+    });
+    return new BadRequestException({
+      message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
+      googleId,
+      googleEmail,
+      registerToken,
+    });
+  }
+
+  /**
    * 구글 로그인 처리 (사용자용)
    * @param googleUserInfo - 구글 사용자 정보
    * @returns 액세스 토큰 및 리프레시 토큰
@@ -230,11 +255,7 @@ export class AuthGoogleOauthService {
     // 1. googleId로 기존 사용자 조회
     if (!consumer) {
       // 새 사용자인 경우 -> 휴대폰 인증 필요
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        googleId,
-        googleEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, googleId, googleEmail);
     }
 
     // 관리자 비활성 계정은 로그인·재가입 모두 불가 (계정·데이터 유지)
@@ -244,11 +265,7 @@ export class AuthGoogleOauthService {
 
     // 2. 휴대폰 인증 상태 확인
     if (!consumer.phone || !consumer.isPhoneVerified) {
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        googleId,
-        googleEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, googleId, googleEmail);
     }
 
     // JWT 발급 및 마지막 로그인 시간 업데이트
@@ -288,11 +305,7 @@ export class AuthGoogleOauthService {
     // 1. googleId로 기존 사용자 조회
     if (!seller) {
       // 새 사용자인 경우 -> 휴대폰 인증 필요
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        googleId,
-        googleEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, googleId, googleEmail);
     }
 
     // 관리자 비활성 계정은 로그인·재가입 모두 불가 (계정·데이터 유지)
@@ -302,11 +315,7 @@ export class AuthGoogleOauthService {
 
     // 2. 휴대폰 인증 상태 확인
     if (!seller.phone || !seller.isPhoneVerified) {
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        googleId,
-        googleEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, googleId, googleEmail);
     }
     // JWT 발급 및 마지막 로그인 시간 업데이트
     return await this.prisma.$transaction(async (tx) => {
@@ -327,15 +336,15 @@ export class AuthGoogleOauthService {
    * @throws ConflictException 이미 다른 구글과 연결된 번호 / 동일 번호 비구글 계정 / 이미 존재하는 googleId
    */
   async consumerGoogleRegisterWithPhone(googleRegisterDto: GoogleRegisterRequestDto) {
-    const {
-      googleId,
-      googleEmail,
-      phone,
-      name,
-      agreedToTerms,
-      agreedToPrivacy,
-      agreedToThirdParty,
-    } = googleRegisterDto;
+    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = googleRegisterDto;
+    const { providerId: googleId, email: googleEmail } = await this.jwtUtil.resolveRegisterIdentity(
+      {
+        registerToken: googleRegisterDto.registerToken,
+        legacyProviderId: googleRegisterDto.googleId,
+        legacyEmail: googleRegisterDto.googleEmail,
+      },
+      { aud: AUDIENCE.CONSUMER, provider: "google" },
+    );
     const trimmedName = name.trim();
     const normalizedPhone = PhoneUtil.normalizePhone(phone);
 
@@ -424,8 +433,15 @@ export class AuthGoogleOauthService {
    * @throws ConflictException 이미 다른 구글과 연결된 번호 / 동일 번호 비구글 계정 / 이미 존재하는 googleId
    */
   async sellerGoogleRegisterWithPhone(googleRegisterDto: GoogleRegisterRequestDto) {
-    const { googleId, googleEmail, phone, name, agreedToTerms, agreedToPrivacy } =
-      googleRegisterDto;
+    const { phone, name, agreedToTerms, agreedToPrivacy } = googleRegisterDto;
+    const { providerId: googleId, email: googleEmail } = await this.jwtUtil.resolveRegisterIdentity(
+      {
+        registerToken: googleRegisterDto.registerToken,
+        legacyProviderId: googleRegisterDto.googleId,
+        legacyEmail: googleRegisterDto.googleEmail,
+      },
+      { aud: AUDIENCE.SELLER, provider: "google" },
+    );
     const trimmedName = name.trim();
     const normalizedPhone = PhoneUtil.normalizePhone(phone);
 
