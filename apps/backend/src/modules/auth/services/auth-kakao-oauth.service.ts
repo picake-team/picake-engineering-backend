@@ -37,6 +37,7 @@ import {
 } from "@apps/backend/modules/auth/utils/kakao-signup.util";
 import { Prisma, TermsType } from "@apps/backend/infra/database/prisma/generated/client";
 import { ExternalApiErrorUtil } from "@apps/backend/common/utils/external-api-error.util";
+import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
 
 @Injectable()
@@ -242,11 +243,28 @@ export class AuthKakaoOauthService {
     try {
       const res = await this.httpClient.get("https://kapi.kakao.com/v2/user/service_terms", {
         headers: { Authorization: `Bearer ${accessToken}` },
+        // 새 손님 로그인을 오래 붙잡지 않는다(실패하면 가입 화면에서 약관을 받으면 된다)
+        timeout: 3000,
       });
-      return res.status === 200 ? parseKakaoAgreedServiceTerms(res.data) : [];
-    } catch {
+      if (res.status === 200) return parseKakaoAgreedServiceTerms(res.data);
+      this.reportServiceTermsFailure(new Error(`kakao service_terms ${res.status}`), res.status);
+      return [];
+    } catch (error) {
+      this.reportServiceTermsFailure(error);
       return [];
     }
+  }
+
+  /** 간편가입 설정이 어긋나면 조용히 약관 체크로 돌아가므로, 하루 한 번만 알린다 */
+  private reportServiceTermsFailure(error: unknown, status?: number) {
+    SentryUtil.captureExceptionThrottled(
+      "kakao-service-terms",
+      24 * 60 * 60 * 1000,
+      error,
+      "warning",
+      { module: "auth-kakao-oauth", operation: "service-terms" },
+      { status },
+    );
   }
 
   /** 가입 때 쓸 휴대폰 번호 — "맞아요"면 가입표의 카카오 번호(문자 인증 없음), 아니면 화면이 보낸 번호(문자 인증 필요) */
@@ -410,6 +428,18 @@ export class AuthKakaoOauthService {
         email: maskLoginEmail(existingPhone.googleEmail),
       });
     }
+    if (existingPhone?.appleId) {
+      throw new ConflictException({
+        message: AUTH_ERROR_MESSAGES.PHONE_APPLE_ACCOUNT_EXISTS,
+        name: maskDisplayNameForPrivacy(existingPhone.name),
+        phone: PhoneUtil.maskPhone(existingPhone.phone),
+        email: maskLoginEmail(existingPhone.appleEmail),
+      });
+    }
+    // 소셜 연결이 없는 계정(심사용 등)이 번호를 쓰고 있어도 500이 아니라 409
+    if (existingPhone) {
+      throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
+    }
 
     return await this.prisma.$transaction(async (tx) => {
       const now = new Date();
@@ -501,6 +531,10 @@ export class AuthKakaoOauthService {
         phone: PhoneUtil.maskPhone(existingPhone.phone),
         email: maskLoginEmail(existingPhone.googleEmail),
       });
+    }
+    // 소셜 연결이 없는 계정(심사용 등)이 번호를 쓰고 있어도 500이 아니라 409
+    if (existingPhone) {
+      throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
     }
 
     const result = await this.prisma.$transaction(async (tx) => {

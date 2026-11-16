@@ -296,8 +296,8 @@ export class AuthAppleOauthService {
 
   /**
    * 애플 회원가입(구매자) — 휴대폰 `APPLE_REGISTRATION` 인증 완료 후에만 진행.
-   * 로그인과 별개 호출이라 여기서도 code 교환을 다시 하지 않고, 프론트가 로그인 실패 응답으로 받은
-   * `appleId`/`appleEmail`을 그대로 전달받습니다 — `refresh_token`은 가입 완료 후 최초 로그인 시 저장됩니다.
+   * 로그인과 별개 호출이라 여기서도 code 교환을 다시 하지 않고, 로그인 때 서버가 확인한 `appleId`·`appleEmail`이 든
+   * 가입표(registerToken)로만 가입한다 — `refresh_token`은 가입 완료 후 최초 로그인 시 저장됩니다.
    * @throws ConflictException 이미 다른 애플과 연결된 번호 / 동일 번호 비애플 계정 / 이미 존재하는 appleId
    */
   async consumerAppleRegisterWithPhone(appleRegisterDto: AppleRegisterRequestDto) {

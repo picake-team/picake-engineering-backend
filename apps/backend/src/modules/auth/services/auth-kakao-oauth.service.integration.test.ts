@@ -1,7 +1,7 @@
 import type { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import { randomUUID } from "crypto";
 
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { describe, expect, it, vi } from "vitest";
 
@@ -13,6 +13,7 @@ import type { RegisterTicketPayload } from "@apps/backend/modules/auth/types/aut
 import { JwtUtil } from "@apps/backend/modules/auth/utils/jwt.util";
 import type { TermsService } from "@apps/backend/modules/terms/terms.service";
 import { getTestPrisma } from "@apps/backend/test/integration/db";
+import { createTestConsumer } from "@apps/backend/test/integration/factories";
 
 /**
  * 카카오 한 번에 가입(기획 I-59 B, 2026-11-16) — 실제 DB로.
@@ -207,5 +208,43 @@ describe("카카오 한 번에 가입 (integration)", () => {
     expect(authPhoneService.checkPhoneVerificationStatus).not.toHaveBeenCalled();
     const recorded = termsService.recordSellerAgreementsInTransaction.mock.calls[0][2] as string[];
     expect(recorded.sort()).toEqual(docIds.sort());
+  });
+
+  // 2026-11-16 검토: 애플로 가입한 번호면 카카오 가입이 500(번호 중복 DB 오류)이었다 — 애플 가입처럼 409로 알려 준다
+  it("애플로 가입한 번호로 카카오 가입하면 409(이미 등록된 애플 계정)", async () => {
+    const prisma = getTestPrisma();
+    await createTestConsumer(prisma, {
+      phone: "01044445555",
+      appleId: `apple-${randomUUID()}`,
+      appleEmail: "apple@privaterelay.appleid.com",
+    } as any);
+    const { service } = buildService();
+
+    await expect(
+      service.consumerKakaoRegisterWithPhone({
+        registerToken: await ticket({ phone: "01044445555", terms: CONSUMER_TAGS }),
+        useTicketPhone: true,
+        name: "애플번호",
+      } as KakaoRegisterRequestDto),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        message: AUTH_ERROR_MESSAGES.PHONE_APPLE_ACCOUNT_EXISTS,
+      }),
+    });
+    expect(await prisma.consumer.count({ where: { phone: "01044445555" } })).toBe(1);
+  });
+
+  it("소셜 연결이 없는 계정의 번호여도 500이 아니라 409", async () => {
+    const prisma = getTestPrisma();
+    await createTestConsumer(prisma, { phone: "01066667777" } as any);
+    const { service } = buildService();
+
+    await expect(
+      service.consumerKakaoRegisterWithPhone({
+        registerToken: await ticket({ phone: "01066667777", terms: CONSUMER_TAGS }),
+        useTicketPhone: true,
+        name: "그냥번호",
+      } as KakaoRegisterRequestDto),
+    ).rejects.toThrow(ConflictException);
   });
 });

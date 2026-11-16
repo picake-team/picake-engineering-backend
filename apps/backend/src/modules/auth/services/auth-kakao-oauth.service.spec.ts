@@ -144,10 +144,10 @@ describe("AuthKakaoOauthService.consumerKakaoLoginWithCode", () => {
             status: 200,
             data: {
               service_terms: [
-                { tag: "picake_c_tos", agreed: true },
-                { tag: "picake_c_privacy", agreed: true },
-                { tag: "picake_c_third_party", agreed: true },
-                { tag: "picake_s_tos", agreed: true },
+                { tag: "picake_c_tos", agreed: true, agreed_at: new Date().toISOString() },
+                { tag: "picake_c_privacy", agreed: true, agreed_at: new Date().toISOString() },
+                { tag: "picake_c_third_party", agreed: true, agreed_at: new Date().toISOString() },
+                { tag: "picake_s_tos", agreed: true, agreed_at: new Date().toISOString() },
               ],
             },
           }
