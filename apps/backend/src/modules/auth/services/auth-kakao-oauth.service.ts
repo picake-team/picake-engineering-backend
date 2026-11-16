@@ -28,6 +28,14 @@ import {
   KakaoRegisterRequestDto,
 } from "@apps/backend/modules/auth/dto/auth-kakao-oauth.dto";
 import { buildInitialNickname } from "@apps/backend/modules/auth/utils/register-nickname.util";
+import {
+  filterKakaoTermsTags,
+  kakaoNameToDisplay,
+  kakaoPhoneToLocal,
+  parseKakaoAgreedServiceTerms,
+  resolveKakaoAgreedTerms,
+} from "@apps/backend/modules/auth/utils/kakao-signup.util";
+import { Prisma, TermsType } from "@apps/backend/infra/database/prisma/generated/client";
 import { ExternalApiErrorUtil } from "@apps/backend/common/utils/external-api-error.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
 
@@ -173,7 +181,11 @@ export class AuthKakaoOauthService {
         userInfo: {
           kakaoId,
           kakaoEmail,
+          // 동의항목(전화번호·이름)을 받았을 때만 들어 있다 — 가입이 필요할 때 가입표에 담는다
+          phone: kakaoPhoneToLocal(userInfo?.kakao_account?.phone_number),
+          name: kakaoNameToDisplay(userInfo?.kakao_account?.name),
         },
+        accessToken,
       };
     } catch (error: any) {
       if (error instanceof BadRequestException) {
@@ -199,14 +211,21 @@ export class AuthKakaoOauthService {
    */
   private async buildRegisterRequiredError(
     aud: AudienceConst,
-    kakaoId: string,
-    kakaoEmail: string,
+    kakaoUserInfo: KakaoUserInfo,
   ): Promise<BadRequestException> {
+    const { kakaoId, kakaoEmail, phone, name } = kakaoUserInfo.userInfo;
+    const terms = filterKakaoTermsTags(
+      aud,
+      await this.fetchAgreedServiceTerms(kakaoUserInfo.accessToken),
+    );
     const registerToken = await this.jwtUtil.generateRegisterTicket({
       aud,
       provider: "kakao",
       providerId: kakaoId,
       email: kakaoEmail,
+      phone,
+      name,
+      terms,
     });
     return new BadRequestException({
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
@@ -214,9 +233,52 @@ export class AuthKakaoOauthService {
     });
   }
 
+  /**
+   * 카카오 간편가입에서 동의한 약관 태그(카카오싱크가 켜진 앱에서만 있다).
+   * 실패하거나 모르는 응답이면 빈 목록 — 가입 화면이 지금처럼 약관 체크를 받으니 가입은 막히지 않는다.
+   */
+  private async fetchAgreedServiceTerms(accessToken: string | undefined): Promise<string[]> {
+    if (!accessToken) return [];
+    try {
+      const res = await this.httpClient.get("https://kapi.kakao.com/v2/user/service_terms", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      return res.status === 200 ? parseKakaoAgreedServiceTerms(res.data) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** 가입 때 쓸 휴대폰 번호 — "맞아요"면 가입표의 카카오 번호(문자 인증 없음), 아니면 화면이 보낸 번호(문자 인증 필요) */
+  private resolveRegisterPhone(dto: KakaoRegisterRequestDto, ticket: { phone?: string }): string {
+    if (dto.useTicketPhone === true) {
+      if (!ticket.phone) {
+        throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED);
+      }
+      return ticket.phone;
+    }
+    if (!dto.phone) {
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED);
+    }
+    return PhoneUtil.normalizePhone(dto.phone);
+  }
+
+  /** 카카오에서 동의한 약관 종류의 지금 활성 버전 — 동의 이력으로 남긴다 */
+  private async activeTermsDocumentIds(
+    tx: Prisma.TransactionClient,
+    types: TermsType[],
+  ): Promise<string[]> {
+    if (types.length === 0) return [];
+    const docs = await tx.termsDocument.findMany({
+      where: { type: { in: types }, isActive: true },
+      select: { id: true },
+    });
+    return docs.map((d) => d.id);
+  }
+
   private async kakaoLogin(kakaoUserInfo: KakaoUserInfo) {
     const {
-      userInfo: { kakaoId, kakaoEmail },
+      userInfo: { kakaoId },
     } = kakaoUserInfo;
 
     const consumer = await this.prisma.consumer.findUnique({
@@ -224,7 +286,7 @@ export class AuthKakaoOauthService {
     });
 
     if (!consumer) {
-      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, kakaoId, kakaoEmail);
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, kakaoUserInfo);
     }
 
     // 관리자 비활성 계정은 로그인·재가입 모두 불가 (계정·데이터 유지)
@@ -233,7 +295,7 @@ export class AuthKakaoOauthService {
     }
 
     if (!consumer.phone || !consumer.isPhoneVerified) {
-      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, kakaoId, kakaoEmail);
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, kakaoUserInfo);
     }
     return await this.prisma.$transaction(async (tx) => {
       const tokenPair = await this.jwtUtil.generateTokenPair({
@@ -250,7 +312,7 @@ export class AuthKakaoOauthService {
 
   private async kakaoLoginSeller(kakaoUserInfo: KakaoUserInfo) {
     const {
-      userInfo: { kakaoId, kakaoEmail },
+      userInfo: { kakaoId },
     } = kakaoUserInfo;
 
     if (!kakaoId) {
@@ -264,7 +326,7 @@ export class AuthKakaoOauthService {
     });
 
     if (!seller) {
-      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, kakaoId, kakaoEmail);
+      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, kakaoUserInfo);
     }
 
     // 관리자 비활성 계정은 로그인·재가입 모두 불가 (계정·데이터 유지)
@@ -273,7 +335,7 @@ export class AuthKakaoOauthService {
     }
 
     if (!seller.phone || !seller.isPhoneVerified) {
-      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, kakaoId, kakaoEmail);
+      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, kakaoUserInfo);
     }
     return await this.prisma.$transaction(async (tx) => {
       const tokenPair = await this.jwtUtil.generateTokenPair({
@@ -289,16 +351,20 @@ export class AuthKakaoOauthService {
   }
 
   async consumerKakaoRegisterWithPhone(kakaoRegisterDto: KakaoRegisterRequestDto) {
-    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = kakaoRegisterDto;
-    const { providerId: kakaoId, email: kakaoEmail } = await this.jwtUtil.verifyRegisterTicket(
-      kakaoRegisterDto.registerToken,
-      { aud: AUDIENCE.CONSUMER, provider: "kakao" },
-    );
+    const { name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = kakaoRegisterDto;
+    const ticket = await this.jwtUtil.verifyRegisterTicket(kakaoRegisterDto.registerToken, {
+      aud: AUDIENCE.CONSUMER,
+      provider: "kakao",
+    });
+    const { providerId: kakaoId, email: kakaoEmail } = ticket;
     const trimmedName = name.trim();
-    const normalizedPhone = PhoneUtil.normalizePhone(phone);
+    // 카카오가 준 번호를 "맞아요"로 확인했으면 그 번호(문자 인증 없음), 아니면 문자로 인증한 번호
+    const normalizedPhone = this.resolveRegisterPhone(kakaoRegisterDto, ticket);
+    // 카카오 간편가입에서 필수 약관에 모두 동의했으면 그 동의를 쓴다(화면 약관 체크 없이)
+    const kakaoTerms = resolveKakaoAgreedTerms(AUDIENCE.CONSUMER, ticket.terms);
 
     // 1. 필수 약관 동의 여부 검증
-    if (!agreedToTerms || !agreedToPrivacy || !agreedToThirdParty) {
+    if (!kakaoTerms.allRequired && (!agreedToTerms || !agreedToPrivacy || !agreedToThirdParty)) {
       throw new BadRequestException(AUTH_ERROR_MESSAGES.REQUIRED_TERMS_NOT_AGREED);
     }
 
@@ -310,11 +376,13 @@ export class AuthKakaoOauthService {
       throw new ConflictException(AUTH_ERROR_MESSAGES.KAKAO_ID_ALREADY_EXISTS);
     }
 
-    const isPhoneVerified = await this.authPhoneService.checkPhoneVerificationStatus(
-      normalizedPhone,
-      AUDIENCE.CONSUMER,
-      PhoneVerificationPurpose.KAKAO_REGISTRATION,
-    );
+    const isPhoneVerified =
+      kakaoRegisterDto.useTicketPhone === true ||
+      (await this.authPhoneService.checkPhoneVerificationStatus(
+        normalizedPhone,
+        AUDIENCE.CONSUMER,
+        PhoneVerificationPurpose.KAKAO_REGISTRATION,
+      ));
     if (!isPhoneVerified) {
       throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED);
     }
@@ -361,7 +429,9 @@ export class AuthKakaoOauthService {
       await this.termsService.recordConsumerAgreementsInTransaction(
         tx,
         row.id,
-        kakaoRegisterDto.termsDocumentIds ?? [],
+        kakaoTerms.allRequired
+          ? await this.activeTermsDocumentIds(tx, kakaoTerms.types)
+          : (kakaoRegisterDto.termsDocumentIds ?? []),
       );
 
       const tokenPair = await this.jwtUtil.generateTokenPair({
@@ -373,16 +443,20 @@ export class AuthKakaoOauthService {
   }
 
   async sellerKakaoRegisterWithPhone(kakaoRegisterDto: KakaoRegisterRequestDto) {
-    const { phone, name, agreedToTerms, agreedToPrivacy } = kakaoRegisterDto;
-    const { providerId: kakaoId, email: kakaoEmail } = await this.jwtUtil.verifyRegisterTicket(
-      kakaoRegisterDto.registerToken,
-      { aud: AUDIENCE.SELLER, provider: "kakao" },
-    );
+    const { name, agreedToTerms, agreedToPrivacy } = kakaoRegisterDto;
+    const ticket = await this.jwtUtil.verifyRegisterTicket(kakaoRegisterDto.registerToken, {
+      aud: AUDIENCE.SELLER,
+      provider: "kakao",
+    });
+    const { providerId: kakaoId, email: kakaoEmail } = ticket;
     const trimmedName = name.trim();
-    const normalizedPhone = PhoneUtil.normalizePhone(phone);
+    // 카카오가 준 번호를 "맞아요"로 확인했으면 그 번호(문자 인증 없음), 아니면 문자로 인증한 번호
+    const normalizedPhone = this.resolveRegisterPhone(kakaoRegisterDto, ticket);
+    // 카카오 간편가입에서 필수 약관에 모두 동의했으면 그 동의를 쓴다(화면 약관 체크 없이)
+    const kakaoTerms = resolveKakaoAgreedTerms(AUDIENCE.SELLER, ticket.terms);
 
     // 1. 필수 약관 동의 여부 검증
-    if (!agreedToTerms || !agreedToPrivacy) {
+    if (!kakaoTerms.allRequired && (!agreedToTerms || !agreedToPrivacy)) {
       throw new BadRequestException(AUTH_ERROR_MESSAGES.REQUIRED_TERMS_NOT_AGREED);
     }
 
@@ -394,11 +468,13 @@ export class AuthKakaoOauthService {
       throw new ConflictException(AUTH_ERROR_MESSAGES.KAKAO_ID_ALREADY_EXISTS);
     }
 
-    const isPhoneVerified = await this.authPhoneService.checkPhoneVerificationStatus(
-      normalizedPhone,
-      AUDIENCE.SELLER,
-      PhoneVerificationPurpose.KAKAO_REGISTRATION,
-    );
+    const isPhoneVerified =
+      kakaoRegisterDto.useTicketPhone === true ||
+      (await this.authPhoneService.checkPhoneVerificationStatus(
+        normalizedPhone,
+        AUDIENCE.SELLER,
+        PhoneVerificationPurpose.KAKAO_REGISTRATION,
+      ));
     if (!isPhoneVerified) {
       throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED);
     }
@@ -446,7 +522,9 @@ export class AuthKakaoOauthService {
       await this.termsService.recordSellerAgreementsInTransaction(
         tx,
         row.id,
-        kakaoRegisterDto.termsDocumentIds ?? [],
+        kakaoTerms.allRequired
+          ? await this.activeTermsDocumentIds(tx, kakaoTerms.types)
+          : (kakaoRegisterDto.termsDocumentIds ?? []),
       );
 
       const tokenPair = await this.jwtUtil.generateTokenPair({

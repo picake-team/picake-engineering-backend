@@ -98,6 +98,9 @@ export class JwtUtil {
         provider: payload.provider,
         providerId: payload.providerId,
         email: payload.email,
+        ...(payload.phone ? { phone: payload.phone } : {}),
+        ...(payload.name ? { name: payload.name } : {}),
+        ...(payload.terms && payload.terms.length > 0 ? { terms: payload.terms } : {}),
       },
       { expiresIn: JWT_EXPIRATION.REGISTER_TICKET },
     );
@@ -110,14 +113,14 @@ export class JwtUtil {
   async verifyRegisterTicket(
     token: string,
     expected: Pick<RegisterTicketPayload, "aud" | "provider">,
-  ): Promise<Pick<RegisterTicketPayload, "providerId" | "email">> {
+  ): Promise<Omit<RegisterTicketPayload, "aud" | "provider">> {
     let payload: Partial<RegisterTicketPayload> & { type?: string };
     try {
       payload = await this.jwtService.verifyAsync(token);
     } catch {
       throw new BadRequestException(AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID);
     }
-    const { type, aud, provider, providerId, email } = payload ?? {};
+    const { type, aud, provider, providerId, email, phone, name, terms } = payload ?? {};
     if (
       type !== TOKEN_TYPES.REGISTER ||
       aud !== expected.aud ||
@@ -129,7 +132,14 @@ export class JwtUtil {
     ) {
       throw new BadRequestException(AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID);
     }
-    return { providerId, email };
+    return {
+      providerId,
+      email,
+      // 서버가 서명한 값이라 믿되, 모양이 어긋나면 없는 것으로(가입 화면이 지금처럼 받는다)
+      ...(typeof phone === "string" && /^01\d{8,9}$/.test(phone) ? { phone } : {}),
+      ...(typeof name === "string" && name.length > 0 && name.length <= 50 ? { name } : {}),
+      ...(Array.isArray(terms) && terms.every((t) => typeof t === "string") ? { terms } : {}),
+    };
   }
 
   /**

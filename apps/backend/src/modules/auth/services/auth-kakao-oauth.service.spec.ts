@@ -133,6 +133,72 @@ describe("AuthKakaoOauthService.consumerKakaoLoginWithCode", () => {
     );
   });
 
+  it("새 손님이면 카카오가 준 전화번호·이름·간편가입 약관 동의를 가입표에 담는다(I-59 B)", async () => {
+    httpClientMock.post.mockResolvedValue({
+      data: { access_token: "kakao-access-token" },
+      status: 200,
+    });
+    httpClientMock.get.mockImplementation(async (url: string) =>
+      url.includes("service_terms")
+        ? {
+            status: 200,
+            data: {
+              service_terms: [
+                { tag: "picake_c_tos", agreed: true },
+                { tag: "picake_c_privacy", agreed: true },
+                { tag: "picake_c_third_party", agreed: true },
+                { tag: "picake_s_tos", agreed: true },
+              ],
+            },
+          }
+        : {
+            status: 200,
+            data: {
+              id: 123456,
+              kakao_account: {
+                email: "user@kakao.com",
+                phone_number: "+82 10-2222-3333",
+                name: "홍길동",
+              },
+            },
+          },
+    );
+    prismaMock.consumer.findUnique.mockResolvedValue(null);
+
+    await expect(service.consumerKakaoLoginWithCode({ code: "auth-code" })).rejects.toMatchObject({
+      response: expect.objectContaining({ registerToken: "test-register-ticket" }),
+    });
+    expect(jwtUtilMock.generateRegisterTicket).toHaveBeenCalledWith({
+      aud: "consumer",
+      provider: "kakao",
+      providerId: "123456",
+      email: "user@kakao.com",
+      phone: "01022223333",
+      name: "홍길동",
+      // 사장님 약관 태그는 빠진다
+      terms: ["picake_c_tos", "picake_c_privacy", "picake_c_third_party"],
+    });
+  });
+
+  it("간편가입 약관 조회가 실패해도 가입표는 나온다(약관은 가입 화면에서)", async () => {
+    httpClientMock.post.mockResolvedValue({
+      data: { access_token: "kakao-access-token" },
+      status: 200,
+    });
+    httpClientMock.get.mockImplementation(async (url: string) => {
+      if (url.includes("service_terms")) throw new Error("KOE");
+      return { status: 200, data: { id: 123456, kakao_account: { email: "user@kakao.com" } } };
+    });
+    prismaMock.consumer.findUnique.mockResolvedValue(null);
+
+    await expect(service.consumerKakaoLoginWithCode({ code: "auth-code" })).rejects.toMatchObject({
+      response: expect.objectContaining({ registerToken: "test-register-ticket" }),
+    });
+    expect(jwtUtilMock.generateRegisterTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ terms: [], phone: undefined, name: undefined }),
+    );
+  });
+
   it("비활성화된 계정은 로그인이 거부된다", async () => {
     mockSuccessfulTokenExchange();
     prismaMock.consumer.findUnique.mockResolvedValue({

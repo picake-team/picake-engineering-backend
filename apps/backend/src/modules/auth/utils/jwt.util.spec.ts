@@ -85,6 +85,28 @@ describe("JwtUtil", () => {
       );
     });
 
+    it("카카오 전화번호·이름·약관 동의도 가입표에 담겨 그대로 나온다", async () => {
+      const token = await jwtUtil.generateRegisterTicket({
+        ...ticket,
+        phone: "01012345678",
+        name: "홍길동",
+        terms: ["picake_c_tos"],
+      });
+      await expect(jwtUtil.verifyRegisterTicket(token, expected)).resolves.toEqual({
+        providerId: "kakao-123",
+        email: "user@kakao.com",
+        phone: "01012345678",
+        name: "홍길동",
+        terms: ["picake_c_tos"],
+      });
+    });
+
+    it("가입표의 전화번호 모양이 어긋나면 없는 것으로 본다(문자 인증으로)", async () => {
+      const odd = await jwtService.signAsync({ type: "register", ...ticket, phone: "+1 555" });
+      const out = await jwtUtil.verifyRegisterTicket(odd, expected);
+      expect(out.phone).toBeUndefined();
+    });
+
     it("로그인 출입증(액세스 토큰)은 가입표로 쓸 수 없다", async () => {
       const access = await jwtUtil.generateAccessToken({
         sub: "kakao-123",
