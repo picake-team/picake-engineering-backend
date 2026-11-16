@@ -31,6 +31,20 @@ export function isPaymentExpiredCancelSource(
   );
 }
 
+/**
+ * 가게가 픽업 날이 지나도록 확인하지 않은 예약신청의 자동 취소(2026-11-16).
+ * 입금대기 만료와 같은 자동 경로지만 이전 상태가 예약신청이다.
+ */
+export function isReservationExpiredCancelSource(
+  ctx: Pick<OrderStatusTransitionPayload, "fromStatus" | "source">,
+): boolean {
+  return (
+    ctx.fromStatus === OrderStatus.RESERVATION_REQUESTED &&
+    (ctx.source === ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH ||
+      ctx.source === ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_SYNC)
+  );
+}
+
 /** 판매자 주문 상태 변경 */
 export function isSellerStatusUpdate(ctx: Pick<OrderStatusTransitionPayload, "source">): boolean {
   return ctx.source === ORDER_STATUS_TRANSITION_SOURCE.SELLER_STATUS_UPDATE;

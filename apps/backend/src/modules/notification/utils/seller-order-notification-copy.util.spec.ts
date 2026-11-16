@@ -85,6 +85,39 @@ describe("buildSellerOrderNotificationCopy", () => {
     });
   });
 
+  it("가게가 확인하지 않은 예약신청 자동 취소 문구(배치·조회 모두), 손님이 취소하면 그 문구", () => {
+    for (const source of [
+      ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH,
+      ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_SYNC,
+    ]) {
+      expect(
+        buildSellerOrderNotificationCopy({
+          fromStatus: OrderStatus.RESERVATION_REQUESTED,
+          toStatus: OrderStatus.CANCEL_COMPLETED,
+          source,
+        }),
+      ).toEqual({
+        title: "확인하지 않은 예약이 취소됐어요",
+        body: "픽업 날이 지나 자동으로 취소됐어요.",
+      });
+    }
+    expect(
+      buildSellerOrderNotificationCopy({
+        fromStatus: OrderStatus.RESERVATION_REQUESTED,
+        toStatus: OrderStatus.CANCEL_COMPLETED,
+        source: ORDER_STATUS_TRANSITION_SOURCE.USER_ACTION,
+      })?.title,
+    ).toBe("손님이 주문을 취소했어요");
+    // 입금대기 만료는 그대로
+    expect(
+      buildSellerOrderNotificationCopy({
+        fromStatus: OrderStatus.PAYMENT_PENDING,
+        toStatus: OrderStatus.CANCEL_COMPLETED,
+        source: ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH,
+      })?.title,
+    ).toBe("입금 기한이 지나 주문이 취소됐어요");
+  });
+
   it("입금완료 문구", () => {
     expect(
       buildSellerOrderNotificationCopy({

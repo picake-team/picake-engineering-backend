@@ -78,6 +78,37 @@ export function isPaymentPendingExpired(now: Date, input: PaymentPendingExpiryIn
   return now.getTime() >= resolvePaymentPendingDeadline(input).getTime();
 }
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 가게가 확인하지 않은 예약신청이 자동 취소되는 시각 — 픽업 날 다음 자정(한국 시간).
+ * 픽업 시각이 아니라 그날 끝까지 기다리는 건, 그날 찾아온 손님을 사장님이 늦게라도 받을 수 있게.
+ */
+export function reservationRequestExpiresAt(pickupDate: Date): Date {
+  const kst = new Date(pickupDate.getTime() + KST_OFFSET_MS);
+  const nextKstMidnightUtc =
+    Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() + 1) - KST_OFFSET_MS;
+  return new Date(nextKstMidnightUtc);
+}
+
+/** 예약신청(가게 미확인)이 자동 취소될 때가 됐는지 */
+export function isReservationRequestExpired(pickupDate: Date, now: Date): boolean {
+  return now.getTime() >= reservationRequestExpiresAt(pickupDate).getTime();
+}
+
+/**
+ * 자동 취소를 손님·사장님에게 알릴지. 만료된 지 하루가 넘은 건(처음 배포할 때 쌓여 있던 옛 주문 등)은
+ * 알림 없이 조용히 취소한다 — 몇 달 전 주문 알림이 한꺼번에 가지 않게.
+ */
+export const RESERVATION_EXPIRY_NOTIFY_WINDOW_MS = DAY_MS;
+export function shouldNotifyReservationExpiry(pickupDate: Date, now: Date): boolean {
+  return (
+    now.getTime() - reservationRequestExpiresAt(pickupDate).getTime() <=
+    RESERVATION_EXPIRY_NOTIFY_WINDOW_MS
+  );
+}
+
 /**
  * 픽업대기 자동 전환 시점 도달 여부 확인
  */
