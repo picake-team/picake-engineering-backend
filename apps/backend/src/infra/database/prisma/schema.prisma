@@ -697,14 +697,7 @@ model Store {
   naverPlaceConnectedAt DateTime? @map("naver_place_connected_at") // 연결한 시각
 
   // 비즈니스 필드 - 영업 캘린더 (판매자 설정, Asia/Seoul 기준)
-  /**
-   * /**
-   * /**
-   * /**
-   * /**
-   * /**
-   * /** 정기 휴무 요일 (0=일 … 6=토, 프론트 Date.getDay()와 동일)
-   */
+  /// 정기 휴무 요일 (0=일 … 6=토, 프론트 Date.getDay()와 동일)
   weeklyClosedWeekdays      Int[]  @default([]) @map("weekly_closed_weekdays")
   /**
    * 표준 영업 시작 HH:mm (30분 단위). 00:00+00:00이면 하루 전체 영업
