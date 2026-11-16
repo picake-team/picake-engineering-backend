@@ -13,6 +13,7 @@ import jwksClient from "jwks-rsa";
 import {
   AUTH_ERROR_MESSAGES,
   AUDIENCE,
+  AudienceConst,
   OAUTH_REDIRECT_PATHS,
   APPLE_PRIMARY_APP_ID,
   APPLE_ISSUER,
@@ -232,6 +233,30 @@ export class AuthAppleOauthService {
   }
 
   /**
+   * 가입이 필요할 때(400 PHONE_VERIFICATION_REQUIRED) 화면에 줄 응답.
+   * 서버가 애플에 직접 확인한 ID·이메일을 가입표(registerToken, 30분)에 담는다 — 가입 API는 이 가입표로만 가입시킨다.
+   * appleId·appleEmail은 옛 화면 호환으로 같이 준다.
+   */
+  private async buildRegisterRequiredError(
+    aud: AudienceConst,
+    appleId: string,
+    appleEmail: string,
+  ): Promise<BadRequestException> {
+    const registerToken = await this.jwtUtil.generateRegisterTicket({
+      aud,
+      provider: "apple",
+      providerId: appleId,
+      email: appleEmail,
+    });
+    return new BadRequestException({
+      message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
+      appleId,
+      appleEmail,
+      registerToken,
+    });
+  }
+
+  /**
    * 애플 로그인 처리 (구매자)
    */
   async appleLogin(appleUserInfo: AppleUserInfo) {
@@ -243,11 +268,7 @@ export class AuthAppleOauthService {
     const consumer = await this.prisma.consumer.findUnique({ where: { appleId } });
 
     if (!consumer) {
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        appleId,
-        appleEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, appleId, appleEmail);
     }
 
     if (!consumer.isActive) {
@@ -255,11 +276,7 @@ export class AuthAppleOauthService {
     }
 
     if (!consumer.phone || !consumer.isPhoneVerified) {
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        appleId,
-        appleEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, appleId, appleEmail);
     }
 
     return await this.prisma.$transaction(async (tx) => {
@@ -286,8 +303,15 @@ export class AuthAppleOauthService {
    * @throws ConflictException 이미 다른 애플과 연결된 번호 / 동일 번호 비애플 계정 / 이미 존재하는 appleId
    */
   async consumerAppleRegisterWithPhone(appleRegisterDto: AppleRegisterRequestDto) {
-    const { appleId, appleEmail, phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } =
-      appleRegisterDto;
+    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = appleRegisterDto;
+    const { providerId: appleId, email: appleEmail } = await this.jwtUtil.resolveRegisterIdentity(
+      {
+        registerToken: appleRegisterDto.registerToken,
+        legacyProviderId: appleRegisterDto.appleId,
+        legacyEmail: appleRegisterDto.appleEmail,
+      },
+      { aud: AUDIENCE.CONSUMER, provider: "apple" },
+    );
     const trimmedName = name.trim();
     const normalizedPhone = PhoneUtil.normalizePhone(phone);
 

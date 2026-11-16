@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsBoolean,
   IsOptional,
+  ValidateIf,
   IsArray,
   MinLength,
   MaxLength,
@@ -33,20 +34,33 @@ export class AppleLoginRequestDto {
  */
 export class AppleRegisterRequestDto {
   @ApiProperty({
-    description: SWAGGER_DESCRIPTIONS.APPLE_ID,
-    example: SWAGGER_EXAMPLES.CONSUMER_DATA.appleId,
+    description: SWAGGER_DESCRIPTIONS.REGISTER_TOKEN,
+    example: SWAGGER_EXAMPLES.REGISTER_TOKEN,
+    required: false,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  appleId: string;
+  registerToken?: string;
 
   @ApiProperty({
-    description: SWAGGER_DESCRIPTIONS.APPLE_EMAIL,
-    example: SWAGGER_EXAMPLES.CONSUMER_DATA.appleEmail,
+    description: `${SWAGGER_DESCRIPTIONS.APPLE_ID} — ${SWAGGER_DESCRIPTIONS.LEGACY_SOCIAL_ID}`,
+    example: SWAGGER_EXAMPLES.CONSUMER_DATA.appleId,
+    required: false,
   })
+  @ValidateIf((o) => !o.registerToken)
   @IsNotEmpty()
   @IsString()
-  appleEmail: string;
+  appleId?: string;
+
+  @ApiProperty({
+    description: `${SWAGGER_DESCRIPTIONS.APPLE_EMAIL} — ${SWAGGER_DESCRIPTIONS.LEGACY_SOCIAL_ID}`,
+    example: SWAGGER_EXAMPLES.CONSUMER_DATA.appleEmail,
+    required: false,
+  })
+  @ValidateIf((o) => !o.registerToken)
+  @IsNotEmpty()
+  @IsString()
+  appleEmail?: string;
 
   @ApiProperty({
     description: SWAGGER_DESCRIPTIONS.DISPLAY_NAME,

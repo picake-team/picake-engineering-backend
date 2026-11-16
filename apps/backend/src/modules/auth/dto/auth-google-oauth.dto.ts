@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsBoolean,
   IsOptional,
+  ValidateIf,
   IsArray,
   MinLength,
   MaxLength,
@@ -33,20 +34,33 @@ export class GoogleLoginRequestDto {
  */
 export class GoogleRegisterRequestDto {
   @ApiProperty({
-    description: SWAGGER_DESCRIPTIONS.GOOGLE_ID,
-    example: SWAGGER_EXAMPLES.CONSUMER_DATA.googleId,
+    description: SWAGGER_DESCRIPTIONS.REGISTER_TOKEN,
+    example: SWAGGER_EXAMPLES.REGISTER_TOKEN,
+    required: false,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  googleId: string;
+  registerToken?: string;
 
   @ApiProperty({
-    description: SWAGGER_DESCRIPTIONS.GOOGLE_EMAIL,
-    example: SWAGGER_EXAMPLES.CONSUMER_DATA.googleEmail,
+    description: `${SWAGGER_DESCRIPTIONS.GOOGLE_ID} — ${SWAGGER_DESCRIPTIONS.LEGACY_SOCIAL_ID}`,
+    example: SWAGGER_EXAMPLES.CONSUMER_DATA.googleId,
+    required: false,
   })
+  @ValidateIf((o) => !o.registerToken)
   @IsNotEmpty()
   @IsString()
-  googleEmail: string;
+  googleId?: string;
+
+  @ApiProperty({
+    description: `${SWAGGER_DESCRIPTIONS.GOOGLE_EMAIL} — ${SWAGGER_DESCRIPTIONS.LEGACY_SOCIAL_ID}`,
+    example: SWAGGER_EXAMPLES.CONSUMER_DATA.googleEmail,
+    required: false,
+  })
+  @ValidateIf((o) => !o.registerToken)
+  @IsNotEmpty()
+  @IsString()
+  googleEmail?: string;
 
   @ApiProperty({
     description: SWAGGER_DESCRIPTIONS.DISPLAY_NAME,

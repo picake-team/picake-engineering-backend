@@ -27,7 +27,7 @@ vi.mock("jsonwebtoken", () => ({
 describe("AuthAppleOauthService.consumerAppleLoginWithCode", () => {
   const httpClientMock = { post: vi.fn(), get: vi.fn() };
   const prismaMock = mockDeep<PrismaService>();
-  const jwtUtilMock = { generateTokenPair: vi.fn() };
+  const jwtUtilMock = { generateTokenPair: vi.fn(), generateRegisterTicket: vi.fn() };
   const tokenEncryptionUtilMock = {
     encrypt: vi.fn((plain: string) => `encrypted:${plain}`),
     decrypt: vi.fn((cipher: string) => cipher.replace("encrypted:", "")),
@@ -39,6 +39,7 @@ describe("AuthAppleOauthService.consumerAppleLoginWithCode", () => {
     vi.clearAllMocks();
     vi.mocked(axios.create).mockReturnValue(httpClientMock as any);
     prismaMock.$transaction.mockImplementation((fn: any) => fn(prismaMock));
+    jwtUtilMock.generateRegisterTicket.mockResolvedValue("test-register-ticket");
     jwtUtilMock.generateTokenPair.mockResolvedValue({
       accessToken: "test-access-token",
       refreshToken: "test-refresh-token",
@@ -160,8 +161,13 @@ describe("AuthAppleOauthService.consumerAppleLoginWithCode", () => {
     await expect(service.consumerAppleLoginWithCode({ code: "auth-code" })).rejects.toMatchObject({
       response: expect.objectContaining({
         message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
+        registerToken: "test-register-ticket",
       }),
     });
+    // 가입표에는 서버가 애플에 확인한 값만 담는다(손님용)
+    expect(jwtUtilMock.generateRegisterTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ aud: "consumer", provider: "apple" }),
+    );
   });
 
   it("비활성화된 계정은 로그인이 거부된다", async () => {

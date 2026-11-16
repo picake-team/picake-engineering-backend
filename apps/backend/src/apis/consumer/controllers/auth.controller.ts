@@ -43,7 +43,7 @@ export class ConsumerAuthController {
   @ApiOperation({
     summary: "구글 로그인 (구매자)",
     description:
-      "프론트엔드에서 받은 Authorization Code로 구글 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 googleId와 googleEmail을 반환하며 휴대폰 인증 후 구글 회원가입 API로 해당 파라미터 값을 전달하여 회원가입을 처리해야 합니다.",
+      "프론트엔드에서 받은 Authorization Code로 구글 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 가입표 registerToken(30분, 서버가 확인한 googleId·googleEmail이 들어 있음)을 반환하며, 휴대폰 인증 후 구글 회원가입 API에 registerToken을 보내 회원가입을 처리해야 합니다. 같이 오는 googleId·googleEmail은 옛 화면 호환용입니다.",
   })
   @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(400, {
@@ -51,6 +51,7 @@ export class ConsumerAuthController {
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
       googleId: SWAGGER_EXAMPLES.CONSUMER_DATA.googleId,
       googleEmail: SWAGGER_EXAMPLES.CONSUMER_DATA.googleEmail,
+      registerToken: SWAGGER_EXAMPLES.REGISTER_TOKEN,
     },
   })
   @SwaggerResponse(400, {
@@ -94,7 +95,7 @@ export class ConsumerAuthController {
   @ApiOperation({
     summary: "카카오 로그인 (구매자)",
     description:
-      "프론트엔드에서 받은 Authorization Code로 카카오 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 kakaoId와 kakaoEmail을 반환하며 휴대폰 인증 후 카카오 회원가입 API로 해당 파라미터 값을 전달하여 회원가입을 처리해야 합니다.",
+      "프론트엔드에서 받은 Authorization Code로 카카오 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 가입표 registerToken(30분, 서버가 확인한 kakaoId·kakaoEmail이 들어 있음)을 반환하며, 휴대폰 인증 후 카카오 회원가입 API에 registerToken을 보내 회원가입을 처리해야 합니다. 같이 오는 kakaoId·kakaoEmail은 옛 화면 호환용입니다.",
   })
   @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(400, {
@@ -102,6 +103,7 @@ export class ConsumerAuthController {
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
       kakaoId: SWAGGER_EXAMPLES.KAKAO_ID,
       kakaoEmail: SWAGGER_EXAMPLES.KAKAO_EMAIL,
+      registerToken: SWAGGER_EXAMPLES.REGISTER_TOKEN,
     },
   })
   @SwaggerResponse(400, {
@@ -145,7 +147,7 @@ export class ConsumerAuthController {
   @ApiOperation({
     summary: "애플 로그인 (구매자, web-user 전용)",
     description:
-      "프론트엔드에서 받은 Authorization Code로 애플 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 appleId와 appleEmail을 반환하며 휴대폰 인증 후 애플 회원가입 API로 해당 파라미터 값을 전달하여 회원가입을 처리해야 합니다.",
+      "프론트엔드에서 받은 Authorization Code로 애플 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 가입표 registerToken(30분, 서버가 확인한 appleId·appleEmail이 들어 있음)을 반환하며, 휴대폰 인증 후 애플 회원가입 API에 registerToken을 보내 회원가입을 처리해야 합니다. 같이 오는 appleId·appleEmail은 옛 화면 호환용입니다.",
   })
   @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(400, {
@@ -153,6 +155,7 @@ export class ConsumerAuthController {
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
       appleId: SWAGGER_EXAMPLES.APPLE_ID,
       appleEmail: SWAGGER_EXAMPLES.APPLE_EMAIL,
+      registerToken: SWAGGER_EXAMPLES.REGISTER_TOKEN,
     },
   })
   @SwaggerResponse(400, {

@@ -22,6 +22,19 @@ export interface JwtVerifiedPayload extends JwtPayload {
   exp?: number;
 }
 
+/** 소셜 로그인 종류 */
+export type SocialProvider = "google" | "kakao" | "apple";
+
+/**
+ * 가입표(registerToken) 내용 — 로그인 때 서버가 소셜 서비스에 확인한 값만 담는다. 서명·검증용, HTTP DTO 아님
+ */
+export interface RegisterTicketPayload {
+  aud: AudienceConst;
+  provider: SocialProvider;
+  providerId: string;
+  email: string;
+}
+
 /**
  * Passport JWT 검증 후 `req.user` — 전략에서 DB 조회로 보강한 형태, HTTP DTO 아님
  */
@@ -29,7 +42,7 @@ export interface AuthenticatedUser extends JwtVerifiedPayload {
   id: string;
   aud: AudienceConst;
   phone?: string;
-  loginType?: "google" | "kakao" | "apple";
+  loginType?: SocialProvider;
   loginId?: string;
   /** aud === "seller" 일 때만 */
   sellerVerificationStatus?: "REGISTERED" | "BUSINESS_VERIFIED";
