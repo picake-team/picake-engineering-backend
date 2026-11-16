@@ -34,8 +34,8 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
 import { rethrowRegisterUniqueConflict } from "@apps/backend/modules/auth/utils/register-conflict.util";
 
+/** 토큰 발급·갱신·삭제(연동 해제)를 모두 받는 곳 — grant_type으로 나눈다(네이버 로그인 API 명세) */
 const NAVER_TOKEN_URL = "https://nid.naver.com/oauth2.0/token";
-const NAVER_REVOKE_URL = "https://nid.naver.com/oauth2.0/revoke";
 const NAVER_PROFILE_URL = "https://openapi.naver.com/v1/nid/me";
 
 /**
@@ -71,11 +71,13 @@ export class AuthNaverOauthService {
   ) {
     this.clientId = configService.get<string>("NAVER_CLIENT_ID")?.trim() ?? "";
     this.clientSecret = configService.get<string>("NAVER_CLIENT_SECRET")?.trim() ?? "";
-    // 사장님도 지금은 같은 네이버 앱 — 나중에 앱을 나누면 _SELLER만 넣으면 된다
-    this.clientIdSeller =
-      configService.get<string>("NAVER_CLIENT_ID_SELLER")?.trim() || this.clientId;
-    this.clientSecretSeller =
-      configService.get<string>("NAVER_CLIENT_SECRET_SELLER")?.trim() || this.clientSecret;
+    // 사장님도 지금은 같은 네이버 앱. _SELLER는 ID·SECRET이 둘 다 있을 때만 쓴다(하나만 넣으면 손님 ID + 사장님 SECRET처럼 짝이 어긋남).
+    // 앱을 나누면 네이버 회원 식별자가 앱마다 달라져 기존 네이버 사장님을 새 앱 id로 옮기는 일이 따로 필요하다(_SELLER만 넣어서는 안 됨)
+    const sellerId = configService.get<string>("NAVER_CLIENT_ID_SELLER")?.trim() ?? "";
+    const sellerSecret = configService.get<string>("NAVER_CLIENT_SECRET_SELLER")?.trim() ?? "";
+    const useSellerPair = Boolean(sellerId && sellerSecret);
+    this.clientIdSeller = useSellerPair ? sellerId : this.clientId;
+    this.clientSecretSeller = useSellerPair ? sellerSecret : this.clientSecret;
     this.revokeOnWithdraw = configService.get<string>("NODE_ENV") === "production";
     this.httpClient = axios.create({
       timeout: 30000,
@@ -167,7 +169,12 @@ export class AuthNaverOauthService {
           module: "auth-naver-oauth",
           operation: "profile",
           ...ExternalApiErrorUtil.fromResponseBody(body, profileResponse.status),
-          details: { hasNaverId: Boolean(naverId) },
+          // 네이버 프로필은 오류를 error·code가 아니라 resultcode·message로 준다
+          details: {
+            hasNaverId: Boolean(naverId),
+            resultcode: (body as { resultcode?: unknown } | undefined)?.resultcode ?? null,
+            message: (body as { message?: unknown } | undefined)?.message ?? null,
+          },
         };
         ExternalApiErrorUtil.reportFailure(
           failure,
@@ -472,8 +479,13 @@ export class AuthNaverOauthService {
 
   /**
    * 탈퇴할 때 네이버 연결을 끊는다(네이버 권장 — 서비스 탈퇴 시 연동 해제). 끊으면 네이버 "연결된 서비스"에서 빠지고,
-   * 다시 가입할 때 정보 제공 동의부터 새로 본다. 저장해 둔 갱신 토큰으로 폐기한다(짝인 접근 토큰도 같이).
-   * 상용에서만 끊는다(staging·로컬은 같은 네이버 앱이라). 실패해도 탈퇴는 그대로 진행한다(카카오·애플과 같게).
+   * 다시 가입할 때 정보 제공 동의부터 새로 본다. 상용에서만 끊는다(staging·로컬은 같은 네이버 앱이라).
+   * 실패해도 탈퇴는 그대로 진행한다(카카오·애플과 같게).
+   *
+   * 네이버 연동 해제는 **접근 토큰 삭제**(`/oauth2.0/token`, `grant_type=delete`, `service_provider=NAVER`)다.
+   * 접근 토큰은 1시간이라 저장해 둔 갱신 토큰으로 먼저 새 접근 토큰을 받고(`grant_type=refresh_token`) 그 토큰을 지운다.
+   * 성공은 본문 `result: "success"`로 본다(네이버는 실패해도 200에 error를 담기도 함). 리다이렉트는 따라가지 않는다.
+   * (11-16 검토: 처음 만든 `/oauth2.0/revoke`는 네이버에 없는 주소라 401 오류 화면이 와 끊기지 않았다)
    */
   async revoke(
     audience: AudienceConst,
@@ -491,32 +503,54 @@ export class AuthNaverOauthService {
       this.reportFailure("revoke-decrypt", {}, error);
       return;
     }
-    try {
-      const res = await this.httpClient.post(
-        NAVER_REVOKE_URL,
-        new URLSearchParams({
-          // 토큰을 받은 앱의 키로(사장님 앱을 나누면 _SELLER)
-          client_id: audience === AUDIENCE.SELLER ? this.clientIdSeller : this.clientId,
-          client_secret: audience === AUDIENCE.SELLER ? this.clientSecretSeller : this.clientSecret,
-          token: refreshToken,
-          token_type_hint: "refresh_token",
-        }),
-        {
-          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
-          timeout: 3000,
-        },
-      );
-      // 200이면 끝(이미 폐기됐거나 없는 토큰도 200). 결과는 본문이 아니라 상태 코드로 본다(네이버 문서)
-      if (res.status === 200) return;
+    // 토큰을 받은 앱의 키로(사장님 앱을 나누면 _SELLER)
+    const clientId = audience === AUDIENCE.SELLER ? this.clientIdSeller : this.clientId;
+    const clientSecret = audience === AUDIENCE.SELLER ? this.clientSecretSeller : this.clientSecret;
+    const requestConfig = {
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
+      timeout: 3000,
+      maxRedirects: 0,
+    };
+    const reportRevokeFailure = (operation: string, status: number, data: unknown) =>
       ExternalApiErrorUtil.reportFailure(
         {
           provider: "naver",
           module: "auth-naver-oauth",
-          operation: "revoke",
-          ...ExternalApiErrorUtil.fromResponseBody(res.data, res.status),
+          operation,
+          ...ExternalApiErrorUtil.fromResponseBody(data, status),
         },
-        new Error(`naver revoke ${res.status}`),
+        new Error(`naver ${operation} ${status}`),
       );
+    try {
+      const refreshed = await this.httpClient.post(
+        NAVER_TOKEN_URL,
+        new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: clientId,
+          client_secret: clientSecret,
+          refresh_token: refreshToken,
+        }),
+        requestConfig,
+      );
+      const accessToken: unknown = refreshed.data?.access_token;
+      if (typeof accessToken !== "string" || !accessToken) {
+        // 갱신 토큰이 만료·폐기됐으면(손님이 네이버에서 먼저 끊은 경우 등) 끊을 연결이 없을 수도 있다 — 기록만
+        reportRevokeFailure("revoke-refresh", refreshed.status, refreshed.data);
+        return;
+      }
+      const res = await this.httpClient.post(
+        NAVER_TOKEN_URL,
+        new URLSearchParams({
+          grant_type: "delete",
+          client_id: clientId,
+          client_secret: clientSecret,
+          access_token: accessToken,
+          service_provider: "NAVER",
+        }),
+        requestConfig,
+      );
+      if (res.status === 200 && res.data?.result === "success") return;
+      reportRevokeFailure("revoke", res.status, res.data);
     } catch (error: any) {
       ExternalApiErrorUtil.reportFailure(
         {

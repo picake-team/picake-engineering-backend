@@ -9,6 +9,7 @@ import { mockDeep } from "vitest-mock-extended";
 
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { TokenEncryptionUtil } from "@apps/backend/common/utils/token-encryption.util";
+import { ExternalApiErrorUtil } from "@apps/backend/common/utils/external-api-error.util";
 import { AUDIENCE, AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.constants";
 import { AuthPhoneService } from "@apps/backend/modules/auth/services/auth-phone.service";
 import { JwtUtil } from "@apps/backend/modules/auth/utils/jwt.util";
@@ -492,27 +493,90 @@ describe("AuthNaverOauthService.revoke — 탈퇴 때 네이버 연결 끊기", 
     vi.mocked(axios.create).mockReturnValue(httpClientMock as any);
   });
 
-  it("상용이면 저장해 둔 갱신 토큰을 풀어 네이버에 폐기를 요청한다", async () => {
+  const encrypt = (plain: string) =>
+    new TokenEncryptionUtil(
+      buildConfig({ APPLE_REFRESH_TOKEN_ENCRYPTION_KEY: ENCRYPTION_KEY }) as ConfigService,
+    ).encrypt(plain);
+  const paramsOf = (call: unknown[]) =>
+    Object.fromEntries(new URLSearchParams(call[1] as URLSearchParams));
+  /** 갱신 → 새 접근 토큰, 삭제 → result success (네이버 로그인 API 명세의 응답 모양) */
+  const naverAnswers = (deleteAnswer: { status: number; data: unknown }) =>
+    httpClientMock.post
+      .mockResolvedValueOnce({
+        status: 200,
+        data: { access_token: "new-access", token_type: "bearer" },
+      })
+      .mockResolvedValueOnce(deleteAnswer);
+
+  it("상용이면 갱신 토큰으로 접근 토큰을 받아 그 토큰을 삭제(연동 해제)한다", async () => {
     const service = await createService({
       prisma: prismaMock,
       jwtUtil: {},
       config: { NODE_ENV: "production" },
     });
-    const enc = new TokenEncryptionUtil(
-      buildConfig({ APPLE_REFRESH_TOKEN_ENCRYPTION_KEY: ENCRYPTION_KEY }) as ConfigService,
-    ).encrypt("plain-refresh");
-    httpClientMock.post.mockResolvedValue({ status: 200, data: "" });
+    const report = vi.spyOn(ExternalApiErrorUtil, "reportFailure");
+    naverAnswers({ status: 200, data: { result: "success", access_token: "new-access" } });
 
-    await service.revoke("consumer", enc);
+    await service.revoke("consumer", encrypt("plain-refresh"));
 
-    const [url, body] = httpClientMock.post.mock.calls[0];
-    expect(url).toBe("https://nid.naver.com/oauth2.0/revoke");
-    expect(Object.fromEntries(new URLSearchParams(body as URLSearchParams))).toEqual({
+    expect(httpClientMock.post).toHaveBeenCalledTimes(2);
+    const [refreshCall, deleteCall] = httpClientMock.post.mock.calls;
+    expect(refreshCall[0]).toBe("https://nid.naver.com/oauth2.0/token");
+    expect(paramsOf(refreshCall)).toEqual({
+      grant_type: "refresh_token",
       client_id: "naver-client-id",
       client_secret: "naver-client-secret",
-      token: "plain-refresh",
-      token_type_hint: "refresh_token",
+      refresh_token: "plain-refresh",
     });
+    expect(deleteCall[0]).toBe("https://nid.naver.com/oauth2.0/token");
+    expect(paramsOf(deleteCall)).toEqual({
+      grant_type: "delete",
+      client_id: "naver-client-id",
+      client_secret: "naver-client-secret",
+      access_token: "new-access",
+      service_provider: "NAVER",
+    });
+    // 리다이렉트(오류 화면 등)를 따라가 200을 성공으로 잘못 보지 않게
+    expect(deleteCall[2]).toMatchObject({ maxRedirects: 0 });
+    expect(report).not.toHaveBeenCalled();
+  });
+
+  it("삭제가 200이어도 본문이 success가 아니면 실패로 남긴다(네이버는 200에 error를 담기도 함)", async () => {
+    const service = await createService({
+      prisma: prismaMock,
+      jwtUtil: {},
+      config: { NODE_ENV: "production" },
+    });
+    const report = vi.spyOn(ExternalApiErrorUtil, "reportFailure");
+    naverAnswers({ status: 200, data: { error: "invalid_request", error_description: "x" } });
+
+    await expect(service.revoke("consumer", encrypt("plain-refresh"))).resolves.toBeUndefined();
+
+    expect(report).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: "revoke" }),
+      expect.anything(),
+    );
+  });
+
+  it("갱신 토큰이 만료·폐기돼 접근 토큰을 못 받으면 삭제를 부르지 않고 기록만 한다", async () => {
+    const service = await createService({
+      prisma: prismaMock,
+      jwtUtil: {},
+      config: { NODE_ENV: "production" },
+    });
+    const report = vi.spyOn(ExternalApiErrorUtil, "reportFailure");
+    httpClientMock.post.mockResolvedValueOnce({
+      status: 200,
+      data: { error: "invalid_grant", error_description: "invalid refresh token" },
+    });
+
+    await expect(service.revoke("consumer", encrypt("plain-refresh"))).resolves.toBeUndefined();
+
+    expect(httpClientMock.post).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: "revoke-refresh" }),
+      expect.anything(),
+    );
   });
 
   it("사장님 탈퇴는 사장님 키로 끊는다(사장님 앱을 나눴을 때)", async () => {
@@ -525,18 +589,29 @@ describe("AuthNaverOauthService.revoke — 탈퇴 때 네이버 연결 끊기", 
         NAVER_CLIENT_SECRET_SELLER: "seller-secret",
       },
     });
-    const enc = new TokenEncryptionUtil(
-      buildConfig({ APPLE_REFRESH_TOKEN_ENCRYPTION_KEY: ENCRYPTION_KEY }) as ConfigService,
-    ).encrypt("plain-refresh");
-    httpClientMock.post.mockResolvedValue({ status: 200, data: "" });
+    naverAnswers({ status: 200, data: { result: "success" } });
 
-    await service.revoke("seller", enc);
+    await service.revoke("seller", encrypt("plain-refresh"));
 
-    const params = Object.fromEntries(
-      new URLSearchParams(httpClientMock.post.mock.calls[0][1] as URLSearchParams),
-    );
-    expect(params.client_id).toBe("seller-id");
-    expect(params.client_secret).toBe("seller-secret");
+    for (const call of httpClientMock.post.mock.calls) {
+      expect(paramsOf(call).client_id).toBe("seller-id");
+      expect(paramsOf(call).client_secret).toBe("seller-secret");
+    }
+  });
+
+  it("사장님 키가 ID나 SECRET 하나만 있으면 짝이 어긋나지 않게 손님 키 짝을 쓴다", async () => {
+    const service = await createService({
+      prisma: prismaMock,
+      jwtUtil: {},
+      config: { NODE_ENV: "production", NAVER_CLIENT_SECRET_SELLER: "seller-secret-only" },
+    });
+    naverAnswers({ status: 200, data: { result: "success" } });
+
+    await service.revoke("seller", encrypt("plain-refresh"));
+
+    const params = paramsOf(httpClientMock.post.mock.calls[0]);
+    expect(params.client_id).toBe("naver-client-id");
+    expect(params.client_secret).toBe("naver-client-secret");
   });
 
   it("상용이 아니면 끊지 않는다(staging·로컬도 같은 네이버 앱)", async () => {
