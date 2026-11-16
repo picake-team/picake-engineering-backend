@@ -11,6 +11,7 @@ import {
 } from "@apps/backend/modules/auth/constants/auth.constants";
 import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
+import { AuthKakaoOauthService } from "@apps/backend/modules/auth/services/auth-kakao-oauth.service";
 
 import { AuthWithdrawService } from "./auth-withdraw.service";
 import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
@@ -19,6 +20,7 @@ import { ChatCleanupService } from "@apps/backend/modules/chat/services/chat-cle
 describe("AuthWithdrawService.withdraw", () => {
   const prismaMock = mockDeep<PrismaService>();
   const authAppleOauthServiceMock = { revokeToken: vi.fn() };
+  const authKakaoOauthServiceMock = { unlink: vi.fn() };
   const quoteCleanupMock = {
     deleteAllForConsumer: vi.fn().mockResolvedValue({ requests: 0, photos: 0 }),
   };
@@ -37,6 +39,7 @@ describe("AuthWithdrawService.withdraw", () => {
         AuthWithdrawService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuthAppleOauthService, useValue: authAppleOauthServiceMock },
+        { provide: AuthKakaoOauthService, useValue: authKakaoOauthServiceMock },
         { provide: QuoteRequestCleanupService, useValue: quoteCleanupMock },
         { provide: ChatCleanupService, useValue: chatCleanupMock },
       ],
@@ -156,6 +159,58 @@ describe("AuthWithdrawService.withdraw", () => {
 
       expect(authAppleOauthServiceMock.revokeToken).toHaveBeenCalledWith("encrypted-refresh-token");
       expect(prismaMock.consumer.update).toHaveBeenCalled();
+    });
+  });
+
+  describe("카카오 연결 끊기", () => {
+    it("카카오로 가입한 손님은 탈퇴할 때 카카오 연결을 끊는다", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+        kakaoId: "4001",
+      } as any);
+
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
+
+      expect(authKakaoOauthServiceMock.unlink).toHaveBeenCalledWith(AUDIENCE.CONSUMER, "4001");
+      expect(prismaMock.consumer.update).toHaveBeenCalled();
+    });
+
+    it("카카오로 가입한 사장님도 끊는다", async () => {
+      prismaMock.seller.findUnique.mockResolvedValue({
+        id: "seller-1",
+        withdrawnAt: null,
+        phone: "01012345678",
+        kakaoId: "5001",
+      } as any);
+
+      await service.withdraw(AUDIENCE.SELLER, "seller-1", "탈퇴 사유");
+
+      expect(authKakaoOauthServiceMock.unlink).toHaveBeenCalledWith(AUDIENCE.SELLER, "5001");
+    });
+
+    it("카카오 계정이 없거나 진행 중인 주문으로 탈퇴가 막히면 끊지 않는다", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+        kakaoId: null,
+      } as any);
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
+
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-2",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+        kakaoId: "4002",
+      } as any);
+      prismaMock.order.count.mockResolvedValue(1);
+      await expect(
+        service.withdraw(AUDIENCE.CONSUMER, "consumer-2", "탈퇴 사유"),
+      ).rejects.toThrow();
+
+      expect(authKakaoOauthServiceMock.unlink).not.toHaveBeenCalled();
     });
   });
 

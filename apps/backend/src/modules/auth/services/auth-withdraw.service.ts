@@ -10,6 +10,7 @@ import {
 import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
 import { ORDER_STATUSES_BLOCKING_ACCOUNT_WITHDRAWAL } from "@apps/backend/modules/order/constants/order.constants";
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
+import { AuthKakaoOauthService } from "@apps/backend/modules/auth/services/auth-kakao-oauth.service";
 
 /**
  * 회원 탈퇴 — 계정을 "익명화 후 비활성화" 처리합니다(하드 삭제 아님).
@@ -25,6 +26,7 @@ import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-
  * - `phone`/`googleId`/`kakaoId` 등 재가입 식별에 쓰이는 값은 파기 후 고유값으로 치환해, 관리자
  *   비활성(정지)과 달리 동일 OAuth·휴대폰으로 즉시 재가입이 가능하도록 유지합니다.
  * - `name`/`nickname`/`profileImageUrl` 등 더 이상 필요 없는 개인정보는 null 처리합니다.
+ * - 카카오로 가입했으면 카카오 연결을 끊습니다(애플 revoke와 같게, 실패해도 탈퇴는 진행).
  * - 견적 요청(사진 포함)은 계약이 아니라 보관 의무가 없어 지웁니다(QuoteRequestCleanupService).
  * - 케이크 디자인 모음 좋아요(DesignLike)도 지웁니다(디자인별 좋아요 수에서 빠지게).
  * - 주문(Order)·주문상품(OrderItem)·약관동의이력은 그대로 보존됩니다(법정 보존기간 경과 후 별도
@@ -37,6 +39,7 @@ export class AuthWithdrawService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authAppleOauthService: AuthAppleOauthService,
+    private readonly authKakaoOauthService: AuthKakaoOauthService,
     private readonly quoteRequestCleanup: QuoteRequestCleanupService,
     private readonly chatCleanup: ChatCleanupService,
   ) {}
@@ -49,7 +52,7 @@ export class AuthWithdrawService {
     if (audience === AUDIENCE.CONSUMER) {
       const row = await this.prisma.consumer.findUnique({
         where: { id: accountId },
-        select: { id: true, withdrawnAt: true, appleRefreshToken: true },
+        select: { id: true, withdrawnAt: true, appleRefreshToken: true, kakaoId: true },
       });
       if (!row) {
         throw new NotFoundException(AUTH_ERROR_MESSAGES.USER_NOT_FOUND);
@@ -75,6 +78,10 @@ export class AuthWithdrawService {
       if (row.appleRefreshToken) {
         await this.authAppleOauthService.revokeToken(row.appleRefreshToken);
       }
+      // 카카오 연결 끊기 — 카카오에 남은 동의가 없어져 다시 가입할 때 동의부터 새로 받는다. 실패해도 탈퇴는 계속.
+      if (row.kakaoId) {
+        await this.authKakaoOauthService.unlink(AUDIENCE.CONSUMER, row.kakaoId);
+      }
 
       await this.prisma.consumer.update({
         where: { id: accountId },
@@ -92,7 +99,7 @@ export class AuthWithdrawService {
     if (audience === AUDIENCE.SELLER) {
       const row = await this.prisma.seller.findUnique({
         where: { id: accountId },
-        select: { id: true, withdrawnAt: true, phone: true },
+        select: { id: true, withdrawnAt: true, phone: true, kakaoId: true },
       });
       if (!row) {
         throw new NotFoundException(AUTH_ERROR_MESSAGES.USER_NOT_FOUND);
@@ -109,6 +116,9 @@ export class AuthWithdrawService {
         });
       } else {
         await this.assertNoActiveOrdersForSeller(accountId);
+      }
+      if (row.kakaoId) {
+        await this.authKakaoOauthService.unlink(AUDIENCE.SELLER, row.kakaoId);
       }
       await this.prisma.seller.update({
         where: { id: accountId },

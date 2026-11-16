@@ -44,7 +44,7 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 
 ### Consumer API (`/v1/consumer`)
 
-- **인증**: `/v1/consumer/auth/*` - 로그인, 회원가입, 휴대폰 인증, Google/Kakao/Apple OAuth, 앱스토어 심사용 로그인(`review-login`)
+- **인증**: `/v1/consumer/auth/*` - 로그인, 회원가입, 휴대폰 인증, Google/Kakao/Apple OAuth, 앱스토어 심사용 로그인(`review-login`). 소셜 첫 로그인은 가입표(`registerToken`, 30분, 사장님 같음)를 주고 가입 API는 가입표로만 받는다. 카카오는 동의하면 이름·휴대폰 번호·간편가입 약관(이번 로그인에서 동의한 것만)을 가입표에 담아 `useTicketPhone: true`면 문자 인증 없이 그 번호로 가입한다(기획 I-59). 탈퇴하면 애플은 revoke, 카카오는 연결 끊기(앱 어드민 키 `KAKAO_ADMIN_KEY`, 없으면 건너뜀)
 - **상품**: `/v1/consumer/products/*` - 상품 조회, 필터링, 검색
 - **스토어**: `/v1/consumer/store/*` - 스토어 조회
   - 손님 목록(상품·스토어 목록, 검색, 지도, 지역별 수, 사이트맵)에는 판매자 앱 심사용 가게와 정지·탈퇴한 사장님(`isActive: false`) 가게를 넣지 않는다(`CUSTOMER_LISTED_STORE_WHERE`). 링크로 연 상세는 열리고, 정지·탈퇴한 사장님 가게 상품은 판매중지로 보이며 예약 만들기(상품·견적)와 견적 요청에 넣기가 막힌다(11-15 운영자)

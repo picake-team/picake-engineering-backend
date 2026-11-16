@@ -46,6 +46,9 @@ export class AuthKakaoOauthService {
   private readonly kakaoClientSecret: string;
   private readonly kakaoClientIdSeller: string;
   private readonly kakaoClientSecretSeller: string;
+  /** 탈퇴 때 카카오 연결 끊기용 앱 어드민 키(없으면 끊지 않음). 사장님 앱이 다른 카카오 앱이면 _SELLER */
+  private readonly kakaoAdminKey: string;
+  private readonly kakaoAdminKeySeller: string;
   private readonly consumerBase: string;
   private readonly consumerPath: string;
   private readonly sellerBase: string;
@@ -64,6 +67,9 @@ export class AuthKakaoOauthService {
     this.kakaoClientSecret = configService.get<string>("KAKAO_CLIENT_SECRET") ?? "";
     this.kakaoClientIdSeller = configService.get<string>("KAKAO_CLIENT_ID_SELLER")!;
     this.kakaoClientSecretSeller = configService.get<string>("KAKAO_CLIENT_SECRET_SELLER") ?? "";
+    this.kakaoAdminKey = configService.get<string>("KAKAO_ADMIN_KEY")?.trim() ?? "";
+    this.kakaoAdminKeySeller =
+      configService.get<string>("KAKAO_ADMIN_KEY_SELLER")?.trim() || this.kakaoAdminKey;
     this.consumerBase = this.configService.get<string>("PUBLIC_USER_DOMAIN")!;
     this.consumerPath = OAUTH_REDIRECT_PATHS.KAKAO;
     this.sellerBase = this.configService.get<string>("PUBLIC_SELLER_DOMAIN")!;
@@ -252,6 +258,53 @@ export class AuthKakaoOauthService {
     } catch (error) {
       this.reportServiceTermsFailure(error);
       return [];
+    }
+  }
+
+  /**
+   * 탈퇴할 때 카카오 연결을 끊는다(카카오 권장 — 회원 탈퇴 시 연결 끊기).
+   * 끊으면 카카오에 남은 동의(이름·번호, 간편가입 약관, 채널 추가)도 없어져, 다시 가입할 때 동의 화면부터 새로 본다.
+   * 우리는 카카오 접근 토큰을 저장하지 않아 앱 어드민 키로 끊는다. 키가 없거나 실패해도 탈퇴는 그대로 진행한다(애플 revoke와 같게).
+   */
+  async unlink(audience: AudienceConst, kakaoId: string): Promise<void> {
+    const adminKey = audience === AUDIENCE.SELLER ? this.kakaoAdminKeySeller : this.kakaoAdminKey;
+    if (!adminKey || !kakaoId) return;
+    try {
+      const res = await this.httpClient.post(
+        "https://kapi.kakao.com/v1/user/unlink",
+        new URLSearchParams({ target_id_type: "user_id", target_id: kakaoId }),
+        {
+          headers: {
+            Authorization: `KakaoAK ${adminKey}`,
+            "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+          },
+          timeout: 3000,
+        },
+      );
+      if (res.status === 200) return;
+      // -101: 이미 연결이 끊긴 사용자(카카오에서 먼저 끊음) — 끊긴 상태라 괜찮다
+      if ((res.data as { code?: number } | undefined)?.code === -101) return;
+      ExternalApiErrorUtil.reportFailure(
+        {
+          provider: "kakao",
+          module: "auth-kakao-oauth",
+          operation: "unlink",
+          ...ExternalApiErrorUtil.fromResponseBody(res.data, res.status),
+          details: { audience },
+        },
+        new Error(`kakao unlink ${res.status}`),
+      );
+    } catch (error: any) {
+      ExternalApiErrorUtil.reportFailure(
+        {
+          provider: "kakao",
+          module: "auth-kakao-oauth",
+          operation: "unlink",
+          ...ExternalApiErrorUtil.fromAxiosError(error ?? {}),
+          details: { audience },
+        },
+        error,
+      );
     }
   }
 
