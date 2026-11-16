@@ -121,30 +121,5 @@ describe("JwtUtil", () => {
         AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID,
       );
     });
-
-    it("가입표가 있으면 화면이 같이 보낸 ID는 쓰지 않는다", async () => {
-      const token = await jwtUtil.generateRegisterTicket(ticket);
-      await expect(
-        jwtUtil.resolveRegisterIdentity(
-          { registerToken: token, legacyProviderId: "someone-else", legacyEmail: "x@x.com" },
-          expected,
-        ),
-      ).resolves.toEqual({ providerId: "kakao-123", email: "user@kakao.com" });
-    });
-
-    it("가입표가 없으면 옛 화면 호환으로 화면이 보낸 ID를 쓴다(다음 단계에서 없앰)", async () => {
-      await expect(
-        jwtUtil.resolveRegisterIdentity(
-          { legacyProviderId: "kakao-123", legacyEmail: "user@kakao.com" },
-          expected,
-        ),
-      ).resolves.toEqual({ providerId: "kakao-123", email: "user@kakao.com" });
-    });
-
-    it("가입표도 ID도 없으면 거절한다", async () => {
-      await expect(jwtUtil.resolveRegisterIdentity({}, expected)).rejects.toThrow(
-        AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID,
-      );
-    });
   });
 });

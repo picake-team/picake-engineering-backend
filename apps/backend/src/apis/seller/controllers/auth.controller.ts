@@ -39,14 +39,12 @@ export class SellerAuthController {
   @ApiOperation({
     summary: "구글 로그인 (판매자)",
     description:
-      "프론트엔드에서 받은 Authorization Code로 구글 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 가입표 registerToken(30분, 서버가 확인한 googleId·googleEmail이 들어 있음)을 반환하며, 휴대폰 인증 후 구글 회원가입 API에 registerToken을 보내 회원가입을 처리해야 합니다. 같이 오는 googleId·googleEmail은 옛 화면 호환용입니다.",
+      "프론트엔드에서 받은 Authorization Code로 구글 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 가입표 registerToken(30분, 서버가 확인한 구글 ID·이메일이 들어 있음)을 반환하며, 휴대폰 인증 후 구글 회원가입 API에 registerToken을 보내 회원가입을 처리해야 합니다.",
   })
   @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(400, {
     dataExample: {
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-      googleId: SWAGGER_EXAMPLES.CONSUMER_DATA.googleId,
-      googleEmail: SWAGGER_EXAMPLES.CONSUMER_DATA.googleEmail,
       registerToken: SWAGGER_EXAMPLES.REGISTER_TOKEN,
     },
   })
@@ -91,14 +89,12 @@ export class SellerAuthController {
   @ApiOperation({
     summary: "카카오 로그인 (판매자)",
     description:
-      "프론트엔드에서 받은 Authorization Code로 카카오 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 가입표 registerToken(30분, 서버가 확인한 kakaoId·kakaoEmail이 들어 있음)을 반환하며, 휴대폰 인증 후 카카오 회원가입 API에 registerToken을 보내 회원가입을 처리해야 합니다. 같이 오는 kakaoId·kakaoEmail은 옛 화면 호환용입니다.",
+      "프론트엔드에서 받은 Authorization Code로 카카오 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 가입표 registerToken(30분, 서버가 확인한 카카오 ID·이메일이 들어 있음)을 반환하며, 휴대폰 인증 후 카카오 회원가입 API에 registerToken을 보내 회원가입을 처리해야 합니다.",
   })
   @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(400, {
     dataExample: {
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-      kakaoId: SWAGGER_EXAMPLES.KAKAO_ID,
-      kakaoEmail: SWAGGER_EXAMPLES.KAKAO_EMAIL,
       registerToken: SWAGGER_EXAMPLES.REGISTER_TOKEN,
     },
   })
