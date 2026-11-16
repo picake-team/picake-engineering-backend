@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { OrderEntrySource } from "@apps/backend/infra/database/prisma/generated/client";
@@ -52,6 +53,11 @@ export class StoreLinkStatsService implements OnModuleInit, OnModuleDestroy {
       LoggerUtil.log(
         `[StoreLinkStats] 오래된 링크 방문 기록 지우기 실패: ${e instanceof Error ? e.message : String(e)}`,
       );
+      // 상용에서는 LoggerUtil이 찍히지 않아 Sentry로도 남긴다(최소 수집 약속이 조용히 깨지지 않게, 11-16 검토)
+      SentryUtil.captureException(e, "warning", {
+        module: "store",
+        operation: "link-visit-retention",
+      });
       return 0;
     }
   }

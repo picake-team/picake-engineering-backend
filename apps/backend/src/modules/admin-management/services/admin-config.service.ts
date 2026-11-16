@@ -14,7 +14,8 @@ export class AdminConfigService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * 가입 설정 조회 — Row가 없으면 requireApproval=false 기본값으로 생성
+   * 가입 설정 조회 — Row가 없으면 requireApproval=true(승인 필요)로 만든다(upsertDefault). 2026-05 migration이 넣은 행은 false였으니
+   * 상용 값은 picake-hq 점검 스크립트(prod-admin-check.sh)로 확인한다(11-16 검토 — 주석이 반대로 적혀 있었다)
    */
   async getConfig(): Promise<AdminConfigResponseDto> {
     const config = await this.upsertDefault();

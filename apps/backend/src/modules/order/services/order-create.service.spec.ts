@@ -55,7 +55,8 @@ function buildDto(overrides: Partial<CreateOrderRequestDto> = {}): CreateOrderRe
     totalQuantity: 1,
     totalPrice: 10000,
     storeName: "테스트 스토어",
-    pickupDate: "2026-01-01T00:00:00.000Z",
+    // 지난 시각은 막으므로(11-16) 늘 내일로
+    pickupDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     pickupAddress: "서울시 강남구",
     pickupRoadAddress: "서울시 강남구 테헤란로",
     pickupZonecode: "06000",
@@ -190,6 +191,18 @@ describe("OrderCreateService.createOrderForUser", () => {
         }),
       }),
     );
+  });
+
+  it("지난 픽업 시각이면 거부한다(11-16 검토)", async () => {
+    prismaMock.product.findUnique.mockResolvedValue(BASE_PRODUCT as any);
+
+    await expect(
+      service.createOrderForUser(
+        "user-1",
+        buildDto({ pickupDate: "2026-01-01T00:00:00.000Z" } as any),
+      ),
+    ).rejects.toThrow(ORDER_ERROR_MESSAGES.PICKUP_IN_PAST);
+    expect(txOrderMock.create).not.toHaveBeenCalled();
   });
 
   it("픽업 일시가 스토어 영업 시간 밖이면 거부한다", async () => {

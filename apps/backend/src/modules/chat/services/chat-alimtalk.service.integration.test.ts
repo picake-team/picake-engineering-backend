@@ -114,4 +114,11 @@ describe("채팅 알림톡 (integration)", () => {
     expect(arg.variables["#{스토어ID}"]).toBe(store.id);
     expect(arg.variables["#{도메인}"]).toBe("seller.picakes.test");
   });
+
+  it("손님이 탈퇴한 방은 사장님에게 새 문의 알림톡을 보내지 않는다(글이 지워진 방, 11-16 검토)", async () => {
+    const { prisma, service, callsFor, consumer } = await setup("CONSUMER");
+    await prisma.consumer.update({ where: { id: consumer.id }, data: { withdrawnAt: NOON } });
+    await service.runOnce(NOON);
+    expect(callsFor()).toHaveLength(0);
+  });
 });

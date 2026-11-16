@@ -1,3 +1,4 @@
+import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
 import { Injectable } from "@nestjs/common";
 import { OrderService } from "@apps/backend/modules/order/order.service";
 import { NotificationService } from "@apps/backend/modules/notification/services/notification.service";
@@ -19,6 +20,13 @@ import {
  * 스토어 홈 대시보드용 데이터를 기존 주문·알림·피드 서비스로 묶어서 조회한다.
  * 스토어 권한 검증은 각 하위 서비스(`getOrdersForSeller` 등)에 위임한다.
  */
+/** 홈 "오늘 픽업 예정"에서 빼는 취소 상태(휴대폰 홈 CANCELED_ORDER_STATUSES와 같음) */
+const HOME_CANCELED_STATUSES: ReadonlySet<string> = new Set([
+  OrderStatus.CANCEL_COMPLETED,
+  OrderStatus.CANCEL_REFUND_PENDING,
+  OrderStatus.CANCEL_REFUND_COMPLETED,
+]);
+
 @Injectable()
 export class SellerHomeService {
   constructor(
@@ -42,11 +50,12 @@ export class SellerHomeService {
       storeId,
     };
 
-    // 픽업 예정일이 오늘(서울 기준 YMD)인 주문만 — 목록 API는 최신순이라, 아래에서 픽업 시각 기준 재정렬
+    // 픽업 예정일이 오늘(서울 기준 YMD)인 주문만, 픽업 가까운 순으로 받는다(최신 접수순으로 받아 자르면
+    // 취소 포함 50건을 넘을 때 먼저 접수한 오늘 픽업이 빠졌다, 11-16 검토)
     const todayPickupQuery: OrderListRequestDto = {
       page: 1,
       limit: SELLER_HOME_TODAY_PICKUP_FETCH_LIMIT,
-      sortBy: OrderSortBy.LATEST,
+      sortBy: OrderSortBy.PICKUP_ASC,
       storeId,
       pickupStartDate: todayYmd,
       pickupEndDate: todayYmd,
@@ -71,9 +80,9 @@ export class SellerHomeService {
       this.feedService.getFeedsByStoreIdForSeller(storeId, user, feedQuery),
     ]);
 
-    // 목록은 접수 최신순이므로, 오늘 픽업분만 픽업 예정 시각 오름차순으로 맞춘다.
+    // 취소된 주문은 "오늘 픽업 예정"에서 뺀다 — 휴대폰 홈과 같게(손님 취소·입금 마감 자동 취소가 "취소완료"로 남던 것)
     const todayPickupsSorted = [...todayPickupsRes.data]
-      .filter((o) => o.pickupDate != null)
+      .filter((o) => o.pickupDate != null && !HOME_CANCELED_STATUSES.has(o.orderStatus))
       .sort((a, b) => {
         const ta = new Date(a.pickupDate).getTime();
         const tb = new Date(b.pickupDate).getTime();

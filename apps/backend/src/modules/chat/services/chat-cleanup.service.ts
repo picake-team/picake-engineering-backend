@@ -90,6 +90,11 @@ export class ChatCleanupService implements OnModuleInit, OnModuleDestroy {
       LoggerUtil.log(
         `[ChatCleanup] 보관 기간 정리 실패: ${e instanceof Error ? e.message : String(e)}`,
       );
+      // 상용에서는 LoggerUtil이 찍히지 않아 Sentry로도 남긴다(11-16 검토 — 실패해도 흔적이 없었다)
+      SentryUtil.captureException(e, "warning", {
+        module: "chat",
+        operation: "retention-purge-run",
+      });
       return 0;
     }
   }

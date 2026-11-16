@@ -68,6 +68,10 @@ export class OrderUserReservationEditService {
     }
 
     const pickupAt = new Date(dto.pickupDate);
+    // 지난 시각으로 바꾸지 않는다(예약 만들기와 같게, 11-16 검토)
+    if (Number.isNaN(pickupAt.getTime()) || pickupAt.getTime() <= Date.now()) {
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.PICKUP_IN_PAST);
+    }
     if (!isPickupAllowedForStore(pickupAt, store)) {
       LoggerUtil.log(
         `예약 픽업일 변경 실패: 영업 시간 밖 - orderId: ${orderId}, pickupDate: ${dto.pickupDate}`,

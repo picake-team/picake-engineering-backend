@@ -99,7 +99,7 @@ export class ProductUpdateService {
     validateProductPrices(nextOriginalPrice, nextSalePrice);
 
     const updateData: Prisma.ProductUpdateInput = {};
-    // 사이즈·맛·추가 옵션 중 하나라도 실제로 바뀌면 optionsVersion을 올린다
+    // 판매가·사이즈·맛·추가 옵션 중 하나라도 실제로 바뀌면 optionsVersion을 올린다
     let optionsChanged = false;
 
     if (updateProductDto.name !== undefined) {
@@ -113,6 +113,9 @@ export class ProductUpdateService {
     }
     if (updateProductDto.salePrice !== undefined) {
       updateData.salePrice = updateProductDto.salePrice;
+      // 판매가가 바뀌어도 버전을 올린다 — 예약 창을 연 손님이 옛 가격으로 보내면 "총 금액이 올바르지 않아요"만 반복되고
+      // 다시 받을 길이 없었다(버전이 오르면 409로 상품을 다시 받아 고르게 함, P-04, 11-16 검토)
+      optionsChanged ||= updateProductDto.salePrice !== product!.salePrice;
     }
     if (updateProductDto.salesStatus !== undefined) {
       updateData.salesStatus = updateProductDto.salesStatus;

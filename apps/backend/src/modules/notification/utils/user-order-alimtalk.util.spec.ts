@@ -1,3 +1,7 @@
+import {
+  ALIMTALK_REASON_MAX,
+  clipReason,
+} from "@apps/backend/modules/notification/utils/user-order-alimtalk.util";
 import { describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
@@ -115,5 +119,15 @@ describe("예약신청 자동 취소 알림톡", () => {
         order,
       ),
     ).toBeNull();
+  });
+});
+
+describe("clipReason — 알림톡 취소 사유 길이(11-16 검토)", () => {
+  it("300자를 넘으면 잘라 …을 붙이고, 짧으면 그대로", () => {
+    expect(clipReason("재료가 떨어졌어요")).toBe("재료가 떨어졌어요");
+    expect(clipReason(null)).toBe("");
+    const long = clipReason("가".repeat(2000));
+    expect(long.length).toBe(ALIMTALK_REASON_MAX);
+    expect(long.endsWith("…")).toBe(true);
   });
 });

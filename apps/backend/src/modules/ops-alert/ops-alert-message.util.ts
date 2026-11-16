@@ -212,7 +212,8 @@ export function buildQuoteOpsMessage(alert: QuoteOpsAlert, ctx: OpsAlertContext)
     title: text.title,
     hint: text.hint,
     path: `/consumer/quote-requests/${encodeURIComponent(alert.requestId)}`,
-    fields: [{ name: "가게", value: alert.storeName }],
+    // 입점 전 가게 이름은 손님이 보낸 글 그대로라 서식·링크를 걸러 넣는다(11-16 검토)
+    fields: [{ name: "가게", value: plainText(alert.storeName) }],
     footer: `견적 요청 ${alert.requestId}`,
     at: alert.at,
   });

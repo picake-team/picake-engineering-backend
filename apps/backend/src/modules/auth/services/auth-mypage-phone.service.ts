@@ -55,14 +55,8 @@ export class AuthMypagePhoneService {
         return;
       }
 
-      const existingUser = await this.prisma.consumer.findUnique({
-        where: { phone: normalizedNewPhone },
-      });
-
-      if (existingUser) {
-        throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
-      }
-
+      // 문자 인증부터 본다 — 중복을 먼저 보면 로그인한 누구나 문자 없이 409/400으로 "이 번호가 Picake 회원인지"를
+      // 알아낼 수 있었다(가입 쪽은 인증 뒤에 중복을 봄, 11-16 검토)
       const isPhoneVerified = await this.authPhoneService.checkPhoneVerificationStatus(
         normalizedNewPhone,
         aud,
@@ -70,6 +64,14 @@ export class AuthMypagePhoneService {
       );
       if (!isPhoneVerified) {
         throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED);
+      }
+
+      const existingUser = await this.prisma.consumer.findUnique({
+        where: { phone: normalizedNewPhone },
+      });
+
+      if (existingUser) {
+        throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
       }
 
       await this.prisma.consumer.update({
@@ -92,14 +94,8 @@ export class AuthMypagePhoneService {
       return;
     }
 
-    const existingUser = await this.prisma.seller.findUnique({
-      where: { phone: normalizedNewPhone },
-    });
-
-    if (existingUser) {
-      throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
-    }
-
+    // 문자 인증부터 본다 — 중복을 먼저 보면 로그인한 누구나 문자 없이 409/400으로 "이 번호가 Picake 회원인지"를
+    // 알아낼 수 있었다(가입 쪽은 인증 뒤에 중복을 봄, 11-16 검토)
     const isPhoneVerified = await this.authPhoneService.checkPhoneVerificationStatus(
       normalizedNewPhone,
       aud,
@@ -107,6 +103,14 @@ export class AuthMypagePhoneService {
     );
     if (!isPhoneVerified) {
       throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED);
+    }
+
+    const existingUser = await this.prisma.seller.findUnique({
+      where: { phone: normalizedNewPhone },
+    });
+
+    if (existingUser) {
+      throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
     }
 
     await this.prisma.seller.update({
