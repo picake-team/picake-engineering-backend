@@ -12,7 +12,7 @@ import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { JwtUtil } from "@apps/backend/modules/auth/utils/jwt.util";
 import type { TermsService } from "@apps/backend/modules/terms/terms.service";
 import { getTestPrisma } from "@apps/backend/test/integration/db";
-import { createTestConsumer } from "@apps/backend/test/integration/factories";
+import { createTestConsumer, createTestSeller } from "@apps/backend/test/integration/factories";
 
 /**
  * 유닛테스트(auth-google-oauth.service.spec.ts)는 Prisma를 전부 mock 처리해서
@@ -112,6 +112,9 @@ describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone (integration)",
     expect(consumers).toHaveLength(1);
     expect(settled.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(settled.filter((r) => r.status === "rejected")).toHaveLength(1);
+    // 늦은 쪽은 500(중복 저장 오류)이 아니라 409(11-16 검토)
+    const rejected = settled.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason).toBeInstanceOf(ConflictException);
   });
 
   it("이미 카카오로 가입된 번호면 같은 번호로 구글 가입을 시도해도 거부된다", async () => {
@@ -168,5 +171,36 @@ describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone (integration)",
       BadRequestException,
     );
     expect(await prisma.consumer.count({ where: { googleId } })).toBe(0);
+  });
+});
+
+describe("AuthGoogleOauthService.sellerGoogleRegisterWithPhone (integration)", () => {
+  it("소셜 연결이 없는 사장님 계정의 번호면 500이 아니라 409(11-16 검토)", async () => {
+    const prisma = getTestPrisma();
+    await createTestSeller(prisma, { phone: "01077776666" } as any);
+    const jwtUtil = new JwtUtil(new JwtService({ secret: TEST_SECRET }), {} as any);
+    const service = new AuthGoogleOauthService(
+      prisma,
+      jwtUtil,
+      { get: () => undefined } as any,
+      {
+        checkPhoneVerificationStatus: vi.fn().mockResolvedValue(true),
+      } as unknown as AuthPhoneService,
+      {
+        recordSellerAgreementsInTransaction: vi.fn().mockResolvedValue(undefined),
+      } as unknown as TermsService,
+      { notifyNewSeller: vi.fn().mockResolvedValue(undefined) } as unknown as OpsAlertService,
+    );
+
+    await expect(
+      service.sellerGoogleRegisterWithPhone({
+        registerToken: await ticketFor(`google-${randomUUID()}`, "s@example.com", AUDIENCE.SELLER),
+        name: "사장님",
+        phone: "01077776666",
+        agreedToTerms: true,
+        agreedToPrivacy: true,
+      } as any),
+    ).rejects.toThrow(ConflictException);
+    expect(await prisma.seller.count({ where: { phone: "01077776666" } })).toBe(1);
   });
 });

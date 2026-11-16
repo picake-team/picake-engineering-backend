@@ -81,15 +81,24 @@ export function isPaymentPendingExpired(now: Date, input: PaymentPendingExpiryIn
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** 자동 취소 시각(한국 시간 몇 시) — 알림이 한밤중에 몰려 가지 않게 아침 9시 */
+const RESERVATION_EXPIRY_KST_HOUR = 9;
+
 /**
- * 가게가 확인하지 않은 예약신청이 자동 취소되는 시각 — 픽업 날 다음 자정(한국 시간).
- * 픽업 시각이 아니라 그날 끝까지 기다리는 건, 그날 찾아온 손님을 사장님이 늦게라도 받을 수 있게.
+ * 가게가 확인하지 않은 예약신청이 자동 취소되는 시각 — 픽업 날 다음 날 오전 9시(한국 시간).
+ * - 사장님은 픽업 시각이 지난 예약신청을 확인할 수 없다(P-07). 그래도 픽업 시각에 바로 취소하지 않는 건,
+ *   그사이 손님이 픽업 날짜를 바꾸면 예약신청이 살아 다시 확인받을 수 있게(가게와 날짜를 다시 정하는 길).
+ * - 자정이 아니라 아침 9시인 건 이 취소 알림(손님·사장님)이 매일 한밤중에 한꺼번에 가지 않게(11-16 검토).
  */
 export function reservationRequestExpiresAt(pickupDate: Date): Date {
   const kst = new Date(pickupDate.getTime() + KST_OFFSET_MS);
-  const nextKstMidnightUtc =
-    Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() + 1) - KST_OFFSET_MS;
-  return new Date(nextKstMidnightUtc);
+  const expiresKstAsUtc = Date.UTC(
+    kst.getUTCFullYear(),
+    kst.getUTCMonth(),
+    kst.getUTCDate() + 1,
+    RESERVATION_EXPIRY_KST_HOUR,
+  );
+  return new Date(expiresKstAsUtc - KST_OFFSET_MS);
 }
 
 /** 예약신청(가게 미확인)이 자동 취소될 때가 됐는지 */

@@ -30,6 +30,7 @@ import {
 import { buildInitialNickname } from "@apps/backend/modules/auth/utils/register-nickname.util";
 import { ExternalApiErrorUtil } from "@apps/backend/common/utils/external-api-error.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
+import { rethrowRegisterUniqueConflict } from "@apps/backend/modules/auth/utils/register-conflict.util";
 
 /**
  * 구글 OAuth — Consumer / Seller 테이블·JWT aud 분리
@@ -211,7 +212,7 @@ export class AuthGoogleOauthService {
   /**
    * 가입이 필요할 때(400 PHONE_VERIFICATION_REQUIRED) 화면에 줄 응답.
    * 서버가 구글에 직접 확인한 ID·이메일을 가입표(registerToken, 30분)에 담는다 — 가입 API는 이 가입표로만 가입시킨다.
-   * 소셜 ID·이메일은 화면에 주지 않는다(가입표 안에만).
+   * 소셜 ID·이메일은 응답 본문에 따로 주지 않는다(서명한 가입표 안에만 — 서명이라 화면이 읽을 수는 있지만 고칠 수 없다).
    */
   private async buildRegisterRequiredError(
     aud: AudienceConst,
@@ -406,33 +407,37 @@ export class AuthGoogleOauthService {
       throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
     }
 
-    return await this.prisma.$transaction(async (tx) => {
-      const now = new Date();
-      const row = await tx.consumer.create({
-        data: {
-          googleId,
-          googleEmail,
-          phone: normalizedPhone,
-          name: trimmedName,
-          nickname: buildInitialNickname(),
-          isPhoneVerified: true,
-          lastLoginAt: now,
-        },
-      });
+    return await this.prisma
+      .$transaction(async (tx) => {
+        const now = new Date();
+        const row = await tx.consumer.create({
+          data: {
+            googleId,
+            googleEmail,
+            phone: normalizedPhone,
+            name: trimmedName,
+            nickname: buildInitialNickname(),
+            isPhoneVerified: true,
+            lastLoginAt: now,
+          },
+        });
 
-      // 약관 버전 동의 이력 기록
-      await this.termsService.recordConsumerAgreementsInTransaction(
-        tx,
-        row.id,
-        googleRegisterDto.termsDocumentIds ?? [],
+        // 약관 버전 동의 이력 기록
+        await this.termsService.recordConsumerAgreementsInTransaction(
+          tx,
+          row.id,
+          googleRegisterDto.termsDocumentIds ?? [],
+        );
+
+        const tokenPair = await this.jwtUtil.generateTokenPair({
+          sub: row.id,
+          aud: AUDIENCE.CONSUMER,
+        });
+        return { accessToken: tokenPair.accessToken, refreshToken: tokenPair.refreshToken };
+      })
+      .catch((e: unknown) =>
+        rethrowRegisterUniqueConflict(e, AUTH_ERROR_MESSAGES.GOOGLE_ID_ALREADY_EXISTS),
       );
-
-      const tokenPair = await this.jwtUtil.generateTokenPair({
-        sub: row.id,
-        aud: AUDIENCE.CONSUMER,
-      });
-      return { accessToken: tokenPair.accessToken, refreshToken: tokenPair.refreshToken };
-    });
   }
 
   /**
@@ -498,40 +503,48 @@ export class AuthGoogleOauthService {
         email: maskLoginEmail(existingPhone.kakaoEmail),
       });
     }
+    // 소셜 연결이 없는 계정의 번호여도 500(중복 저장 오류)이 아니라 409(11-16 검토, 손님 가입과 같게)
+    if (existingPhone) {
+      throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
+    }
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const now = new Date();
-      const row = await tx.seller.create({
-        data: {
-          googleId,
-          googleEmail,
-          phone: normalizedPhone,
-          name: trimmedName,
-          nickname: buildInitialNickname(),
-          isPhoneVerified: true,
-          lastLoginAt: now,
-          sellerVerificationStatus: "REGISTERED",
-        },
-      });
+    const result = await this.prisma
+      .$transaction(async (tx) => {
+        const now = new Date();
+        const row = await tx.seller.create({
+          data: {
+            googleId,
+            googleEmail,
+            phone: normalizedPhone,
+            name: trimmedName,
+            nickname: buildInitialNickname(),
+            isPhoneVerified: true,
+            lastLoginAt: now,
+            sellerVerificationStatus: "REGISTERED",
+          },
+        });
 
-      // 약관 버전 동의 이력 기록
-      await this.termsService.recordSellerAgreementsInTransaction(
-        tx,
-        row.id,
-        googleRegisterDto.termsDocumentIds ?? [],
+        // 약관 버전 동의 이력 기록
+        await this.termsService.recordSellerAgreementsInTransaction(
+          tx,
+          row.id,
+          googleRegisterDto.termsDocumentIds ?? [],
+        );
+
+        const tokenPair = await this.jwtUtil.generateTokenPair({
+          sub: row.id,
+          aud: AUDIENCE.SELLER,
+        });
+        return {
+          accessToken: tokenPair.accessToken,
+          refreshToken: tokenPair.refreshToken,
+          sellerId: row.id,
+          createdAt: row.createdAt,
+        };
+      })
+      .catch((e: unknown) =>
+        rethrowRegisterUniqueConflict(e, AUTH_ERROR_MESSAGES.GOOGLE_ID_ALREADY_EXISTS),
       );
-
-      const tokenPair = await this.jwtUtil.generateTokenPair({
-        sub: row.id,
-        aud: AUDIENCE.SELLER,
-      });
-      return {
-        accessToken: tokenPair.accessToken,
-        refreshToken: tokenPair.refreshToken,
-        sellerId: row.id,
-        createdAt: row.createdAt,
-      };
-    });
 
     // 새 사장님 가입을 운영자에게 바로 알린다(기획 I-56). 실패해도 가입은 그대로
     void this.opsAlert.notifyNewSeller({

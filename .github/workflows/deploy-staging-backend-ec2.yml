@@ -297,9 +297,8 @@ jobs:
             # KAKAO (Seller) - development & staging & production (공용)
             KAKAO_CLIENT_ID_SELLER=${{ secrets.KAKAO_CLIENT_ID_SELLER }}
             KAKAO_CLIENT_SECRET_SELLER=${{ secrets.KAKAO_CLIENT_SECRET_SELLER }}
-            # 탈퇴 때 카카오 연결 끊기(앱 어드민 키, 비어 있으면 끊지 않음). 사장님이 다른 카카오 앱이면 _SELLER
-            KAKAO_ADMIN_KEY=${{ secrets.KAKAO_ADMIN_KEY }}
-            KAKAO_ADMIN_KEY_SELLER=${{ secrets.KAKAO_ADMIN_KEY_SELLER }}
+            # 탈퇴 때 카카오 연결 끊기는 staging에서 하지 않는다(KAKAO_ADMIN_KEY 비움). staging도 상용과 같은 카카오 앱을 써서,
+            # staging에서 탈퇴를 시험하면 그 사람의 상용 계정 카카오 연결까지 끊기고, 상용 어드민 키를 staging 서버에 두지 않기 위해(11-16 검토)
 
             # APPLE OAuth (Consumer, web-user 전용) - development & staging & production (공용)
             APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}

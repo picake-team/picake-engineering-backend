@@ -14,6 +14,8 @@ import { JwtUtil } from "@apps/backend/modules/auth/utils/jwt.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
 
 import { AuthAppleOauthService } from "./auth-apple-oauth.service";
+import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
+import { ConflictException } from "@nestjs/common";
 
 vi.mock("axios", () => ({
   default: { create: vi.fn() },
@@ -197,6 +199,86 @@ describe("AuthAppleOauthService.consumerAppleLoginWithCode", () => {
 
     await expect(service.consumerAppleLoginWithCode({ code: "auth-code" })).rejects.toThrow(
       BadRequestException,
+    );
+  });
+});
+
+describe("AuthAppleOauthService.consumerAppleRegisterWithPhone — 번호 중복", () => {
+  const prismaMock = mockDeep<PrismaService>();
+  let service: AuthAppleOauthService;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.mocked(axios.create).mockReturnValue({ post: vi.fn(), get: vi.fn() } as any);
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        AuthAppleOauthService,
+        { provide: PrismaService, useValue: prismaMock },
+        {
+          provide: JwtUtil,
+          useValue: {
+            verifyRegisterTicket: vi
+              .fn()
+              .mockResolvedValue({ providerId: "apple-new", email: "a@privaterelay.appleid.com" }),
+            generateTokenPair: vi.fn(),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: vi.fn(
+              (key: string) =>
+                ({
+                  APPLE_TEAM_ID: "team-id",
+                  APPLE_KEY_ID: "key-id",
+                  APPLE_PRIVATE_KEY: "fake-private-key",
+                  APPLE_CLIENT_ID: "apple-client-id",
+                })[key],
+            ),
+          },
+        },
+        {
+          provide: AuthPhoneService,
+          useValue: { checkPhoneVerificationStatus: vi.fn().mockResolvedValue(true) },
+        },
+        { provide: TermsService, useValue: {} },
+        { provide: TokenEncryptionUtil, useValue: {} },
+      ],
+    }).compile();
+    service = moduleRef.get(AuthAppleOauthService);
+    prismaMock.consumer.findUnique.mockResolvedValue(null);
+  });
+
+  const dto = {
+    registerToken: "t",
+    name: "애플",
+    phone: "01055556666",
+    agreedToTerms: true,
+    agreedToPrivacy: true,
+    agreedToThirdParty: true,
+  } as any;
+
+  it("소셜 연결이 없는 계정의 번호면 500이 아니라 409(11-16 검토)", async () => {
+    prismaMock.consumer.findFirst.mockResolvedValue({
+      isActive: true,
+      phone: "01055556666",
+    } as any);
+    await expect(service.consumerAppleRegisterWithPhone(dto)).rejects.toThrow(
+      new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS),
+    );
+  });
+
+  it("확인 뒤 저장에서 유니크 충돌(동시에 두 번 등)이 나도 500이 아니라 409", async () => {
+    prismaMock.consumer.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target: ["apple_id"] },
+      }),
+    );
+    await expect(service.consumerAppleRegisterWithPhone(dto)).rejects.toThrow(
+      new ConflictException(AUTH_ERROR_MESSAGES.APPLE_ID_ALREADY_EXISTS),
     );
   });
 });

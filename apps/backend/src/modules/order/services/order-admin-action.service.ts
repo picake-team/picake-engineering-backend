@@ -46,7 +46,11 @@ export class OrderAdminActionService {
   ): Promise<AdminRefundCandidateListResponseDto> {
     const { page, limit, onlyPaymentExpired, excludeReverted, orderNumber, depositorName } = query;
 
-    const where: Prisma.OrderWhereInput = { orderStatus: OrderStatus.CANCEL_COMPLETED };
+    // 가게가 확인하지 않아 자동 취소된 예약신청은 입금 안내(계좌)가 나간 적이 없어 환불할 일이 없다 — 목록에서 뺀다(11-16 검토)
+    const where: Prisma.OrderWhereInput = {
+      orderStatus: OrderStatus.CANCEL_COMPLETED,
+      reservationExpiredAt: null,
+    };
 
     if (onlyPaymentExpired) {
       where.paymentPendingExpiredAt = { not: null };
