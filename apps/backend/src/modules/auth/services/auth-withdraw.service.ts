@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
+import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import {
   AUTH_ERROR_MESSAGES,
   AudienceConst,
@@ -96,20 +97,22 @@ export class AuthWithdrawService {
         },
       });
 
-      // 바깥 연결 끊기는 탈퇴 처리를 마친 뒤(읽어 둔 값으로). 둘 다 실패해도 탈퇴는 끝난 상태로 둔다.
-      // Apple 가이드라인 5.1.1(v) — 계정 삭제 시 Sign in with Apple 인가를 revoke.
-      if (row.appleRefreshToken) {
-        await this.authAppleOauthService.revokeToken(row.appleRefreshToken);
-      }
-      // 카카오 연결 끊기 — 카카오에 남은 동의가 없어져 다시 가입할 때 동의부터 새로 받는다.
-      // 같은 카카오로 가입한 사장님 계정이 있으면 끊지 않는다(같은 카카오 앱이라 사장님 연결도 같이 끊긴다).
-      if (row.kakaoId && !(await this.hasOtherRoleWithKakaoId(AUDIENCE.SELLER, row.kakaoId))) {
-        await this.authKakaoOauthService.unlink(AUDIENCE.CONSUMER, row.kakaoId);
-      }
-      // 네이버 연결 끊기 — 같은 네이버로 가입한 사장님 계정이 있으면 끊지 않는다(같은 네이버 앱이라 사장님 연결도 같이 끊긴다)
-      if (row.naverId && !(await this.hasOtherRoleWithNaverId(AUDIENCE.SELLER, row.naverId))) {
-        await this.authNaverOauthService.revoke(AUDIENCE.CONSUMER, row.naverRefreshToken);
-      }
+      // 바깥 연결 끊기는 탈퇴 처리를 마친 뒤(읽어 둔 값으로). 무엇이 실패해도 탈퇴는 끝난 상태로 둔다.
+      await this.afterWithdrawal(AUDIENCE.CONSUMER, async () => {
+        // Apple 가이드라인 5.1.1(v) — 계정 삭제 시 Sign in with Apple 인가를 revoke.
+        if (row.appleRefreshToken) {
+          await this.authAppleOauthService.revokeToken(row.appleRefreshToken);
+        }
+        // 카카오 연결 끊기 — 카카오에 남은 동의가 없어져 다시 가입할 때 동의부터 새로 받는다.
+        // 같은 카카오로 가입한 사장님 계정이 있으면 끊지 않는다(같은 카카오 앱이라 사장님 연결도 같이 끊긴다).
+        if (row.kakaoId && !(await this.hasOtherRoleWithKakaoId(AUDIENCE.SELLER, row.kakaoId))) {
+          await this.authKakaoOauthService.unlink(AUDIENCE.CONSUMER, row.kakaoId);
+        }
+        // 네이버 연결 끊기 — 같은 네이버로 가입한 사장님 계정이 있으면 끊지 않는다(같은 네이버 앱이라 사장님 연결도 같이 끊긴다)
+        if (row.naverId && !(await this.hasOtherRoleWithNaverId(AUDIENCE.SELLER, row.naverId))) {
+          await this.authNaverOauthService.revoke(AUDIENCE.CONSUMER, row.naverRefreshToken);
+        }
+      });
       return;
     }
 
@@ -147,14 +150,16 @@ export class AuthWithdrawService {
       });
       // 탈퇴한 판매자의 휴대폰으로 더 이상 푸시가 가지 않게 판매자 앱 토큰을 지움
       await this.prisma.sellerFcmToken.deleteMany({ where: { sellerId: accountId } });
-      // 카카오 연결 끊기(탈퇴 처리를 마친 뒤). 같은 카카오로 가입한 손님 계정이 있으면 끊지 않는다
-      if (row.kakaoId && !(await this.hasOtherRoleWithKakaoId(AUDIENCE.CONSUMER, row.kakaoId))) {
-        await this.authKakaoOauthService.unlink(AUDIENCE.SELLER, row.kakaoId);
-      }
-      // 네이버 연결 끊기. 같은 네이버로 가입한 손님 계정이 있으면 끊지 않는다
-      if (row.naverId && !(await this.hasOtherRoleWithNaverId(AUDIENCE.CONSUMER, row.naverId))) {
-        await this.authNaverOauthService.revoke(AUDIENCE.SELLER, row.naverRefreshToken);
-      }
+      await this.afterWithdrawal(AUDIENCE.SELLER, async () => {
+        // 카카오 연결 끊기(탈퇴 처리를 마친 뒤). 같은 카카오로 가입한 손님 계정이 있으면 끊지 않는다
+        if (row.kakaoId && !(await this.hasOtherRoleWithKakaoId(AUDIENCE.CONSUMER, row.kakaoId))) {
+          await this.authKakaoOauthService.unlink(AUDIENCE.SELLER, row.kakaoId);
+        }
+        // 네이버 연결 끊기. 같은 네이버로 가입한 손님 계정이 있으면 끊지 않는다
+        if (row.naverId && !(await this.hasOtherRoleWithNaverId(AUDIENCE.CONSUMER, row.naverId))) {
+          await this.authNaverOauthService.revoke(AUDIENCE.SELLER, row.naverRefreshToken);
+        }
+      });
       return;
     }
 
@@ -173,6 +178,23 @@ export class AuthWithdrawService {
     }
 
     throw new NotFoundException(AUTH_ERROR_MESSAGES.USER_NOT_FOUND);
+  }
+
+  /**
+   * 탈퇴를 DB에 마친 뒤 하는 바깥 연결 끊기(애플 해지·카카오·네이버). 끊기 함수들은 바깥 API 실패를 스스로 잡지만,
+   * "같은 계정의 다른 역할" 확인 같은 DB 조회가 실패하면 예외가 올라가 이미 끝난 탈퇴에 500이 났다
+   * (다시 누르면 "계정을 찾을 수 없어요") — 여기서 잡아 기록만 하고 탈퇴는 성공으로 둔다(11-16 검토).
+   */
+  private async afterWithdrawal(audience: AudienceConst, run: () => Promise<void>): Promise<void> {
+    try {
+      await run();
+    } catch (error) {
+      LoggerUtil.log(`탈퇴 뒤 연결 끊기 실패(탈퇴는 완료): audience=${audience}`);
+      SentryUtil.captureException(error, "warning", {
+        module: "auth-withdraw",
+        step: "after-withdrawal",
+      });
+    }
   }
 
   /**
