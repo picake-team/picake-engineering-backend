@@ -89,6 +89,12 @@ jobs:
         if: steps.changes.outputs.backend == 'true'
         run: yarn install --immutable
 
+      # 배포 빌드(nest build)는 테스트 파일까지 타입을 검사한다. vitest는 타입을 보지 않아
+      # 테스트 타입 오류가 CI는 통과하고 배포에서만 멈춘 적이 있다(2026-11-16 staging 0.0.245)
+      - name: Type check (same as deploy build, tests included)
+        if: steps.changes.outputs.backend == 'true'
+        run: yarn workspace @picake/backend typecheck
+
       - name: Run backend unit tests
         if: steps.changes.outputs.backend == 'true'
         run: yarn workspace @picake/backend test
