@@ -4,6 +4,8 @@ import type { AdminStatisticsDailyTrendDto } from "@apps/backend/modules/statist
 import type { AdminStatisticsDailyTrendMetric } from "@apps/backend/modules/statistics/admin/constants/admin-statistics.constants";
 
 const SEOUL_TZ = "Asia/Seoul";
+// 시각 칸은 시간대 없는 timestamp에 UTC 시각을 담는다 — 한국 날짜는 (칸 AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul',
+// 기간 비교는 (값 AT TIME ZONE 'UTC')로(판매자 통계 시간대 버킷과 같은 이유, 11-16 검토)
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type DailyCountRow = { ymd: string; count: bigint };
@@ -66,53 +68,53 @@ export async function loadAdminStatisticsDailyBuckets(
     metricSet.has("signups")
       ? prisma.$queryRaw<DailyCountRow[]>(Prisma.sql`
           SELECT
-            to_char(c.created_at AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
+            to_char((c.created_at AT TIME ZONE 'UTC') AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
             COUNT(*)::bigint AS count
           FROM consumers c
-          WHERE c.created_at >= ${start} AND c.created_at <= ${end}
+          WHERE c.created_at >= (${start}::timestamptz AT TIME ZONE 'UTC') AND c.created_at <= (${end}::timestamptz AT TIME ZONE 'UTC')
           GROUP BY 1
         `)
       : Promise.resolve([]),
     metricSet.has("signups")
       ? prisma.$queryRaw<DailyCountRow[]>(Prisma.sql`
           SELECT
-            to_char(s.created_at AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
+            to_char((s.created_at AT TIME ZONE 'UTC') AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
             COUNT(*)::bigint AS count
           FROM sellers s
-          WHERE s.created_at >= ${start} AND s.created_at <= ${end}
+          WHERE s.created_at >= (${start}::timestamptz AT TIME ZONE 'UTC') AND s.created_at <= (${end}::timestamptz AT TIME ZONE 'UTC')
           GROUP BY 1
         `)
       : Promise.resolve([]),
     metricSet.has("orders")
       ? prisma.$queryRaw<DailyOrderRow[]>(Prisma.sql`
           SELECT
-            to_char(o.created_at AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
+            to_char((o.created_at AT TIME ZONE 'UTC') AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
             COUNT(*)::bigint AS order_count,
             COALESCE(SUM(o.total_price) FILTER (WHERE o.order_status IN (${gmvStatusIn})), 0)::bigint AS gmv_sum
           FROM orders o
-          WHERE o.created_at >= ${start} AND o.created_at <= ${end}
+          WHERE o.created_at >= (${start}::timestamptz AT TIME ZONE 'UTC') AND o.created_at <= (${end}::timestamptz AT TIME ZONE 'UTC')
           GROUP BY 1
         `)
       : Promise.resolve([]),
     metricSet.has("stores")
       ? prisma.$queryRaw<DailyCountRow[]>(Prisma.sql`
           SELECT
-            to_char(s.created_at AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
+            to_char((s.created_at AT TIME ZONE 'UTC') AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
             COUNT(*)::bigint AS count
           FROM stores s
-          WHERE s.created_at >= ${start} AND s.created_at <= ${end}
+          WHERE s.created_at >= (${start}::timestamptz AT TIME ZONE 'UTC') AND s.created_at <= (${end}::timestamptz AT TIME ZONE 'UTC')
           GROUP BY 1
         `)
       : Promise.resolve([]),
     metricSet.has("stores")
       ? prisma.$queryRaw<DailyCountRow[]>(Prisma.sql`
           SELECT
-            to_char(s.created_at AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
+            to_char((s.created_at AT TIME ZONE 'UTC') AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
             COUNT(*)::bigint AS count
           FROM stores s
           INNER JOIN sellers se ON se.id = s.seller_id
-          WHERE s.created_at >= ${start}
-            AND s.created_at <= ${end}
+          WHERE s.created_at >= (${start}::timestamptz AT TIME ZONE 'UTC')
+            AND s.created_at <= (${end}::timestamptz AT TIME ZONE 'UTC')
             AND se.seller_verification_status = CAST(${"BUSINESS_VERIFIED"} AS "SellerVerificationStatus")
           GROUP BY 1
         `)
@@ -120,10 +122,10 @@ export async function loadAdminStatisticsDailyBuckets(
     metricSet.has("entryRequests")
       ? prisma.$queryRaw<DailyCountRow[]>(Prisma.sql`
           SELECT
-            to_char(r.created_at AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
+            to_char((r.created_at AT TIME ZONE 'UTC') AT TIME ZONE ${SEOUL_TZ}, 'YYYY-MM-DD') AS ymd,
             COUNT(*)::bigint AS count
           FROM store_entry_requests r
-          WHERE r.created_at >= ${start} AND r.created_at <= ${end}
+          WHERE r.created_at >= (${start}::timestamptz AT TIME ZONE 'UTC') AND r.created_at <= (${end}::timestamptz AT TIME ZONE 'UTC')
           GROUP BY 1
         `)
       : Promise.resolve([]),
