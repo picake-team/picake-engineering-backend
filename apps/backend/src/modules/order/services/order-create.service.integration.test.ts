@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { ORDER_ERROR_MESSAGES } from "@apps/backend/modules/order/constants/order.constants";
 import { CreateOrderRequestDto } from "@apps/backend/modules/order/dto/order-create.dto";
 import { OrderCreateService } from "@apps/backend/modules/order/services/order-create.service";
 import type { OrderLifecycleHookService } from "@apps/backend/modules/order/services/order-lifecycle-hook.service";
@@ -91,5 +92,17 @@ describe("OrderCreateService (integration)", () => {
     const orderNumbers = orders.map((o) => o.orderNumber);
     expect(orderNumbers).toHaveLength(concurrentRequests);
     expect(new Set(orderNumbers).size).toBe(concurrentRequests);
+  });
+
+  it("정지·탈퇴한 사장님 가게 상품은 예약을 만들 수 없다(11-15 운영자)", async () => {
+    const { prisma, product, consumer } = await setupProduct();
+    const store = await prisma.store.findUniqueOrThrow({ where: { id: product.storeId } });
+    await prisma.seller.update({ where: { id: store.sellerId }, data: { isActive: false } });
+    const service = buildService(prisma);
+
+    await expect(service.createOrderForUser(consumer.id, buildDto(product.id))).rejects.toThrow(
+      ORDER_ERROR_MESSAGES.STORE_NOT_ORDERABLE,
+    );
+    expect(await prisma.order.count({ where: { storeId: product.storeId } })).toBe(0);
   });
 });

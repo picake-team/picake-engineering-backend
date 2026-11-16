@@ -198,6 +198,7 @@ export class OrderMapperUtil {
       paymentPendingDeadlineAt: order.paymentPendingDeadlineAt ?? null,
       depositorName: order.depositorName ?? null,
       paymentPendingExpiredAt: order.paymentPendingExpiredAt ?? null,
+      canceledAt: order.canceledAt ?? null,
       reservationContactName: order.reservationContactName ?? null,
       reservationPhone: order.reservationPhone ?? null,
       userCancelReason: order.userCancelReason ?? null,

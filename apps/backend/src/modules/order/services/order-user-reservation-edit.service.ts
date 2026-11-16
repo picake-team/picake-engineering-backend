@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
+import type { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import {
   ORDER_ERROR_MESSAGES,
   OrderStatus,
@@ -74,10 +75,7 @@ export class OrderUserReservationEditService {
       throw new BadRequestException(ORDER_ERROR_MESSAGES.PICKUP_OUTSIDE_STORE_BUSINESS_HOURS);
     }
 
-    await this.prisma.order.update({
-      where: { id: orderId },
-      data: { pickupDate: new Date(dto.pickupDate) },
-    });
+    await this.updateIfEditable(this.prisma, orderId, { pickupDate: new Date(dto.pickupDate) });
     return { id: orderId };
   }
 
@@ -115,14 +113,11 @@ export class OrderUserReservationEditService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      await this.updateIfEditable(tx, orderId, { totalQuantity, totalPrice });
       await tx.orderItem.deleteMany({ where: { orderId } });
       await tx.order.update({
         where: { id: orderId },
-        data: {
-          totalQuantity,
-          totalPrice,
-          orderItems: { create: normalizedItems },
-        },
+        data: { orderItems: { create: normalizedItems } },
       });
     });
 
@@ -176,14 +171,33 @@ export class OrderUserReservationEditService {
       otherItems.reduce((sum, orderItem) => sum + orderItem.quantity, 0) + normalizedItem.quantity;
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.orderItem.update({ where: { id: itemId }, data: normalizedItem });
-      await tx.order.update({
-        where: { id: orderId },
-        data: { totalQuantity: calculatedTotalQuantity, totalPrice: calculatedTotalPrice },
+      await this.updateIfEditable(tx, orderId, {
+        totalQuantity: calculatedTotalQuantity,
+        totalPrice: calculatedTotalPrice,
       });
+      await tx.orderItem.update({ where: { id: itemId }, data: normalizedItem });
     });
 
     return { id: orderId };
+  }
+
+  /**
+   * 예약신청 상태일 때만 `data`를 쓴다. 읽은 뒤 그사이 사장님이 예약을 확인(상태를 바꿈)했으면 고치지 않고 400
+   * (확인된 예약의 날짜·옵션이 사장님 모르게 바뀌던 것, 11-15 검토). 트랜잭션 안에서 부르면 끝날 때까지 줄을 잡는다.
+   */
+  private async updateIfEditable(
+    db: Pick<Prisma.TransactionClient, "order">,
+    orderId: string,
+    data: Prisma.OrderUpdateManyMutationInput,
+  ): Promise<void> {
+    const { count } = await db.order.updateMany({
+      where: { id: orderId, orderStatus: { in: [...RESERVATION_USER_EDIT_ALLOWED_STATUSES] } },
+      data,
+    });
+    if (count !== 1) {
+      LoggerUtil.log(`예약 수정 실패: 그사이 상태가 바뀜 - orderId: ${orderId}`);
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.INVALID_USER_ORDER_ACTION);
+    }
   }
 
   /**

@@ -92,7 +92,11 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
       if (isPaymentPendingExpired(now, expiryInput)) {
         const { count } = await this.prisma.order.updateMany({
           where: { id: orderId, orderStatus: OrderStatus.PAYMENT_PENDING },
-          data: { orderStatus: OrderStatus.CANCEL_COMPLETED, paymentPendingExpiredAt: now },
+          data: {
+            orderStatus: OrderStatus.CANCEL_COMPLETED,
+            paymentPendingExpiredAt: now,
+            canceledAt: now,
+          },
         });
         if (count === 1) {
           this.orderLifecycleHookService.afterOrderStatusTransition({
@@ -181,7 +185,11 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
         }
         const { count } = await this.prisma.order.updateMany({
           where: { id: row.id, orderStatus: OrderStatus.PAYMENT_PENDING },
-          data: { orderStatus: OrderStatus.CANCEL_COMPLETED, paymentPendingExpiredAt: now },
+          data: {
+            orderStatus: OrderStatus.CANCEL_COMPLETED,
+            paymentPendingExpiredAt: now,
+            canceledAt: now,
+          },
         });
         if (count === 1) {
           this.orderLifecycleHookService.afterOrderStatusTransition({

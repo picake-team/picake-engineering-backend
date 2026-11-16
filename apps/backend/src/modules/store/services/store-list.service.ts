@@ -24,7 +24,7 @@ import {
   buildStoreWhereForRegionKeywords,
 } from "@apps/backend/modules/store/utils/region-filter.util";
 import {
-  EXCLUDE_REVIEW_STORE_WHERE,
+  CUSTOMER_LISTED_STORE_WHERE,
   STORE_REGION_DEPTHS,
 } from "@apps/backend/modules/store/constants/store.constants";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -377,8 +377,8 @@ export class StoreListService {
     maxPrice?: number;
     productCategoryTypes?: ProductCategoryType[];
   }): Promise<Prisma.StoreWhereInput> {
-    // 판매자 앱 심사용 가게는 손님 목록·검색·지도에 보이지 않게 한다(I-48)
-    const conditions: Prisma.StoreWhereInput[] = [EXCLUDE_REVIEW_STORE_WHERE];
+    // 판매자 앱 심사용 가게(I-48)와 정지·탈퇴한 사장님 가게는 손님 목록·검색·지도에 보이지 않게 한다
+    const conditions: Prisma.StoreWhereInput[] = [CUSTOMER_LISTED_STORE_WHERE];
 
     if (params.search?.trim()) {
       conditions.push(buildStoreKeywordSearchWhere(params.search));
@@ -612,7 +612,7 @@ export class StoreListService {
           ? {}
           : buildStoreWhereForRegionKeywords(depth1Keywords, depth2Keywords);
         const where: Prisma.StoreWhereInput = {
-          AND: [regionWhere, hasVisibleProductFilter, EXCLUDE_REVIEW_STORE_WHERE],
+          AND: [regionWhere, hasVisibleProductFilter, CUSTOMER_LISTED_STORE_WHERE],
         };
         tasks.push(this.prisma.store.count({ where }));
       }

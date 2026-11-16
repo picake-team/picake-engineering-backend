@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
 
 import {
+  withCanceledAt,
   isAdminRevertToRefundPendingAllowed,
   isSellerSettableOrderStatus,
   isSellerTransitionAllowed,
@@ -109,5 +110,50 @@ describe("isAdminRevertToRefundPendingAllowed", () => {
   it("취소완료가 아닌 상태는 되돌릴 수 없다", () => {
     expect(isAdminRevertToRefundPendingAllowed(OrderStatus.CANCEL_REFUND_COMPLETED)).toBe(false);
     expect(isAdminRevertToRefundPendingAllowed(OrderStatus.CONFIRMED)).toBe(false);
+  });
+});
+
+describe("withCanceledAt (취소 일시, 11-16)", () => {
+  const now = new Date("2026-11-16T03:00:00.000Z");
+
+  it("취소 상태로 처음 들어가면 취소한 시각을 더한다", () => {
+    expect(
+      withCanceledAt(
+        OrderStatus.CONFIRMED,
+        { orderStatus: OrderStatus.CANCEL_REFUND_PENDING },
+        now,
+      ),
+    ).toEqual({ orderStatus: OrderStatus.CANCEL_REFUND_PENDING, canceledAt: now });
+    expect(
+      withCanceledAt(
+        OrderStatus.RESERVATION_REQUESTED,
+        { orderStatus: OrderStatus.CANCEL_COMPLETED },
+        now,
+      ).canceledAt,
+    ).toBe(now);
+  });
+
+  it("취소 상태끼리 옮기거나(환불 완료) 취소가 아니면 그대로", () => {
+    expect(
+      withCanceledAt(
+        OrderStatus.CANCEL_REFUND_PENDING,
+        { orderStatus: OrderStatus.CANCEL_REFUND_COMPLETED },
+        now,
+      ),
+    ).toEqual({ orderStatus: OrderStatus.CANCEL_REFUND_COMPLETED });
+    expect(
+      withCanceledAt(
+        OrderStatus.PAYMENT_PENDING,
+        { orderStatus: OrderStatus.PAYMENT_COMPLETED },
+        now,
+      ),
+    ).toEqual({ orderStatus: OrderStatus.PAYMENT_COMPLETED });
+    // 상태를 바꾸지 않는 저장(환불 계좌 고치기 등)은 그대로
+    const accountOnly: { orderStatus?: OrderStatus; refundBankName: string } = {
+      refundBankName: "X",
+    };
+    expect(withCanceledAt(OrderStatus.CANCEL_REFUND_PENDING, accountOnly, now)).toEqual({
+      refundBankName: "X",
+    });
   });
 });

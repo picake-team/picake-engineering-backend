@@ -218,7 +218,8 @@ export class QuoteRequestWriteService {
 
     const found = storeIds.length
       ? await this.prisma.store.findMany({
-          where: { id: { in: storeIds } },
+          // 정지·탈퇴한 사장님 가게는 견적을 물을 수 없다(손님 목록에서도 빠짐)
+          where: { id: { in: storeIds }, seller: { isActive: true } },
           select: {
             id: true,
             name: true,
