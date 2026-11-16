@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -12,8 +13,8 @@ import {
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
-import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
-import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AuthenticatedUser } from "@apps/backend/modules/auth/types/auth.types";
+import { AUDIENCE, AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.constants";
 import { ChatAdminService } from "@apps/backend/modules/chat/services/chat-admin.service";
 import {
   AdminChatReportListQueryDto,
@@ -29,6 +30,11 @@ import {
 @Auth({ isPublic: false, audiences: [AUDIENCE.ADMIN] })
 export class AdminChatController {
   constructor(private readonly chatAdmin: ChatAdminService) {}
+
+  /** 원문 열기·처리는 사람 관리자만 — API 키(운영 자동화)는 요약 숫자·목록만 쓴다(11-16 검토) */
+  private assertHumanAdmin(user: AuthenticatedUser) {
+    if (user.isApiKey) throw new ForbiddenException(AUTH_ERROR_MESSAGES.CHAT_REPORT_HUMAN_ONLY);
+  }
 
   @Get("summary")
   @ApiOperation({
@@ -50,7 +56,8 @@ export class AdminChatController {
   @Get("reports/:id")
   @ApiOperation({ summary: "채팅 신고 상세(최근 대화 50개, 원문). 열람 기록이 남습니다" })
   @SwaggerAuthResponses()
-  async report(@Param("id") id: string, @Request() req: { user: JwtVerifiedPayload }) {
+  async report(@Param("id") id: string, @Request() req: { user: AuthenticatedUser }) {
+    this.assertHumanAdmin(req.user);
     return this.chatAdmin.getReport(req.user.sub, id);
   }
 
@@ -61,8 +68,9 @@ export class AdminChatController {
   async resolve(
     @Param("id") id: string,
     @Body() dto: AdminChatReportResolveDto,
-    @Request() req: { user: JwtVerifiedPayload },
+    @Request() req: { user: AuthenticatedUser },
   ) {
+    this.assertHumanAdmin(req.user);
     return this.chatAdmin.resolveReport(req.user.sub, id, dto);
   }
 }
