@@ -321,7 +321,7 @@ export class OrderResponseDto extends PickupAddressDto {
 
   @ApiPropertyOptional({
     description:
-      "가게가 픽업 날이 지나도록(그날 자정, 한국 시간) 예약신청을 확인하지 않아 자동 취소된 시각. 입금 전 취소라 돈이 오가지 않았습니다. 그 외에는 null",
+      "가게가 픽업 날이 지나도록(다음 날 오전 9시, 한국 시간) 예약신청을 확인하지 않아 자동 취소된 시각. 입금 전 취소라 돈이 오가지 않았습니다. 그 외에는 null",
     example: "2024-01-15T15:00:00.000Z",
     nullable: true,
   })

@@ -190,6 +190,71 @@ describe("AuthWithdrawService.withdraw", () => {
       expect(authKakaoOauthServiceMock.unlink).toHaveBeenCalledWith(AUDIENCE.SELLER, "5001");
     });
 
+    it("같은 카카오로 가입한 사장님 계정이 있으면 손님이 탈퇴해도 끊지 않는다(같은 카카오 앱)", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+        kakaoId: "4001",
+      } as any);
+      prismaMock.seller.findFirst.mockResolvedValue({ id: "seller-9" } as any);
+
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
+
+      expect(prismaMock.consumer.update).toHaveBeenCalled();
+      expect(authKakaoOauthServiceMock.unlink).not.toHaveBeenCalled();
+    });
+
+    it("같은 카카오로 가입한 손님 계정이 있으면 사장님이 탈퇴해도 끊지 않는다", async () => {
+      prismaMock.seller.findUnique.mockResolvedValue({
+        id: "seller-1",
+        withdrawnAt: null,
+        phone: "01012345678",
+        kakaoId: "5001",
+      } as any);
+      prismaMock.consumer.findFirst.mockResolvedValue({ id: "consumer-9" } as any);
+
+      await service.withdraw(AUDIENCE.SELLER, "seller-1", "탈퇴 사유");
+
+      expect(prismaMock.seller.update).toHaveBeenCalled();
+      expect(authKakaoOauthServiceMock.unlink).not.toHaveBeenCalled();
+    });
+
+    it("연결 끊기·애플 해지는 DB에서 탈퇴 처리를 마친 뒤에 한다(먼저 끊고 저장이 실패하면 반쯤 탈퇴)", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleRefreshToken: "enc-refresh",
+        kakaoId: "4001",
+      } as any);
+      prismaMock.seller.findFirst.mockResolvedValue(null);
+
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
+
+      const updateOrder = prismaMock.consumer.update.mock.invocationCallOrder[0];
+      expect(authKakaoOauthServiceMock.unlink.mock.invocationCallOrder[0]).toBeGreaterThan(
+        updateOrder,
+      );
+      expect(authAppleOauthServiceMock.revokeToken.mock.invocationCallOrder[0]).toBeGreaterThan(
+        updateOrder,
+      );
+    });
+
+    it("DB 저장이 실패하면 연결을 끊지 않는다", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+        kakaoId: "4001",
+      } as any);
+      prismaMock.consumer.update.mockRejectedValueOnce(new Error("db down"));
+
+      await expect(
+        service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유"),
+      ).rejects.toThrow();
+      expect(authKakaoOauthServiceMock.unlink).not.toHaveBeenCalled();
+    });
+
     it("카카오 계정이 없거나 진행 중인 주문으로 탈퇴가 막히면 끊지 않는다", async () => {
       prismaMock.consumer.findUnique.mockResolvedValue({
         id: "consumer-1",

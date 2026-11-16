@@ -184,39 +184,35 @@ describe("isPaymentFinalReminderEligible / isPaymentFinalReminderDue (2차, 30�
   });
 });
 
-describe("예약신청 자동 취소 시각(픽업 날 다음 자정, 한국 시간)", () => {
+describe("예약신청 자동 취소 시각(픽업 날 다음 날 오전 9시, 한국 시간)", () => {
   // 2026-11-16 14:00 KST = 05:00Z
   const pickup = new Date("2026-11-16T05:00:00.000Z");
-  const nextKstMidnight = new Date("2026-11-16T15:00:00.000Z"); // 11-17 00:00 KST
+  const expiresAt = new Date("2026-11-17T00:00:00.000Z"); // 11-17 09:00 KST
 
-  it("픽업 날 다음 자정에 만료된다", () => {
-    expect(reservationRequestExpiresAt(pickup).toISOString()).toBe(nextKstMidnight.toISOString());
+  it("픽업 날 다음 날 오전 9시에 만료된다(한밤중이 아니라)", () => {
+    expect(reservationRequestExpiresAt(pickup).toISOString()).toBe(expiresAt.toISOString());
   });
 
-  it("한국 시간 자정 직전 픽업도 그날 자정까지(UTC 날짜가 달라도)", () => {
-    // 11-16 23:30 KST = 14:30Z → 11-17 00:00 KST
+  it("한국 시간 날짜로 센다(UTC 날짜가 달라도)", () => {
+    // 11-16 23:30 KST = 14:30Z → 11-17 09:00 KST
     expect(reservationRequestExpiresAt(new Date("2026-11-16T14:30:00.000Z")).toISOString()).toBe(
-      nextKstMidnight.toISOString(),
+      expiresAt.toISOString(),
     );
-    // 11-16 00:10 KST = 11-15 15:10Z → 11-17 00:00 KST
+    // 11-16 00:10 KST = 11-15 15:10Z → 11-17 09:00 KST
     expect(reservationRequestExpiresAt(new Date("2026-11-15T15:10:00.000Z")).toISOString()).toBe(
-      nextKstMidnight.toISOString(),
+      expiresAt.toISOString(),
     );
   });
 
-  it("픽업 시각이 지나도 그날 안에는 만료되지 않는다(사장님이 늦게라도 받을 수 있게)", () => {
+  it("픽업 시각이 지나도 다음 날 아침까지는 남긴다(그사이 손님이 날짜를 바꾸면 다시 확인받게)", () => {
     expect(isReservationRequestExpired(pickup, new Date(pickup.getTime() + h(5)))).toBe(false);
-    expect(isReservationRequestExpired(pickup, new Date(nextKstMidnight.getTime() - 1))).toBe(
-      false,
-    );
-    expect(isReservationRequestExpired(pickup, nextKstMidnight)).toBe(true);
+    expect(isReservationRequestExpired(pickup, new Date(expiresAt.getTime() - 1))).toBe(false);
+    expect(isReservationRequestExpired(pickup, expiresAt)).toBe(true);
   });
 
   it("만료된 지 하루 안이면 알리고, 그보다 오래된 건 알리지 않는다", () => {
-    expect(shouldNotifyReservationExpiry(pickup, new Date(nextKstMidnight.getTime() + h(23)))).toBe(
-      true,
-    );
-    expect(shouldNotifyReservationExpiry(pickup, new Date(nextKstMidnight.getTime() + h(25)))).toBe(
+    expect(shouldNotifyReservationExpiry(pickup, new Date(expiresAt.getTime() + h(23)))).toBe(true);
+    expect(shouldNotifyReservationExpiry(pickup, new Date(expiresAt.getTime() + h(25)))).toBe(
       false,
     );
   });

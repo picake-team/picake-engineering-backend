@@ -1065,7 +1065,7 @@ model Order {
    */
   paymentPendingExpiredAt         DateTime?      @map("payment_pending_expired_at")
   /**
-   * 예약신청을 가게가 픽업 날이 지나도록(그날 자정, 한국 시간) 확인하지 않아 "자동" 취소된 시각(2026-11-16).
+   * 예약신청을 가게가 픽업 날이 지나도록(다음 날 오전 9시, 한국 시간) 확인하지 않아 "자동" 취소된 시각(2026-11-16).
    * 입금 전이라 돈이 오간 적이 없다. 값이 있으면 손님·사장님이 의도한 취소가 아니라 시스템이 취소한 건입니다.
    */
   reservationExpiredAt            DateTime?      @map("reservation_expired_at")

@@ -26,7 +26,9 @@ import { AuthKakaoOauthService } from "@apps/backend/modules/auth/services/auth-
  * - `phone`/`googleId`/`kakaoId` 등 재가입 식별에 쓰이는 값은 파기 후 고유값으로 치환해, 관리자
  *   비활성(정지)과 달리 동일 OAuth·휴대폰으로 즉시 재가입이 가능하도록 유지합니다.
  * - `name`/`nickname`/`profileImageUrl` 등 더 이상 필요 없는 개인정보는 null 처리합니다.
- * - 카카오로 가입했으면 카카오 연결을 끊습니다(애플 revoke와 같게, 실패해도 탈퇴는 진행).
+ * - 카카오로 가입했으면 카카오 연결을 끊습니다(애플 revoke와 같게, 실패해도 탈퇴는 진행). 손님·사장님이 같은 카카오 앱을 써서
+ *   같은 카카오 계정으로 가입한 다른 역할 계정이 남아 있으면 끊지 않습니다. 끊기·revoke는 DB에서 탈퇴 처리를 마친 뒤에 합니다
+ *   (먼저 끊고 DB 저장이 실패하면 계정은 살아 있는데 카카오만 끊긴 반쯤 탈퇴가 된다).
  * - 견적 요청(사진 포함)은 계약이 아니라 보관 의무가 없어 지웁니다(QuoteRequestCleanupService).
  * - 케이크 디자인 모음 좋아요(DesignLike)도 지웁니다(디자인별 좋아요 수에서 빠지게).
  * - 주문(Order)·주문상품(OrderItem)·약관동의이력은 그대로 보존됩니다(법정 보존기간 경과 후 별도
@@ -74,15 +76,6 @@ export class AuthWithdrawService {
       // 휴대폰 알림 기기도 지운다(사장님 탈퇴와 같게). 남겨 두면 탈퇴 뒤 관리자 환불 되돌리기 등 알림이 그 기기로 간다
       await this.prisma.consumerFcmToken.deleteMany({ where: { consumerId: accountId } });
 
-      // Apple 가이드라인 5.1.1(v) — 계정 삭제 시 Sign in with Apple 인가를 revoke. 실패해도 탈퇴는 계속 진행.
-      if (row.appleRefreshToken) {
-        await this.authAppleOauthService.revokeToken(row.appleRefreshToken);
-      }
-      // 카카오 연결 끊기 — 카카오에 남은 동의가 없어져 다시 가입할 때 동의부터 새로 받는다. 실패해도 탈퇴는 계속.
-      if (row.kakaoId) {
-        await this.authKakaoOauthService.unlink(AUDIENCE.CONSUMER, row.kakaoId);
-      }
-
       await this.prisma.consumer.update({
         where: { id: accountId },
         data: {
@@ -93,6 +86,17 @@ export class AuthWithdrawService {
           appleRefreshToken: null,
         },
       });
+
+      // 바깥 연결 끊기는 탈퇴 처리를 마친 뒤(읽어 둔 값으로). 둘 다 실패해도 탈퇴는 끝난 상태로 둔다.
+      // Apple 가이드라인 5.1.1(v) — 계정 삭제 시 Sign in with Apple 인가를 revoke.
+      if (row.appleRefreshToken) {
+        await this.authAppleOauthService.revokeToken(row.appleRefreshToken);
+      }
+      // 카카오 연결 끊기 — 카카오에 남은 동의가 없어져 다시 가입할 때 동의부터 새로 받는다.
+      // 같은 카카오로 가입한 사장님 계정이 있으면 끊지 않는다(같은 카카오 앱이라 사장님 연결도 같이 끊긴다).
+      if (row.kakaoId && !(await this.hasOtherRoleWithKakaoId(AUDIENCE.SELLER, row.kakaoId))) {
+        await this.authKakaoOauthService.unlink(AUDIENCE.CONSUMER, row.kakaoId);
+      }
       return;
     }
 
@@ -117,15 +121,16 @@ export class AuthWithdrawService {
       } else {
         await this.assertNoActiveOrdersForSeller(accountId);
       }
-      if (row.kakaoId) {
-        await this.authKakaoOauthService.unlink(AUDIENCE.SELLER, row.kakaoId);
-      }
       await this.prisma.seller.update({
         where: { id: accountId },
         data: this.buildAnonymizedWithdrawalData(accountId, reason),
       });
       // 탈퇴한 판매자의 휴대폰으로 더 이상 푸시가 가지 않게 판매자 앱 토큰을 지움
       await this.prisma.sellerFcmToken.deleteMany({ where: { sellerId: accountId } });
+      // 카카오 연결 끊기(탈퇴 처리를 마친 뒤). 같은 카카오로 가입한 손님 계정이 있으면 끊지 않는다
+      if (row.kakaoId && !(await this.hasOtherRoleWithKakaoId(AUDIENCE.CONSUMER, row.kakaoId))) {
+        await this.authKakaoOauthService.unlink(AUDIENCE.SELLER, row.kakaoId);
+      }
       return;
     }
 
@@ -144,6 +149,26 @@ export class AuthWithdrawService {
     }
 
     throw new NotFoundException(AUTH_ERROR_MESSAGES.USER_NOT_FOUND);
+  }
+
+  /**
+   * 같은 카카오 계정으로 가입한 다른 역할(손님↔사장님) 계정이 있는지. 탈퇴하면 kakaoId를 비우므로 남아 있으면 살아 있는(또는 정지된) 계정이다.
+   * 손님·사장님은 같은 카카오 앱(키만 둘)이라 회원번호가 같고, 연결을 끊으면 그 계정의 카카오 연결도 같이 끊긴다.
+   */
+  private async hasOtherRoleWithKakaoId(
+    other: typeof AUDIENCE.CONSUMER | typeof AUDIENCE.SELLER,
+    kakaoId: string,
+  ): Promise<boolean> {
+    const found =
+      other === AUDIENCE.SELLER
+        ? await this.prisma.seller.findFirst({ where: { kakaoId }, select: { id: true } })
+        : await this.prisma.consumer.findFirst({ where: { kakaoId }, select: { id: true } });
+    if (found) {
+      LoggerUtil.log(
+        `카카오 연결 끊기 건너뜀: 같은 카카오로 가입한 다른 역할 계정이 있음(${other})`,
+      );
+    }
+    return Boolean(found);
   }
 
   /**

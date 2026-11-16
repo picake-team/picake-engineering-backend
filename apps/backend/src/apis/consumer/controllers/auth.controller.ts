@@ -67,7 +67,7 @@ export class ConsumerAuthController {
   @ApiOperation({
     summary: "구글 회원가입 (구매자, 휴대폰 인증 후)",
     description:
-      "새로운 구글 사용자를 등록합니다. 로그인 응답의 가입표 registerToken(30분)으로만 가입합니다(없거나 지났으면 400 REGISTER_TICKET_INVALID). 응답에서 accessToken과 refreshToken을 반환합니다. 휴대폰 인증이 완료된 상태여야 합니다. 동일한 구글 ID나 휴대폰 번호가 있으면 중복 에러가 발생합니다.",
+      "새로운 구글 사용자를 등록합니다. 로그인 응답의 가입표 registerToken(30분)으로만 가입합니다(지났거나 위조됐으면 400 REGISTER_TICKET_INVALID, 빠졌으면 400 입력 오류). 번호·계정이 이미 있으면 409. 응답에서 accessToken과 refreshToken을 반환합니다. 휴대폰 인증이 완료된 상태여야 합니다. 동일한 구글 ID나 휴대폰 번호가 있으면 중복 에러가 발생합니다.",
   })
   @SwaggerResponse(201, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(409, {
@@ -117,7 +117,7 @@ export class ConsumerAuthController {
   @ApiOperation({
     summary: "카카오 회원가입 (구매자, 휴대폰 인증 후)",
     description:
-      "새로운 카카오 사용자를 등록합니다. 로그인 응답의 가입표 registerToken(30분)으로만 가입합니다(없거나 지났으면 400 REGISTER_TICKET_INVALID). 응답에서 accessToken과 refreshToken을 반환합니다. 휴대폰 인증이 완료된 상태여야 합니다. 카카오는 useTicketPhone=true면 가입표 안 카카오 번호로 휴대폰 인증 없이 가입하고, 간편가입에서 필수 약관에 동의했으면 약관 칸을 생략할 수 있습니다. 동일한 카카오 ID나 휴대폰 번호가 있으면 중복 에러가 발생합니다.",
+      "새로운 카카오 사용자를 등록합니다. 로그인 응답의 가입표 registerToken(30분)으로만 가입합니다(지났거나 위조됐으면 400 REGISTER_TICKET_INVALID, 빠졌으면 400 입력 오류). 번호·계정이 이미 있으면 409. 응답에서 accessToken과 refreshToken을 반환합니다. 휴대폰 인증이 완료된 상태여야 합니다. 카카오는 useTicketPhone=true면 가입표 안 카카오 번호로 휴대폰 인증 없이 가입하고, 간편가입에서 필수 약관에 동의했으면 약관 칸을 생략할 수 있습니다. 동일한 카카오 ID나 휴대폰 번호가 있으면 중복 에러가 발생합니다.",
   })
   @SwaggerResponse(201, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(409, {
@@ -167,7 +167,7 @@ export class ConsumerAuthController {
   @ApiOperation({
     summary: "애플 회원가입 (구매자, 휴대폰 인증 후)",
     description:
-      "새로운 애플 사용자를 등록합니다. 로그인 응답의 가입표 registerToken(30분)으로만 가입합니다(없거나 지났으면 400 REGISTER_TICKET_INVALID). 응답에서 accessToken과 refreshToken을 반환합니다. 휴대폰 인증이 완료된 상태여야 합니다. 동일한 애플 ID나 휴대폰 번호가 있으면 중복 에러가 발생합니다.",
+      "새로운 애플 사용자를 등록합니다. 로그인 응답의 가입표 registerToken(30분)으로만 가입합니다(지났거나 위조됐으면 400 REGISTER_TICKET_INVALID, 빠졌으면 400 입력 오류). 번호·계정이 이미 있으면 409. 응답에서 accessToken과 refreshToken을 반환합니다. 휴대폰 인증이 완료된 상태여야 합니다. 동일한 애플 ID나 휴대폰 번호가 있으면 중복 에러가 발생합니다.",
   })
   @SwaggerResponse(201, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(409, {

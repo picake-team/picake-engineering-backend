@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
 import { OrderAutomationService } from "@apps/backend/modules/order/services/order-automation.service";
@@ -26,7 +26,15 @@ import { createNotificationOrderDispatchNoopMock } from "@apps/backend/test/mock
  */
 describe("확인하지 않은 예약신청 자동 취소 (integration)", () => {
   const DAY = 24 * 60 * 60 * 1000;
-  const at = (ms: number) => new Date(Date.now() + ms);
+  // 시각을 고정한다(오전 9시 기준이라 하루 중 언제 돌리느냐에 따라 결과가 달라지지 않게): 2026-11-20 10:30 KST
+  const NOW = new Date("2026-11-20T01:30:00.000Z");
+  const at = (ms: number) => new Date(NOW.getTime() + ms);
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"], now: NOW });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   async function setup() {
     const prisma = getTestPrisma();
@@ -46,10 +54,10 @@ describe("확인하지 않은 예약신청 자동 취소 (integration)", () => {
 
   it("배치: 픽업 날이 지난 예약신청은 취소완료(reservationExpiredAt)로, 어제 픽업은 알리고 오래된 건 조용히", async () => {
     const { prisma, refs, automation, afterOrderStatusTransition } = await setup();
-    // 어제 픽업 → 오늘 0시(한국 시간)에 만료, 만료된 지 하루 안이라 알림
+    // 어제(11-19) 14:00 픽업 → 오늘 09:00(한국 시간)에 만료, 만료된 지 1시간 반이라 알림
     const yesterday = await createTestOrder(prisma, refs, {
       orderStatus: OrderStatus.RESERVATION_REQUESTED,
-      pickupDate: at(-DAY),
+      pickupDate: new Date("2026-11-19T05:00:00.000Z"),
     });
     // 몇 달 전 픽업 → 알림 없이 취소
     const old = await createTestOrder(prisma, refs, {
@@ -61,6 +69,11 @@ describe("확인하지 않은 예약신청 자동 취소 (integration)", () => {
       orderStatus: OrderStatus.RESERVATION_REQUESTED,
       pickupDate: at(2 * DAY),
     });
+    // 오늘 아침 픽업(11-20 08:00 KST)은 다음 날 아침까지 그대로 — 손님이 날짜를 바꿀 수 있는 동안
+    const todayMorning = await createTestOrder(prisma, refs, {
+      orderStatus: OrderStatus.RESERVATION_REQUESTED,
+      pickupDate: new Date("2026-11-19T23:00:00.000Z"),
+    });
     // 사장님이 이미 확인한 주문은 이 규칙과 상관없다(예약확정 → 픽업대기 규칙만)
     const confirmed = await createTestOrder(prisma, refs, {
       orderStatus: OrderStatus.PAYMENT_COMPLETED,
@@ -70,7 +83,7 @@ describe("확인하지 않은 예약신청 자동 취소 (integration)", () => {
     await automation.runBatchTransitions();
 
     const rows = await prisma.order.findMany({
-      where: { id: { in: [yesterday.id, old.id, future.id, confirmed.id] } },
+      where: { id: { in: [yesterday.id, old.id, future.id, confirmed.id, todayMorning.id] } },
       select: { id: true, orderStatus: true, reservationExpiredAt: true, canceledAt: true },
     });
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -81,6 +94,7 @@ describe("확인하지 않은 예약신청 자동 취소 (integration)", () => {
     }
     expect(byId.get(future.id)?.orderStatus).toBe(OrderStatus.RESERVATION_REQUESTED);
     expect(byId.get(future.id)?.reservationExpiredAt).toBeNull();
+    expect(byId.get(todayMorning.id)?.orderStatus).toBe(OrderStatus.RESERVATION_REQUESTED);
     expect(byId.get(confirmed.id)?.orderStatus).toBe(OrderStatus.PAYMENT_COMPLETED);
 
     const notified = afterOrderStatusTransition.mock.calls.map((c) => c[0]);
@@ -117,6 +131,28 @@ describe("확인하지 않은 예약신청 자동 취소 (integration)", () => {
         source: ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_SYNC,
       }),
     );
+  });
+
+  it("읽은 뒤 손님이 픽업 날짜를 바꿨으면 취소하지 않는다(날짜도 조건으로 저장)", async () => {
+    const { prisma, refs, automation, afterOrderStatusTransition } = await setup();
+    const order = await createTestOrder(prisma, refs, {
+      orderStatus: OrderStatus.RESERVATION_REQUESTED,
+      pickupDate: new Date("2026-11-18T05:00:00.000Z"),
+    });
+    // 목록에서 읽어 둔 줄(옛 날짜)
+    const stale = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    // 그사이 손님이 날짜를 바꿈
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { pickupDate: new Date("2026-11-25T05:00:00.000Z") },
+    });
+
+    const changed = await automation.syncLoadedOrders([stale]);
+
+    expect(changed).toBe(false);
+    const row = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(row.orderStatus).toBe(OrderStatus.RESERVATION_REQUESTED);
+    expect(afterOrderStatusTransition).not.toHaveBeenCalled();
   });
 
   it("답이 없던 예약신청이 취소되면 손님이 탈퇴할 수 있다", async () => {

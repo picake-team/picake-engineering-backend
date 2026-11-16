@@ -54,7 +54,7 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
   /**
    * 단일 주문에 대해 만료·픽업 전환·픽업 안내 규칙을 즉시 적용 (최신 상태 보장)
    * 만료 규칙: 입금대기 상태에서 `paymentPendingDeadlineAt`(없으면 픽업·진입 시각 기준 복원)이 지난 주문을 취소완료로 전환합니다.
-   * 예약신청 만료: 가게가 픽업 날이 지나도록(그날 자정, 한국 시간) 확인하지 않은 예약신청을 취소완료로 전환합니다(`reservationExpiredAt`, 2026-11-16).
+   * 예약신청 만료: 가게가 픽업 날이 지나도록(다음 날 오전 9시, 한국 시간) 확인하지 않은 예약신청을 취소완료로 전환합니다(`reservationExpiredAt`, 2026-11-16).
    *   답이 없는 예약신청이 영원히 "진행 중"으로 남아 손님이 탈퇴하지 못하던 것. 만료된 지 하루가 넘은 건은 알림 없이 취소합니다.
    * 재입금 안내(1차): 입금대기 상태에서 마감까지 준 시간이 3시간 초과인 주문에 한해, 마감 3시간 전 구매자 안내를 1회 발송합니다. (마감 구간이 1시간으로 짧게 잡힌 픽업 임박 주문은 생략)
    * 재입금 안내(2차): 마감 30분 전 최종 안내를 1회 발송합니다. 1차와 달리 창구가 짧은 주문도 대상입니다(창구가 30분 이하면 생략).
@@ -219,23 +219,35 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
-      // 가게가 픽업 날이 지나도록 확인하지 않은 예약신청 (sync의 RESERVATION_REQUESTED 분기와 같음)
-      const reservationRequestRows = await this.prisma.order.findMany({
-        where: {
-          orderStatus: OrderStatus.RESERVATION_REQUESTED,
-          pickupDate: { lte: now },
-        },
-        select: { id: true, pickupDate: true },
-      });
+      // 가게가 픽업 날이 지나도록 확인하지 않은 예약신청 (sync의 RESERVATION_REQUESTED 분기와 같음).
+      // 여기서 실패해도 아래 안내(재입금·픽업)는 이번 차례에 그대로 돌게 따로 잡는다
+      try {
+        const reservationRequestRows = await this.prisma.order.findMany({
+          where: {
+            orderStatus: OrderStatus.RESERVATION_REQUESTED,
+            pickupDate: { lte: now },
+          },
+          select: { id: true, pickupDate: true },
+        });
 
-      for (const row of reservationRequestRows) {
-        if (!row.pickupDate) continue;
-        await this.tryExpireReservationRequest(
-          row.id,
-          row.pickupDate,
-          now,
-          ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH,
+        for (const row of reservationRequestRows) {
+          if (!row.pickupDate) continue;
+          await this.tryExpireReservationRequest(
+            row.id,
+            row.pickupDate,
+            now,
+            ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH,
+          );
+        }
+      } catch (e) {
+        LoggerUtil.log(
+          `예약신청 자동 취소 배치 실패: ${e instanceof Error ? e.message : String(e)}`,
         );
+        SentryUtil.captureException(e, "error", {
+          module: "order-automation",
+          job: "expireReservationRequests",
+          source: ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH,
+        });
       }
 
       // 재입금 안내 (입금대기 · 미발송 · 마감이 아직 남음)
@@ -383,8 +395,9 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
     source: OrderStatusTransitionSource,
   ): Promise<boolean> {
     if (!isReservationRequestExpired(pickupDate, now)) return false;
+    // 읽은 뒤 그사이 손님이 픽업 날짜를 바꿨으면(다시 확인받으려고) 취소하지 않는다 — 날짜도 조건에 넣는다
     const { count } = await this.prisma.order.updateMany({
-      where: { id: orderId, orderStatus: OrderStatus.RESERVATION_REQUESTED },
+      where: { id: orderId, orderStatus: OrderStatus.RESERVATION_REQUESTED, pickupDate },
       data: {
         orderStatus: OrderStatus.CANCEL_COMPLETED,
         reservationExpiredAt: now,
