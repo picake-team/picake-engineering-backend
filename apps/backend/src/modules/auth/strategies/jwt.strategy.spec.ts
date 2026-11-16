@@ -39,6 +39,22 @@ describe("JwtStrategy.validate", () => {
     );
   });
 
+  it("가입표(type=register)로는 API를 부를 수 없다", async () => {
+    await expect(
+      strategy.validate({
+        aud: AUDIENCE.CONSUMER,
+        type: "register",
+      } as JwtVerifiedPayload),
+    ).rejects.toThrow(UnauthorizedException);
+    await expect(
+      strategy.validate({
+        sub: "kakao-123",
+        aud: AUDIENCE.CONSUMER,
+        type: "register",
+      } as JwtVerifiedPayload),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
   it("type이 access가 아니면 거부한다 (refresh 토큰으로 API 호출 시도 등)", async () => {
     await expect(
       strategy.validate({

@@ -37,6 +37,7 @@ import {
 } from "@apps/backend/modules/auth/utils/kakao-signup.util";
 import { Prisma, TermsType } from "@apps/backend/infra/database/prisma/generated/client";
 import { ExternalApiErrorUtil } from "@apps/backend/common/utils/external-api-error.util";
+import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
 
 @Injectable()
@@ -45,6 +46,9 @@ export class AuthKakaoOauthService {
   private readonly kakaoClientSecret: string;
   private readonly kakaoClientIdSeller: string;
   private readonly kakaoClientSecretSeller: string;
+  /** 탈퇴 때 카카오 연결 끊기용 앱 어드민 키(없으면 끊지 않음). 사장님 앱이 다른 카카오 앱이면 _SELLER */
+  private readonly kakaoAdminKey: string;
+  private readonly kakaoAdminKeySeller: string;
   private readonly consumerBase: string;
   private readonly consumerPath: string;
   private readonly sellerBase: string;
@@ -63,6 +67,9 @@ export class AuthKakaoOauthService {
     this.kakaoClientSecret = configService.get<string>("KAKAO_CLIENT_SECRET") ?? "";
     this.kakaoClientIdSeller = configService.get<string>("KAKAO_CLIENT_ID_SELLER")!;
     this.kakaoClientSecretSeller = configService.get<string>("KAKAO_CLIENT_SECRET_SELLER") ?? "";
+    this.kakaoAdminKey = configService.get<string>("KAKAO_ADMIN_KEY")?.trim() ?? "";
+    this.kakaoAdminKeySeller =
+      configService.get<string>("KAKAO_ADMIN_KEY_SELLER")?.trim() || this.kakaoAdminKey;
     this.consumerBase = this.configService.get<string>("PUBLIC_USER_DOMAIN")!;
     this.consumerPath = OAUTH_REDIRECT_PATHS.KAKAO;
     this.sellerBase = this.configService.get<string>("PUBLIC_SELLER_DOMAIN")!;
@@ -242,11 +249,75 @@ export class AuthKakaoOauthService {
     try {
       const res = await this.httpClient.get("https://kapi.kakao.com/v2/user/service_terms", {
         headers: { Authorization: `Bearer ${accessToken}` },
+        // 새 손님 로그인을 오래 붙잡지 않는다(실패하면 가입 화면에서 약관을 받으면 된다)
+        timeout: 3000,
       });
-      return res.status === 200 ? parseKakaoAgreedServiceTerms(res.data) : [];
-    } catch {
+      if (res.status === 200) return parseKakaoAgreedServiceTerms(res.data);
+      this.reportServiceTermsFailure(new Error(`kakao service_terms ${res.status}`), res.status);
+      return [];
+    } catch (error) {
+      this.reportServiceTermsFailure(error);
       return [];
     }
+  }
+
+  /**
+   * 탈퇴할 때 카카오 연결을 끊는다(카카오 권장 — 회원 탈퇴 시 연결 끊기).
+   * 끊으면 카카오에 남은 동의(이름·번호, 간편가입 약관, 채널 추가)도 없어져, 다시 가입할 때 동의 화면부터 새로 본다.
+   * 우리는 카카오 접근 토큰을 저장하지 않아 앱 어드민 키로 끊는다. 키가 없거나 실패해도 탈퇴는 그대로 진행한다(애플 revoke와 같게).
+   */
+  async unlink(audience: AudienceConst, kakaoId: string): Promise<void> {
+    const adminKey = audience === AUDIENCE.SELLER ? this.kakaoAdminKeySeller : this.kakaoAdminKey;
+    if (!adminKey || !kakaoId) return;
+    try {
+      const res = await this.httpClient.post(
+        "https://kapi.kakao.com/v1/user/unlink",
+        new URLSearchParams({ target_id_type: "user_id", target_id: kakaoId }),
+        {
+          headers: {
+            Authorization: `KakaoAK ${adminKey}`,
+            "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+          },
+          timeout: 3000,
+        },
+      );
+      if (res.status === 200) return;
+      // -101: 이미 연결이 끊긴 사용자(카카오에서 먼저 끊음) — 끊긴 상태라 괜찮다
+      if ((res.data as { code?: number } | undefined)?.code === -101) return;
+      ExternalApiErrorUtil.reportFailure(
+        {
+          provider: "kakao",
+          module: "auth-kakao-oauth",
+          operation: "unlink",
+          ...ExternalApiErrorUtil.fromResponseBody(res.data, res.status),
+          details: { audience },
+        },
+        new Error(`kakao unlink ${res.status}`),
+      );
+    } catch (error: any) {
+      ExternalApiErrorUtil.reportFailure(
+        {
+          provider: "kakao",
+          module: "auth-kakao-oauth",
+          operation: "unlink",
+          ...ExternalApiErrorUtil.fromAxiosError(error ?? {}),
+          details: { audience },
+        },
+        error,
+      );
+    }
+  }
+
+  /** 간편가입 설정이 어긋나면 조용히 약관 체크로 돌아가므로, 하루 한 번만 알린다 */
+  private reportServiceTermsFailure(error: unknown, status?: number) {
+    SentryUtil.captureExceptionThrottled(
+      "kakao-service-terms",
+      24 * 60 * 60 * 1000,
+      error,
+      "warning",
+      { module: "auth-kakao-oauth", operation: "service-terms" },
+      { status },
+    );
   }
 
   /** 가입 때 쓸 휴대폰 번호 — "맞아요"면 가입표의 카카오 번호(문자 인증 없음), 아니면 화면이 보낸 번호(문자 인증 필요) */
@@ -410,6 +481,18 @@ export class AuthKakaoOauthService {
         email: maskLoginEmail(existingPhone.googleEmail),
       });
     }
+    if (existingPhone?.appleId) {
+      throw new ConflictException({
+        message: AUTH_ERROR_MESSAGES.PHONE_APPLE_ACCOUNT_EXISTS,
+        name: maskDisplayNameForPrivacy(existingPhone.name),
+        phone: PhoneUtil.maskPhone(existingPhone.phone),
+        email: maskLoginEmail(existingPhone.appleEmail),
+      });
+    }
+    // 소셜 연결이 없는 계정(심사용 등)이 번호를 쓰고 있어도 500이 아니라 409
+    if (existingPhone) {
+      throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
+    }
 
     return await this.prisma.$transaction(async (tx) => {
       const now = new Date();
@@ -501,6 +584,10 @@ export class AuthKakaoOauthService {
         phone: PhoneUtil.maskPhone(existingPhone.phone),
         email: maskLoginEmail(existingPhone.googleEmail),
       });
+    }
+    // 소셜 연결이 없는 계정(심사용 등)이 번호를 쓰고 있어도 500이 아니라 409
+    if (existingPhone) {
+      throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
     }
 
     const result = await this.prisma.$transaction(async (tx) => {

@@ -393,6 +393,19 @@ export class AuthGoogleOauthService {
       });
     }
 
+    if (existingPhone?.appleId) {
+      throw new ConflictException({
+        message: AUTH_ERROR_MESSAGES.PHONE_APPLE_ACCOUNT_EXISTS,
+        name: maskDisplayNameForPrivacy(existingPhone.name),
+        phone: PhoneUtil.maskPhone(existingPhone.phone),
+        email: maskLoginEmail(existingPhone.appleEmail),
+      });
+    }
+    // 소셜 연결이 없는 계정(심사용 등)이 번호를 쓰고 있어도 500이 아니라 409
+    if (existingPhone) {
+      throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
+    }
+
     return await this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const row = await tx.consumer.create({

@@ -73,7 +73,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtVerifiedPayload): Promise<AuthenticatedUser> {
     try {
       if (!payload.sub || !payload.aud) {
-        LoggerUtil.log(`JWT 검증 실패: 필수 필드 없음 - payload: ${JSON.stringify(payload)}`);
+        // 내용(가입표면 번호·이름·이메일)은 남기지 않는다
+        LoggerUtil.log(
+          `JWT 검증 실패: 필수 필드 없음 - type: ${payload.type ?? "-"}, aud: ${payload.aud ?? "-"}, sub 있음: ${Boolean(payload.sub)}`,
+        );
         throw new UnauthorizedException(AUTH_ERROR_MESSAGES.ACCESS_TOKEN_MISSING_REQUIRED_INFO);
       }
 

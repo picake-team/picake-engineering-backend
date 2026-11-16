@@ -36,24 +36,48 @@ describe("카카오 한 번에 가입 도우미", () => {
     expect(kakaoNameToDisplay(null)).toBeUndefined();
   });
 
-  describe("parseKakaoAgreedServiceTerms — 약관 동의 내역", () => {
+  describe("parseKakaoAgreedServiceTerms — 이번 로그인에서 한 약관 동의", () => {
+    const now = Date.parse("2026-11-16T12:00:00Z");
+    const justNow = "2026-11-16T11:59:30Z";
+
     it("service_terms 모양: 동의한(agreed=true) 태그만", () => {
       expect(
-        parseKakaoAgreedServiceTerms({
-          id: 1,
-          service_terms: [
-            { tag: "picake_c_tos", agreed: true },
-            { tag: "picake_c_location", agreed: false },
-            { tag: "picake_c_privacy", agreed: true },
-          ],
-        }),
+        parseKakaoAgreedServiceTerms(
+          {
+            id: 1,
+            service_terms: [
+              { tag: "picake_c_tos", agreed: true, agreed_at: justNow },
+              { tag: "picake_c_location", agreed: false },
+              { tag: "picake_c_privacy", agreed: true, agreed_at: justNow },
+            ],
+          },
+          now,
+        ),
       ).toEqual(["picake_c_tos", "picake_c_privacy"]);
     });
 
     it("allowed_service_terms 모양: 목록의 태그", () => {
       expect(
-        parseKakaoAgreedServiceTerms({ allowed_service_terms: [{ tag: "picake_s_tos" }, {}] }),
+        parseKakaoAgreedServiceTerms(
+          { allowed_service_terms: [{ tag: "picake_s_tos", agreed_at: justNow }, {}] },
+          now,
+        ),
       ).toEqual(["picake_s_tos"]);
+    });
+
+    it("오래된 동의(탈퇴 뒤 다시 오거나 약관이 바뀐 뒤)·동의 시각이 없는 것은 쓰지 않는다 — 가입 화면에서 다시 받음", () => {
+      expect(
+        parseKakaoAgreedServiceTerms(
+          {
+            service_terms: [
+              { tag: "picake_c_tos", agreed: true, agreed_at: "2026-10-01T00:00:00Z" },
+              { tag: "picake_c_privacy", agreed: true },
+              { tag: "picake_c_third_party", agreed: true, agreed_at: "not-a-date" },
+            ],
+          },
+          now,
+        ),
+      ).toEqual([]);
     });
 
     it("모르는 모양·오류 응답이면 빈 목록(가입 화면이 지금처럼 약관을 받음)", () => {

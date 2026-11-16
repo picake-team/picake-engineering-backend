@@ -11,7 +11,7 @@ import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
-import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE, TOKEN_TYPES } from "@apps/backend/modules/auth/constants/auth.constants";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { createWebSocketCorsOptions } from "@apps/backend/common/utils/cors.util";
@@ -95,13 +95,19 @@ export class NotificationGateway
       });
       const userId = payload.sub;
       const aud = payload.aud;
+      // 로그인 출입증(access)만 — 리프레시·가입표 같은 다른 토큰으로는 실시간 알림을 받지 않는다
+      if (payload.type !== TOKEN_TYPES.ACCESS || !userId) {
+        client.emit("error", { message: "Invalid token", code: "INVALID_TOKEN" });
+        client.disconnect(true);
+        return;
+      }
 
       if (aud === AUDIENCE.CONSUMER) {
         const row = await this.prisma.consumer.findUnique({
           where: { id: userId },
-          select: { id: true },
+          select: { id: true, isActive: true },
         });
-        if (!row) {
+        if (!row || !row.isActive) {
           client.emit("error", { message: "User not found", code: "USER_NOT_FOUND" });
           client.disconnect(true);
           return;
@@ -109,9 +115,9 @@ export class NotificationGateway
       } else if (aud === AUDIENCE.SELLER) {
         const row = await this.prisma.seller.findUnique({
           where: { id: userId },
-          select: { id: true },
+          select: { id: true, isActive: true },
         });
-        if (!row) {
+        if (!row || !row.isActive) {
           client.emit("error", { message: "User not found", code: "USER_NOT_FOUND" });
           client.disconnect(true);
           return;

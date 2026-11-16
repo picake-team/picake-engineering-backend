@@ -88,7 +88,7 @@ export class JwtUtil {
   /**
    * 소셜 회원가입 가입표(30분)를 만듭니다.
    * 로그인 때 서버가 소셜 서비스에 직접 확인한 ID·이메일만 담는다. 가입 API는 이 가입표로만 가입시킨다(화면은 소셜 ID를 보내지 않음).
-   * `type=register`라 액세스·리프레시 토큰으로는 쓸 수 없다(전략·리프레시가 type을 확인).
+   * `type=register`라 로그인 출입증으로는 쓸 수 없다(JWT 전략·실시간 알림 연결이 type=access만 받음).
    */
   async generateRegisterTicket(payload: RegisterTicketPayload): Promise<string> {
     return await this.jwtService.signAsync(

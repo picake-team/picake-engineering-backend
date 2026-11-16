@@ -297,6 +297,9 @@ jobs:
             # KAKAO (Seller) - development & staging & production (공용)
             KAKAO_CLIENT_ID_SELLER=${{ secrets.KAKAO_CLIENT_ID_SELLER }}
             KAKAO_CLIENT_SECRET_SELLER=${{ secrets.KAKAO_CLIENT_SECRET_SELLER }}
+            # 탈퇴 때 카카오 연결 끊기(앱 어드민 키, 비어 있으면 끊지 않음). 사장님이 다른 카카오 앱이면 _SELLER
+            KAKAO_ADMIN_KEY=${{ secrets.KAKAO_ADMIN_KEY }}
+            KAKAO_ADMIN_KEY_SELLER=${{ secrets.KAKAO_ADMIN_KEY_SELLER }}
 
             # APPLE OAuth (Consumer, web-user 전용) - development & staging & production (공용)
             APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}

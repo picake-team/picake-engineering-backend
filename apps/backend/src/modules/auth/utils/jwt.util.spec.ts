@@ -142,6 +142,10 @@ describe("JwtUtil", () => {
       await expect(jwtUtil.verifyRegisterTicket(noId, expected)).rejects.toThrow(
         AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID,
       );
+      const noEmail = await jwtService.signAsync({ type: "register", ...ticket, email: "" });
+      await expect(jwtUtil.verifyRegisterTicket(noEmail, expected)).rejects.toThrow(
+        AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID,
+      );
     });
   });
 });
