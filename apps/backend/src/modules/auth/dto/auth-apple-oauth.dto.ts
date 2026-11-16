@@ -33,20 +33,12 @@ export class AppleLoginRequestDto {
  */
 export class AppleRegisterRequestDto {
   @ApiProperty({
-    description: SWAGGER_DESCRIPTIONS.APPLE_ID,
-    example: SWAGGER_EXAMPLES.CONSUMER_DATA.appleId,
+    description: SWAGGER_DESCRIPTIONS.REGISTER_TOKEN,
+    example: SWAGGER_EXAMPLES.REGISTER_TOKEN,
   })
   @IsNotEmpty()
   @IsString()
-  appleId: string;
-
-  @ApiProperty({
-    description: SWAGGER_DESCRIPTIONS.APPLE_EMAIL,
-    example: SWAGGER_EXAMPLES.CONSUMER_DATA.appleEmail,
-  })
-  @IsNotEmpty()
-  @IsString()
-  appleEmail: string;
+  registerToken: string;
 
   @ApiProperty({
     description: SWAGGER_DESCRIPTIONS.DISPLAY_NAME,

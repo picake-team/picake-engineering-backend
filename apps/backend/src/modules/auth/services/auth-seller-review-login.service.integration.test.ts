@@ -289,6 +289,7 @@ describe("AuthSellerReviewLoginService (integration)", () => {
     const withdrawService = new AuthWithdrawService(
       prisma,
       { revokeToken: vi.fn() } as any,
+      { unlink: vi.fn() } as any,
       {
         deleteAllForConsumer: vi.fn(),
       } as any,

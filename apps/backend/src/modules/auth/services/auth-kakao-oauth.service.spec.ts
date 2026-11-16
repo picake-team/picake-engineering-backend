@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockDeep } from "vitest-mock-extended";
 
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
-import { AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE, AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.constants";
 import { AuthPhoneService } from "@apps/backend/modules/auth/services/auth-phone.service";
 import { JwtUtil } from "@apps/backend/modules/auth/utils/jwt.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
@@ -21,7 +21,7 @@ vi.mock("axios", () => ({
 describe("AuthKakaoOauthService.consumerKakaoLoginWithCode", () => {
   const httpClientMock = { post: vi.fn(), get: vi.fn() };
   const prismaMock = mockDeep<PrismaService>();
-  const jwtUtilMock = { generateTokenPair: vi.fn() };
+  const jwtUtilMock = { generateTokenPair: vi.fn(), generateRegisterTicket: vi.fn() };
 
   let service: AuthKakaoOauthService;
 
@@ -29,6 +29,7 @@ describe("AuthKakaoOauthService.consumerKakaoLoginWithCode", () => {
     vi.clearAllMocks();
     vi.mocked(axios.create).mockReturnValue(httpClientMock as any);
     prismaMock.$transaction.mockImplementation((fn: any) => fn(prismaMock));
+    jwtUtilMock.generateRegisterTicket.mockResolvedValue("test-register-ticket");
     jwtUtilMock.generateTokenPair.mockResolvedValue({
       accessToken: "test-access-token",
       refreshToken: "test-refresh-token",
@@ -123,8 +124,79 @@ describe("AuthKakaoOauthService.consumerKakaoLoginWithCode", () => {
     await expect(service.consumerKakaoLoginWithCode({ code: "auth-code" })).rejects.toMatchObject({
       response: expect.objectContaining({
         message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
+        registerToken: "test-register-ticket",
       }),
     });
+    // 가입표에는 서버가 카카오에 확인한 값만 담는다(손님용)
+    expect(jwtUtilMock.generateRegisterTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ aud: "consumer", provider: "kakao" }),
+    );
+  });
+
+  it("새 손님이면 카카오가 준 전화번호·이름·간편가입 약관 동의를 가입표에 담는다(I-59 B)", async () => {
+    httpClientMock.post.mockResolvedValue({
+      data: { access_token: "kakao-access-token" },
+      status: 200,
+    });
+    httpClientMock.get.mockImplementation(async (url: string) =>
+      url.includes("service_terms")
+        ? {
+            status: 200,
+            data: {
+              service_terms: [
+                { tag: "picake_c_tos", agreed: true, agreed_at: new Date().toISOString() },
+                { tag: "picake_c_privacy", agreed: true, agreed_at: new Date().toISOString() },
+                { tag: "picake_c_third_party", agreed: true, agreed_at: new Date().toISOString() },
+                { tag: "picake_s_tos", agreed: true, agreed_at: new Date().toISOString() },
+              ],
+            },
+          }
+        : {
+            status: 200,
+            data: {
+              id: 123456,
+              kakao_account: {
+                email: "user@kakao.com",
+                phone_number: "+82 10-2222-3333",
+                name: "홍길동",
+              },
+            },
+          },
+    );
+    prismaMock.consumer.findUnique.mockResolvedValue(null);
+
+    await expect(service.consumerKakaoLoginWithCode({ code: "auth-code" })).rejects.toMatchObject({
+      response: expect.objectContaining({ registerToken: "test-register-ticket" }),
+    });
+    expect(jwtUtilMock.generateRegisterTicket).toHaveBeenCalledWith({
+      aud: "consumer",
+      provider: "kakao",
+      providerId: "123456",
+      email: "user@kakao.com",
+      phone: "01022223333",
+      name: "홍길동",
+      // 사장님 약관 태그는 빠진다
+      terms: ["picake_c_tos", "picake_c_privacy", "picake_c_third_party"],
+    });
+  });
+
+  it("간편가입 약관 조회가 실패해도 가입표는 나온다(약관은 가입 화면에서)", async () => {
+    httpClientMock.post.mockResolvedValue({
+      data: { access_token: "kakao-access-token" },
+      status: 200,
+    });
+    httpClientMock.get.mockImplementation(async (url: string) => {
+      if (url.includes("service_terms")) throw new Error("KOE");
+      return { status: 200, data: { id: 123456, kakao_account: { email: "user@kakao.com" } } };
+    });
+    prismaMock.consumer.findUnique.mockResolvedValue(null);
+
+    await expect(service.consumerKakaoLoginWithCode({ code: "auth-code" })).rejects.toMatchObject({
+      response: expect.objectContaining({ registerToken: "test-register-ticket" }),
+    });
+    expect(jwtUtilMock.generateRegisterTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ terms: [], phone: undefined, name: undefined }),
+    );
   });
 
   it("비활성화된 계정은 로그인이 거부된다", async () => {
@@ -155,5 +227,68 @@ describe("AuthKakaoOauthService.consumerKakaoLoginWithCode", () => {
     await expect(service.consumerKakaoLoginWithCode({ code: "auth-code" })).rejects.toThrow(
       BadRequestException,
     );
+  });
+});
+
+describe("AuthKakaoOauthService.unlink — 탈퇴 때 카카오 연결 끊기", () => {
+  const httpClientMock = { post: vi.fn(), get: vi.fn() };
+
+  async function build(config: Record<string, string>) {
+    vi.clearAllMocks();
+    vi.mocked(axios.create).mockReturnValue(httpClientMock as any);
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        AuthKakaoOauthService,
+        { provide: PrismaService, useValue: mockDeep<PrismaService>() },
+        { provide: JwtUtil, useValue: {} },
+        { provide: ConfigService, useValue: { get: vi.fn((k: string) => config[k]) } },
+        { provide: AuthPhoneService, useValue: {} },
+        { provide: TermsService, useValue: {} },
+        { provide: OpsAlertService, useValue: {} },
+      ],
+    }).compile();
+    return moduleRef.get(AuthKakaoOauthService);
+  }
+
+  it("어드민 키로 그 카카오 회원번호의 연결을 끊는다", async () => {
+    const service = await build({ KAKAO_ADMIN_KEY: "admin-key" });
+    httpClientMock.post.mockResolvedValue({ status: 200, data: { id: 4001 } });
+
+    await service.unlink(AUDIENCE.CONSUMER, "4001");
+
+    const [url, body, options] = httpClientMock.post.mock.calls[0];
+    expect(url).toBe("https://kapi.kakao.com/v1/user/unlink");
+    expect(String(body)).toBe("target_id_type=user_id&target_id=4001");
+    expect(options.headers.Authorization).toBe("KakaoAK admin-key");
+  });
+
+  it("사장님은 _SELLER 키가 있으면 그것, 없으면 같은 키", async () => {
+    let service = await build({
+      KAKAO_ADMIN_KEY: "admin-key",
+      KAKAO_ADMIN_KEY_SELLER: "seller-key",
+    });
+    httpClientMock.post.mockResolvedValue({ status: 200, data: {} });
+    await service.unlink(AUDIENCE.SELLER, "5001");
+    expect(httpClientMock.post.mock.calls[0][2].headers.Authorization).toBe("KakaoAK seller-key");
+
+    service = await build({ KAKAO_ADMIN_KEY: "admin-key" });
+    httpClientMock.post.mockResolvedValue({ status: 200, data: {} });
+    await service.unlink(AUDIENCE.SELLER, "5001");
+    expect(httpClientMock.post.mock.calls[0][2].headers.Authorization).toBe("KakaoAK admin-key");
+  });
+
+  it("어드민 키가 없으면 부르지 않고, 실패해도 탈퇴를 막지 않는다(던지지 않음)", async () => {
+    let service = await build({});
+    await service.unlink(AUDIENCE.CONSUMER, "4001");
+    expect(httpClientMock.post).not.toHaveBeenCalled();
+
+    service = await build({ KAKAO_ADMIN_KEY: "admin-key" });
+    httpClientMock.post.mockResolvedValue({
+      status: 400,
+      data: { code: -101, msg: "not registered user" },
+    });
+    await expect(service.unlink(AUDIENCE.CONSUMER, "4001")).resolves.toBeUndefined();
+    httpClientMock.post.mockRejectedValue(new Error("timeout"));
+    await expect(service.unlink(AUDIENCE.CONSUMER, "4001")).resolves.toBeUndefined();
   });
 });

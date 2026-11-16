@@ -224,7 +224,8 @@ export function buildUserOrderAlimtalkPayload(
           "#{취소사유}": order.sellerCancelReason ?? "",
         });
       }
-      // 사용자 직접 취소(입금 전)는 본인 액션이라 발송하지 않음
+      // 사용자 직접 취소(입금 전)는 본인 액션이라 발송하지 않음.
+      // 가게가 확인하지 않은 예약신청 자동 취소(2026-11-16)도 승인된 템플릿이 없어 알림톡은 보내지 않는다(앱 알림·푸시만)
       return null;
     }
 

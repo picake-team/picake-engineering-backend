@@ -33,20 +33,12 @@ export class GoogleLoginRequestDto {
  */
 export class GoogleRegisterRequestDto {
   @ApiProperty({
-    description: SWAGGER_DESCRIPTIONS.GOOGLE_ID,
-    example: SWAGGER_EXAMPLES.CONSUMER_DATA.googleId,
+    description: SWAGGER_DESCRIPTIONS.REGISTER_TOKEN,
+    example: SWAGGER_EXAMPLES.REGISTER_TOKEN,
   })
   @IsNotEmpty()
   @IsString()
-  googleId: string;
-
-  @ApiProperty({
-    description: SWAGGER_DESCRIPTIONS.GOOGLE_EMAIL,
-    example: SWAGGER_EXAMPLES.CONSUMER_DATA.googleEmail,
-  })
-  @IsNotEmpty()
-  @IsString()
-  googleEmail: string;
+  registerToken: string;
 
   @ApiProperty({
     description: SWAGGER_DESCRIPTIONS.DISPLAY_NAME,

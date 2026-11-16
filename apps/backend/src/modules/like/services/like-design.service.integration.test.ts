@@ -188,6 +188,7 @@ describe("디자인 좋아요 (integration)", () => {
     const withdraw = new AuthWithdrawService(
       prisma,
       { revokeToken: vi.fn() } as unknown as AuthAppleOauthService,
+      { unlink: vi.fn() } as any,
       {
         deleteAllForConsumer: vi.fn().mockResolvedValue({ requests: 0, photos: 0 }),
       } as unknown as QuoteRequestCleanupService,

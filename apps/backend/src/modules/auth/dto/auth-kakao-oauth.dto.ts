@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsBoolean,
   IsOptional,
+  ValidateIf,
   IsArray,
   MinLength,
   MaxLength,
@@ -33,20 +34,21 @@ export class KakaoLoginRequestDto {
  */
 export class KakaoRegisterRequestDto {
   @ApiProperty({
-    description: SWAGGER_DESCRIPTIONS.KAKAO_ID,
-    example: SWAGGER_EXAMPLES.KAKAO_ID,
+    description: SWAGGER_DESCRIPTIONS.REGISTER_TOKEN,
+    example: SWAGGER_EXAMPLES.REGISTER_TOKEN,
   })
   @IsNotEmpty()
   @IsString()
-  kakaoId: string;
+  registerToken: string;
 
   @ApiProperty({
-    description: SWAGGER_DESCRIPTIONS.KAKAO_EMAIL,
-    example: SWAGGER_EXAMPLES.KAKAO_EMAIL,
+    description: SWAGGER_DESCRIPTIONS.USE_TICKET_PHONE,
+    example: false,
+    required: false,
   })
-  @IsNotEmpty()
-  @IsString()
-  kakaoEmail: string;
+  @IsOptional()
+  @IsBoolean()
+  useTicketPhone?: boolean;
 
   @ApiProperty({
     description: SWAGGER_DESCRIPTIONS.DISPLAY_NAME,
@@ -62,18 +64,30 @@ export class KakaoRegisterRequestDto {
   @ApiProperty({
     description: SWAGGER_DESCRIPTIONS.PHONE,
     example: SWAGGER_EXAMPLES.CONSUMER_DATA.phone,
+    required: false,
   })
+  @ValidateIf((o) => o.useTicketPhone !== true)
   @IsString()
   @IsValidKoreanPhone()
-  phone: string;
+  phone?: string;
 
-  @ApiProperty({ description: "서비스 이용약관 동의 여부 (필수)", example: true })
+  @ApiProperty({
+    description: "서비스 이용약관 동의 여부 (필수 — 카카오 간편가입에서 동의했으면 생략 가능)",
+    example: true,
+    required: false,
+  })
+  @IsOptional()
   @IsBoolean()
-  agreedToTerms: boolean;
+  agreedToTerms?: boolean;
 
-  @ApiProperty({ description: "개인정보 처리방침 동의 여부 (필수)", example: true })
+  @ApiProperty({
+    description: "개인정보 처리방침 동의 여부 (필수 — 카카오 간편가입에서 동의했으면 생략 가능)",
+    example: true,
+    required: false,
+  })
+  @IsOptional()
   @IsBoolean()
-  agreedToPrivacy: boolean;
+  agreedToPrivacy?: boolean;
 
   @ApiProperty({
     description: "개인정보 제3자 제공 동의 여부 (구매자 필수, 판매자 미사용)",

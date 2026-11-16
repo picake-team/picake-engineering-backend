@@ -13,6 +13,7 @@ import jwksClient from "jwks-rsa";
 import {
   AUTH_ERROR_MESSAGES,
   AUDIENCE,
+  AudienceConst,
   OAUTH_REDIRECT_PATHS,
   APPLE_PRIMARY_APP_ID,
   APPLE_ISSUER,
@@ -34,6 +35,7 @@ import { buildInitialNickname } from "@apps/backend/modules/auth/utils/register-
 import { ExternalApiErrorUtil } from "@apps/backend/common/utils/external-api-error.util";
 import { TokenEncryptionUtil } from "@apps/backend/common/utils/token-encryption.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
+import { rethrowRegisterUniqueConflict } from "@apps/backend/modules/auth/utils/register-conflict.util";
 
 /**
  * 애플(Sign in with Apple) OAuth — 구매자(web-user)만 지원, 판매자는 대상 아님.
@@ -232,6 +234,28 @@ export class AuthAppleOauthService {
   }
 
   /**
+   * 가입이 필요할 때(400 PHONE_VERIFICATION_REQUIRED) 화면에 줄 응답.
+   * 서버가 애플에 직접 확인한 ID·이메일을 가입표(registerToken, 30분)에 담는다 — 가입 API는 이 가입표로만 가입시킨다.
+   * 소셜 ID·이메일은 응답 본문에 따로 주지 않는다(서명한 가입표 안에만 — 서명이라 화면이 읽을 수는 있지만 고칠 수 없다).
+   */
+  private async buildRegisterRequiredError(
+    aud: AudienceConst,
+    appleId: string,
+    appleEmail: string,
+  ): Promise<BadRequestException> {
+    const registerToken = await this.jwtUtil.generateRegisterTicket({
+      aud,
+      provider: "apple",
+      providerId: appleId,
+      email: appleEmail,
+    });
+    return new BadRequestException({
+      message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
+      registerToken,
+    });
+  }
+
+  /**
    * 애플 로그인 처리 (구매자)
    */
   async appleLogin(appleUserInfo: AppleUserInfo) {
@@ -243,11 +267,7 @@ export class AuthAppleOauthService {
     const consumer = await this.prisma.consumer.findUnique({ where: { appleId } });
 
     if (!consumer) {
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        appleId,
-        appleEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, appleId, appleEmail);
     }
 
     if (!consumer.isActive) {
@@ -255,11 +275,7 @@ export class AuthAppleOauthService {
     }
 
     if (!consumer.phone || !consumer.isPhoneVerified) {
-      throw new BadRequestException({
-        message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-        appleId,
-        appleEmail,
-      });
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, appleId, appleEmail);
     }
 
     return await this.prisma.$transaction(async (tx) => {
@@ -281,13 +297,16 @@ export class AuthAppleOauthService {
 
   /**
    * 애플 회원가입(구매자) — 휴대폰 `APPLE_REGISTRATION` 인증 완료 후에만 진행.
-   * 로그인과 별개 호출이라 여기서도 code 교환을 다시 하지 않고, 프론트가 로그인 실패 응답으로 받은
-   * `appleId`/`appleEmail`을 그대로 전달받습니다 — `refresh_token`은 가입 완료 후 최초 로그인 시 저장됩니다.
+   * 로그인과 별개 호출이라 여기서도 code 교환을 다시 하지 않고, 로그인 때 서버가 확인한 `appleId`·`appleEmail`이 든
+   * 가입표(registerToken)로만 가입한다 — `refresh_token`은 가입 완료 후 최초 로그인 시 저장됩니다.
    * @throws ConflictException 이미 다른 애플과 연결된 번호 / 동일 번호 비애플 계정 / 이미 존재하는 appleId
    */
   async consumerAppleRegisterWithPhone(appleRegisterDto: AppleRegisterRequestDto) {
-    const { appleId, appleEmail, phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } =
-      appleRegisterDto;
+    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = appleRegisterDto;
+    const { providerId: appleId, email: appleEmail } = await this.jwtUtil.verifyRegisterTicket(
+      appleRegisterDto.registerToken,
+      { aud: AUDIENCE.CONSUMER, provider: "apple" },
+    );
     const trimmedName = name.trim();
     const normalizedPhone = PhoneUtil.normalizePhone(phone);
 
@@ -345,33 +364,41 @@ export class AuthAppleOauthService {
         email: maskLoginEmail(existingPhone.appleEmail),
       });
     }
+    // 소셜 연결이 없는 계정의 번호여도 500(중복 저장 오류)이 아니라 409(11-16 검토, 카카오·구글 가입과 같게)
+    if (existingPhone) {
+      throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
+    }
 
-    return await this.prisma.$transaction(async (tx) => {
-      const now = new Date();
-      const row = await tx.consumer.create({
-        data: {
-          appleId,
-          appleEmail,
-          phone: normalizedPhone,
-          name: trimmedName,
-          nickname: buildInitialNickname(),
-          isPhoneVerified: true,
-          lastLoginAt: now,
-        },
-      });
+    return await this.prisma
+      .$transaction(async (tx) => {
+        const now = new Date();
+        const row = await tx.consumer.create({
+          data: {
+            appleId,
+            appleEmail,
+            phone: normalizedPhone,
+            name: trimmedName,
+            nickname: buildInitialNickname(),
+            isPhoneVerified: true,
+            lastLoginAt: now,
+          },
+        });
 
-      await this.termsService.recordConsumerAgreementsInTransaction(
-        tx,
-        row.id,
-        appleRegisterDto.termsDocumentIds ?? [],
+        await this.termsService.recordConsumerAgreementsInTransaction(
+          tx,
+          row.id,
+          appleRegisterDto.termsDocumentIds ?? [],
+        );
+
+        const tokenPair = await this.jwtUtil.generateTokenPair({
+          sub: row.id,
+          aud: AUDIENCE.CONSUMER,
+        });
+        return { accessToken: tokenPair.accessToken, refreshToken: tokenPair.refreshToken };
+      })
+      .catch((e: unknown) =>
+        rethrowRegisterUniqueConflict(e, AUTH_ERROR_MESSAGES.APPLE_ID_ALREADY_EXISTS),
       );
-
-      const tokenPair = await this.jwtUtil.generateTokenPair({
-        sub: row.id,
-        aud: AUDIENCE.CONSUMER,
-      });
-      return { accessToken: tokenPair.accessToken, refreshToken: tokenPair.refreshToken };
-    });
   }
 
   /**

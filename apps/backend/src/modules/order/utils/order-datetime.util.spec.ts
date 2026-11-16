@@ -10,7 +10,10 @@ import {
   isPickupPendingDue,
   isPickupReminderDue,
   isPickupReminderLeadEligible,
+  isReservationRequestExpired,
+  reservationRequestExpiresAt,
   resolvePaymentPendingDeadline,
+  shouldNotifyReservationExpiry,
 } from "./order-datetime.util";
 
 const h = (hours: number) => hours * 60 * 60 * 1000;
@@ -178,5 +181,39 @@ describe("isPaymentFinalReminderEligible / isPaymentFinalReminderDue (2차, 30�
     expect(isPaymentFinalReminderDue(deadline, new Date(deadline.getTime() - m(30)))).toBe(true);
     expect(isPaymentFinalReminderDue(deadline, new Date(deadline.getTime() - m(31)))).toBe(false);
     expect(isPaymentFinalReminderDue(deadline, deadline)).toBe(false);
+  });
+});
+
+describe("예약신청 자동 취소 시각(픽업 날 다음 날 오전 9시, 한국 시간)", () => {
+  // 2026-11-16 14:00 KST = 05:00Z
+  const pickup = new Date("2026-11-16T05:00:00.000Z");
+  const expiresAt = new Date("2026-11-17T00:00:00.000Z"); // 11-17 09:00 KST
+
+  it("픽업 날 다음 날 오전 9시에 만료된다(한밤중이 아니라)", () => {
+    expect(reservationRequestExpiresAt(pickup).toISOString()).toBe(expiresAt.toISOString());
+  });
+
+  it("한국 시간 날짜로 센다(UTC 날짜가 달라도)", () => {
+    // 11-16 23:30 KST = 14:30Z → 11-17 09:00 KST
+    expect(reservationRequestExpiresAt(new Date("2026-11-16T14:30:00.000Z")).toISOString()).toBe(
+      expiresAt.toISOString(),
+    );
+    // 11-16 00:10 KST = 11-15 15:10Z → 11-17 09:00 KST
+    expect(reservationRequestExpiresAt(new Date("2026-11-15T15:10:00.000Z")).toISOString()).toBe(
+      expiresAt.toISOString(),
+    );
+  });
+
+  it("픽업 시각이 지나도 다음 날 아침까지는 남긴다(그사이 손님이 날짜를 바꾸면 다시 확인받게)", () => {
+    expect(isReservationRequestExpired(pickup, new Date(pickup.getTime() + h(5)))).toBe(false);
+    expect(isReservationRequestExpired(pickup, new Date(expiresAt.getTime() - 1))).toBe(false);
+    expect(isReservationRequestExpired(pickup, expiresAt)).toBe(true);
+  });
+
+  it("만료된 지 하루 안이면 알리고, 그보다 오래된 건 알리지 않는다", () => {
+    expect(shouldNotifyReservationExpiry(pickup, new Date(expiresAt.getTime() + h(23)))).toBe(true);
+    expect(shouldNotifyReservationExpiry(pickup, new Date(expiresAt.getTime() + h(25)))).toBe(
+      false,
+    );
   });
 });

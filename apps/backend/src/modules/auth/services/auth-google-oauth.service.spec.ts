@@ -1,13 +1,14 @@
 import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { JwtService } from "@nestjs/jwt";
 import { Test } from "@nestjs/testing";
 import axios from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockDeep } from "vitest-mock-extended";
 
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
-import { AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE, AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.constants";
 import { AuthPhoneService } from "@apps/backend/modules/auth/services/auth-phone.service";
 import { JwtUtil } from "@apps/backend/modules/auth/utils/jwt.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
@@ -21,7 +22,7 @@ vi.mock("axios", () => ({
 describe("AuthGoogleOauthService.consumerGoogleLoginWithCode", () => {
   const httpClientMock = { post: vi.fn(), get: vi.fn() };
   const prismaMock = mockDeep<PrismaService>();
-  const jwtUtilMock = { generateTokenPair: vi.fn() };
+  const jwtUtilMock = { generateTokenPair: vi.fn(), generateRegisterTicket: vi.fn() };
 
   let service: AuthGoogleOauthService;
 
@@ -29,6 +30,7 @@ describe("AuthGoogleOauthService.consumerGoogleLoginWithCode", () => {
     vi.clearAllMocks();
     vi.mocked(axios.create).mockReturnValue(httpClientMock as any);
     prismaMock.$transaction.mockImplementation((fn: any) => fn(prismaMock));
+    jwtUtilMock.generateRegisterTicket.mockResolvedValue("test-register-ticket");
     jwtUtilMock.generateTokenPair.mockResolvedValue({
       accessToken: "test-access-token",
       refreshToken: "test-refresh-token",
@@ -123,8 +125,13 @@ describe("AuthGoogleOauthService.consumerGoogleLoginWithCode", () => {
     await expect(service.consumerGoogleLoginWithCode({ code: "auth-code" })).rejects.toMatchObject({
       response: expect.objectContaining({
         message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
+        registerToken: "test-register-ticket",
       }),
     });
+    // 가입표에는 서버가 구글에 확인한 값만 담는다(손님용)
+    expect(jwtUtilMock.generateRegisterTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ aud: "consumer", provider: "google" }),
+    );
   });
 
   it("비활성화된 계정은 로그인이 거부된다", async () => {
@@ -161,6 +168,7 @@ describe("AuthGoogleOauthService.consumerGoogleLoginWithCode", () => {
 describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone — 이미 가입한 번호", () => {
   const prismaMock = mockDeep<PrismaService>();
   const phoneServiceMock = { checkPhoneVerificationStatus: vi.fn().mockResolvedValue(true) };
+  const jwtUtil = new JwtUtil(new JwtService({ secret: "test-secret" }), {} as ConfigService);
   let service: AuthGoogleOauthService;
 
   beforeEach(async () => {
@@ -171,7 +179,7 @@ describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone — 이미 가�
       providers: [
         AuthGoogleOauthService,
         { provide: PrismaService, useValue: prismaMock },
-        { provide: JwtUtil, useValue: { generateTokenPair: vi.fn() } },
+        { provide: JwtUtil, useValue: jwtUtil },
         { provide: ConfigService, useValue: { get: vi.fn(() => "x") } },
         { provide: AuthPhoneService, useValue: phoneServiceMock },
         { provide: TermsService, useValue: {} },
@@ -194,8 +202,12 @@ describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone — 이미 가�
 
     await expect(
       service.consumerGoogleRegisterWithPhone({
-        googleId: "google-new",
-        googleEmail: "other@gmail.com",
+        registerToken: await jwtUtil.generateRegisterTicket({
+          aud: AUDIENCE.CONSUMER,
+          provider: "google",
+          providerId: "google-new",
+          email: "other@gmail.com",
+        }),
         phone: "010-1234-5678",
         name: "홍길동",
         agreedToTerms: true,

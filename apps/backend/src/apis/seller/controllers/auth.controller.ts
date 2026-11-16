@@ -39,14 +39,13 @@ export class SellerAuthController {
   @ApiOperation({
     summary: "구글 로그인 (판매자)",
     description:
-      "프론트엔드에서 받은 Authorization Code로 구글 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 googleId와 googleEmail을 반환하며 휴대폰 인증 후 구글 회원가입 API로 해당 파라미터 값을 전달하여 회원가입을 처리해야 합니다.",
+      "프론트엔드에서 받은 Authorization Code로 구글 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 가입표 registerToken(30분, 서버가 확인한 구글 ID·이메일이 들어 있음)을 반환하며, 휴대폰 인증 후 구글 회원가입 API에 registerToken을 보내 회원가입을 처리해야 합니다.",
   })
   @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(400, {
     dataExample: {
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-      googleId: SWAGGER_EXAMPLES.CONSUMER_DATA.googleId,
-      googleEmail: SWAGGER_EXAMPLES.CONSUMER_DATA.googleEmail,
+      registerToken: SWAGGER_EXAMPLES.REGISTER_TOKEN,
     },
   })
   @SwaggerResponse(400, {
@@ -64,7 +63,7 @@ export class SellerAuthController {
   @ApiOperation({
     summary: "구글 회원가입 (판매자, 휴대폰 인증 후)",
     description:
-      "새로운 구글 사용자를 등록합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 휴대폰 인증이 완료된 상태여야 합니다. 동일한 구글 ID와 휴대폰 번호가 존재할 경우 중복 에러가 발생합니다.",
+      "새로운 구글 사용자를 등록합니다. 로그인 응답의 가입표 registerToken(30분)으로만 가입합니다(지났거나 위조됐으면 400 REGISTER_TICKET_INVALID, 빠졌으면 400 입력 오류). 번호·계정이 이미 있으면 409. 응답에서 accessToken과 refreshToken을 반환합니다. 휴대폰 인증이 완료된 상태여야 합니다. 동일한 구글 ID나 휴대폰 번호가 있으면 중복 에러가 발생합니다.",
   })
   @SwaggerResponse(201, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(409, {
@@ -90,14 +89,13 @@ export class SellerAuthController {
   @ApiOperation({
     summary: "카카오 로그인 (판매자)",
     description:
-      "프론트엔드에서 받은 Authorization Code로 카카오 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 kakaoId와 kakaoEmail을 반환하며 휴대폰 인증 후 카카오 회원가입 API로 해당 파라미터 값을 전달하여 회원가입을 처리해야 합니다.",
+      "프론트엔드에서 받은 Authorization Code로 카카오 로그인을 처리합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED 오류가 발생했을 때는 가입표 registerToken(30분, 서버가 확인한 카카오 ID·이메일이 들어 있음)을 반환하며, 휴대폰 인증 후 카카오 회원가입 API에 registerToken을 보내 회원가입을 처리해야 합니다.",
   })
   @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(400, {
     dataExample: {
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-      kakaoId: SWAGGER_EXAMPLES.KAKAO_ID,
-      kakaoEmail: SWAGGER_EXAMPLES.KAKAO_EMAIL,
+      registerToken: SWAGGER_EXAMPLES.REGISTER_TOKEN,
     },
   })
   @SwaggerResponse(400, {
@@ -115,7 +113,7 @@ export class SellerAuthController {
   @ApiOperation({
     summary: "카카오 회원가입 (판매자, 휴대폰 인증 후)",
     description:
-      "새로운 카카오 사용자를 등록합니다. 응답에서 accessToken과 refreshToken을 반환합니다. 휴대폰 인증이 완료된 상태여야 합니다. 동일한 카카오 ID와 휴대폰 번호가 존재할 경우 중복 에러가 발생합니다.",
+      "새로운 카카오 사용자를 등록합니다. 로그인 응답의 가입표 registerToken(30분)으로만 가입합니다(지났거나 위조됐으면 400 REGISTER_TICKET_INVALID, 빠졌으면 400 입력 오류). 번호·계정이 이미 있으면 409. 응답에서 accessToken과 refreshToken을 반환합니다. 휴대폰 인증이 완료된 상태여야 합니다. 카카오는 useTicketPhone=true면 가입표 안 카카오 번호로 휴대폰 인증 없이 가입하고, 간편가입에서 필수 약관에 동의했으면 약관 칸을 생략할 수 있습니다. 동일한 카카오 ID나 휴대폰 번호가 있으면 중복 에러가 발생합니다.",
   })
   @SwaggerResponse(201, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(409, {

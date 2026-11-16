@@ -3,6 +3,7 @@ import type { OrderStatusTransitionPayload } from "@apps/backend/modules/order/t
 import {
   isAdminStatusUpdate,
   isPaymentExpiredCancelSource,
+  isReservationExpiredCancelSource,
   isReservationRequestedOnCreate,
   isSellerStatusUpdate,
   isUserAction,
@@ -63,6 +64,12 @@ export function buildSellerOrderNotificationCopy(
   }
 
   if (toStatus === OrderStatus.CANCEL_COMPLETED) {
+    if (isReservationExpiredCancelSource(payload)) {
+      return {
+        title: "확인하지 않은 예약이 취소됐어요",
+        body: "픽업 날이 지나 자동으로 취소됐어요.",
+      };
+    }
     if (isPaymentExpiredCancelSource(payload)) {
       return {
         title: "입금 기한이 지나 주문이 취소됐어요",

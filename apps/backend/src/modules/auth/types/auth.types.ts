@@ -22,6 +22,25 @@ export interface JwtVerifiedPayload extends JwtPayload {
   exp?: number;
 }
 
+/** 소셜 로그인 종류 */
+export type SocialProvider = "google" | "kakao" | "apple";
+
+/**
+ * 가입표(registerToken) 내용 — 로그인 때 서버가 소셜 서비스에 확인한 값만 담는다. 서명·검증용, HTTP DTO 아님
+ */
+export interface RegisterTicketPayload {
+  aud: AudienceConst;
+  provider: SocialProvider;
+  providerId: string;
+  email: string;
+  /** 카카오가 준 국내 휴대폰 번호(숫자만) — 가입 화면에서 "맞아요"로 확인받으면 문자 인증 없이 쓴다(I-59 B) */
+  phone?: string;
+  /** 소셜 서비스가 준 이름 — 가입 화면 이름 칸 미리 채우기 */
+  name?: string;
+  /** 카카오 간편가입에서 동의한 약관 태그(이 대상 것만) */
+  terms?: string[];
+}
+
 /**
  * Passport JWT 검증 후 `req.user` — 전략에서 DB 조회로 보강한 형태, HTTP DTO 아님
  */
@@ -29,7 +48,7 @@ export interface AuthenticatedUser extends JwtVerifiedPayload {
   id: string;
   aud: AudienceConst;
   phone?: string;
-  loginType?: "google" | "kakao" | "apple";
+  loginType?: SocialProvider;
   loginId?: string;
   /** aud === "seller" 일 때만 */
   sellerVerificationStatus?: "REGISTERED" | "BUSINESS_VERIFIED";
@@ -56,7 +75,13 @@ export interface KakaoUserInfo {
   userInfo: {
     kakaoId: string;
     kakaoEmail: string;
+    /** 전화번호 동의항목을 받았을 때만(국내 휴대폰, 숫자만) */
+    phone?: string;
+    /** 이름 동의항목을 받았을 때만 */
+    name?: string;
   };
+  /** 카카오 액세스 토큰 — 가입이 필요할 때 간편가입 약관 동의 내역을 묻는 데만 쓰고 저장하지 않는다 */
+  accessToken?: string;
 }
 
 /**

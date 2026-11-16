@@ -11,6 +11,8 @@ import {
   isPaymentFinalReminderEligible,
   isPaymentReminderDue,
   isPaymentReminderEligible,
+  isReservationRequestExpired,
+  shouldNotifyReservationExpiry,
   PICKUP_REMINDER_LEAD_MS,
   PAYMENT_FINAL_REMINDER_LEAD_MS,
   PAYMENT_REMINDER_LEAD_MS,
@@ -19,10 +21,13 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { OrderLifecycleHookService } from "@apps/backend/modules/order/services/order-lifecycle-hook.service";
 import { NotificationOrderDispatchService } from "@apps/backend/modules/notification/services/notification-order-dispatch.service";
-import { ORDER_STATUS_TRANSITION_SOURCE } from "@apps/backend/modules/order/types/order-lifecycle.types";
+import {
+  ORDER_STATUS_TRANSITION_SOURCE,
+  type OrderStatusTransitionSource,
+} from "@apps/backend/modules/order/types/order-lifecycle.types";
 
 /**
- * 입금대기 만료, 픽업 시각 도달 자동 전환, 픽업 24시간 전 안내 등 주문 자동화
+ * 입금대기 만료, 확인하지 않은 예약신청 만료, 픽업 시각 도달 자동 전환, 픽업 24시간 전 안내 등 주문 자동화
  */
 @Injectable()
 export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
@@ -48,7 +53,9 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 단일 주문에 대해 만료·픽업 전환·픽업 안내 규칙을 즉시 적용 (최신 상태 보장)
-   * 만료 규칙: 입금대기 상태에서 `paymentPendingDeadlineAt`(없으면 픽업·진입 시각 기준 복원)이 지난 주문을 취소완료로 전환합니다. 예약신청 단계는 자동 만료하지 않습니다.
+   * 만료 규칙: 입금대기 상태에서 `paymentPendingDeadlineAt`(없으면 픽업·진입 시각 기준 복원)이 지난 주문을 취소완료로 전환합니다.
+   * 예약신청 만료: 가게가 픽업 날이 지나도록(다음 날 오전 9시, 한국 시간) 확인하지 않은 예약신청을 취소완료로 전환합니다(`reservationExpiredAt`, 2026-11-16).
+   *   답이 없는 예약신청이 영원히 "진행 중"으로 남아 손님이 탈퇴하지 못하던 것. 만료된 지 하루가 넘은 건은 알림 없이 취소합니다.
    * 재입금 안내(1차): 입금대기 상태에서 마감까지 준 시간이 3시간 초과인 주문에 한해, 마감 3시간 전 구매자 안내를 1회 발송합니다. (마감 구간이 1시간으로 짧게 잡힌 픽업 임박 주문은 생략)
    * 재입금 안내(2차): 마감 30분 전 최종 안내를 1회 발송합니다. 1차와 달리 창구가 짧은 주문도 대상입니다(창구가 30분 이하면 생략).
    * 픽업 안내: 예약확정 상태에서 픽업 24시간 전이면 구매자 안내를 1회 발송합니다. (주문~픽업이 24시간 미만이면 생략)
@@ -70,7 +77,9 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
     const targets = orders.filter(
       (o) =>
         o.orderStatus === OrderStatus.PAYMENT_PENDING ||
-        (o.orderStatus === OrderStatus.CONFIRMED && o.pickupDate),
+        ((o.orderStatus === OrderStatus.CONFIRMED ||
+          o.orderStatus === OrderStatus.RESERVATION_REQUESTED) &&
+          o.pickupDate),
     );
     if (targets.length === 0) return false;
     const changed = await Promise.all(targets.map((o) => this.syncLoadedOrder(o)));
@@ -124,6 +133,15 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
         });
       }
       return false;
+    }
+
+    if (order.orderStatus === OrderStatus.RESERVATION_REQUESTED && order.pickupDate) {
+      return this.tryExpireReservationRequest(
+        orderId,
+        order.pickupDate,
+        now,
+        ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_SYNC,
+      );
     }
 
     if (order.orderStatus === OrderStatus.CONFIRMED && order.pickupDate) {
@@ -199,6 +217,37 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
             source: ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH,
           });
         }
+      }
+
+      // 가게가 픽업 날이 지나도록 확인하지 않은 예약신청 (sync의 RESERVATION_REQUESTED 분기와 같음).
+      // 여기서 실패해도 아래 안내(재입금·픽업)는 이번 차례에 그대로 돌게 따로 잡는다
+      try {
+        const reservationRequestRows = await this.prisma.order.findMany({
+          where: {
+            orderStatus: OrderStatus.RESERVATION_REQUESTED,
+            pickupDate: { lte: now },
+          },
+          select: { id: true, pickupDate: true },
+        });
+
+        for (const row of reservationRequestRows) {
+          if (!row.pickupDate) continue;
+          await this.tryExpireReservationRequest(
+            row.id,
+            row.pickupDate,
+            now,
+            ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH,
+          );
+        }
+      } catch (e) {
+        LoggerUtil.log(
+          `예약신청 자동 취소 배치 실패: ${e instanceof Error ? e.message : String(e)}`,
+        );
+        SentryUtil.captureException(e, "error", {
+          module: "order-automation",
+          job: "expireReservationRequests",
+          source: ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH,
+        });
       }
 
       // 재입금 안내 (입금대기 · 미발송 · 마감이 아직 남음)
@@ -331,6 +380,44 @@ export class OrderAutomationService implements OnModuleInit, OnModuleDestroy {
         source: ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH,
       });
     }
+  }
+
+  /**
+   * 가게가 픽업 날이 지나도록 확인하지 않은 예약신청을 취소완료로 바꿉니다. 바꿨으면 true.
+   * - 입금 전(예약신청)이라 돈이 오간 적이 없어 환불 단계 없이 취소완료.
+   * - 상태 조건부 update라 배치·sync·사장님 확인이 겹쳐도 한 번만 바뀝니다(사장님이 먼저 확인했으면 그대로).
+   * - 만료된 지 하루가 넘은 건(첫 배포 때 쌓인 옛 주문)은 알림 훅을 부르지 않습니다.
+   */
+  private async tryExpireReservationRequest(
+    orderId: string,
+    pickupDate: Date,
+    now: Date,
+    source: OrderStatusTransitionSource,
+  ): Promise<boolean> {
+    if (!isReservationRequestExpired(pickupDate, now)) return false;
+    // 읽은 뒤 그사이 손님이 픽업 날짜를 바꿨으면(다시 확인받으려고) 취소하지 않는다 — 날짜도 조건에 넣는다
+    const { count } = await this.prisma.order.updateMany({
+      where: { id: orderId, orderStatus: OrderStatus.RESERVATION_REQUESTED, pickupDate },
+      data: {
+        orderStatus: OrderStatus.CANCEL_COMPLETED,
+        reservationExpiredAt: now,
+        canceledAt: now,
+      },
+    });
+    if (count !== 1) return false;
+    if (shouldNotifyReservationExpiry(pickupDate, now)) {
+      this.orderLifecycleHookService.afterOrderStatusTransition({
+        orderId,
+        fromStatus: OrderStatus.RESERVATION_REQUESTED,
+        toStatus: OrderStatus.CANCEL_COMPLETED,
+        source,
+      });
+    } else {
+      LoggerUtil.log(
+        `[OrderLifecycle] ${source} order=${orderId} RESERVATION_REQUESTED → CANCEL_COMPLETED (오래된 예약신청, 알림 없음)`,
+      );
+    }
+    return true;
   }
 
   /**
