@@ -245,6 +245,43 @@ describe("AuthWithdrawService.withdraw", () => {
       );
     });
 
+    it("탈퇴를 마친 뒤 다른 역할 계정 확인(DB)이 실패해도 탈퇴는 성공으로 끝난다(500 아님)", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+        kakaoId: "kakao-1",
+        naverId: null,
+        naverRefreshToken: null,
+      } as any);
+      prismaMock.consumer.update.mockResolvedValue({} as any);
+      prismaMock.seller.findFirst.mockRejectedValue(new Error("db down"));
+
+      await expect(
+        service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "이유"),
+      ).resolves.toBeUndefined();
+      expect(prismaMock.consumer.update).toHaveBeenCalled();
+      expect(authKakaoOauthServiceMock.unlink).not.toHaveBeenCalled();
+    });
+
+    it("사장님도 탈퇴 뒤 확인이 실패하면 성공으로 끝난다", async () => {
+      prismaMock.seller.findUnique.mockResolvedValue({
+        id: "seller-1",
+        withdrawnAt: null,
+        phone: "01011112222",
+        kakaoId: null,
+        naverId: "naver-1",
+        naverRefreshToken: "enc",
+      } as any);
+      prismaMock.store.findMany.mockResolvedValue([] as any);
+      prismaMock.seller.update.mockResolvedValue({} as any);
+      prismaMock.consumer.findFirst.mockRejectedValue(new Error("db down"));
+
+      await expect(service.withdraw(AUDIENCE.SELLER, "seller-1", "이유")).resolves.toBeUndefined();
+      expect(prismaMock.seller.update).toHaveBeenCalled();
+      expect(authNaverOauthServiceMock.revoke).not.toHaveBeenCalled();
+    });
+
     it("DB 저장이 실패하면 연결을 끊지 않는다", async () => {
       prismaMock.consumer.findUnique.mockResolvedValue({
         id: "consumer-1",
