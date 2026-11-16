@@ -149,6 +149,8 @@ export class ChatAlimtalkService implements OnModuleInit, OnModuleDestroy {
       where: {
         id: { in: ids },
         shop: { store: { seller: { withdrawnAt: null, isActive: true } } },
+        // 탈퇴한 손님 방은 글이 지워졌는데 사장님에게 "새 문의"(M-15)가 가던 것(11-16 검토)
+        consumer: { withdrawnAt: null },
       },
       select: {
         id: true,
