@@ -26,6 +26,7 @@ export class ConsumerMapperUtil {
       kakaoEmail: user.kakaoEmail ?? "",
       appleId: user.appleId ?? "",
       appleEmail: user.appleEmail ?? "",
+      naverId: user.naverId ?? "",
       createdAt: user.createdAt,
       lastLoginAt: lastLoginAt ?? user.lastLoginAt ?? new Date(),
       pushNotificationsEnabled,

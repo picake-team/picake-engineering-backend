@@ -4,6 +4,10 @@ import {
   AudienceConst,
   KAKAO_SERVICE_TERMS,
 } from "@apps/backend/modules/auth/constants/auth.constants";
+import {
+  socialNameToDisplay,
+  socialPhoneToLocal,
+} from "@apps/backend/modules/auth/utils/social-signup.util";
 
 /**
  * 카카오 한 번에 가입(카카오싱크, 기획 I-59 B) 도우미.
@@ -14,26 +18,10 @@ import {
  * 카카오 사용자 정보의 전화번호("+82 10-1234-5678")를 국내 휴대폰 번호("01012345678")로.
  * 국내 휴대폰 번호가 아니면(해외 번호 등) undefined — 그때는 지금처럼 문자 인증으로 받는다.
  */
-export function kakaoPhoneToLocal(raw: unknown): string | undefined {
-  if (typeof raw !== "string") return undefined;
-  const trimmed = raw.trim();
-  let digits: string;
-  if (trimmed.startsWith("+82")) {
-    digits = `0${trimmed.slice(3).replace(/\D/g, "").replace(/^0/, "")}`;
-  } else if (trimmed.startsWith("+")) {
-    return undefined;
-  } else {
-    digits = trimmed.replace(/\D/g, "");
-  }
-  return /^01[016789]\d{7,8}$/.test(digits) ? digits : undefined;
-}
+export const kakaoPhoneToLocal = socialPhoneToLocal;
 
 /** 카카오 계정 이름 — 가입 화면 이름 칸을 미리 채우는 데만 쓴다(손님이 고칠 수 있음) */
-export function kakaoNameToDisplay(raw: unknown): string | undefined {
-  if (typeof raw !== "string") return undefined;
-  const name = raw.trim();
-  return name.length > 0 && name.length <= 50 ? name : undefined;
-}
+export const kakaoNameToDisplay = socialNameToDisplay;
 
 /**
  * 약관 동의를 "이번 로그인에서 한 동의"로 볼 시간. 카카오 동의 화면 → 로그인 → 가입표까지 몇 초~몇 분이라 넉넉히 30분(가입표 수명과 같게).

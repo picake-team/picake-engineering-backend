@@ -59,7 +59,12 @@ function embed(
   };
 }
 
-export const SIGNUP_METHOD_LABELS = { KAKAO: "카카오", GOOGLE: "구글", APPLE: "애플" } as const;
+export const SIGNUP_METHOD_LABELS = {
+  KAKAO: "카카오",
+  GOOGLE: "구글",
+  APPLE: "애플",
+  NAVER: "네이버",
+} as const;
 export type SignupMethod = keyof typeof SIGNUP_METHOD_LABELS;
 
 export interface NewSellerAlert {

@@ -101,6 +101,9 @@ export class JwtUtil {
         ...(payload.phone ? { phone: payload.phone } : {}),
         ...(payload.name ? { name: payload.name } : {}),
         ...(payload.terms && payload.terms.length > 0 ? { terms: payload.terms } : {}),
+        ...(payload.providerRefreshToken
+          ? { providerRefreshToken: payload.providerRefreshToken }
+          : {}),
       },
       { expiresIn: JWT_EXPIRATION.REGISTER_TICKET },
     );
@@ -120,7 +123,8 @@ export class JwtUtil {
     } catch {
       throw new BadRequestException(AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID);
     }
-    const { type, aud, provider, providerId, email, phone, name, terms } = payload ?? {};
+    const { type, aud, provider, providerId, email, phone, name, terms, providerRefreshToken } =
+      payload ?? {};
     if (
       type !== TOKEN_TYPES.REGISTER ||
       aud !== expected.aud ||
@@ -128,7 +132,8 @@ export class JwtUtil {
       typeof providerId !== "string" ||
       providerId.length === 0 ||
       typeof email !== "string" ||
-      email.length === 0
+      // 네이버는 이메일을 받지 않는다(이름·휴대전화번호만) — 다른 소셜은 이메일이 꼭 있다
+      (email.length === 0 && provider !== "naver")
     ) {
       throw new BadRequestException(AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID);
     }
@@ -139,6 +144,9 @@ export class JwtUtil {
       ...(typeof phone === "string" && /^01\d{8,9}$/.test(phone) ? { phone } : {}),
       ...(typeof name === "string" && name.length > 0 && name.length <= 50 ? { name } : {}),
       ...(Array.isArray(terms) && terms.every((t) => typeof t === "string") ? { terms } : {}),
+      ...(typeof providerRefreshToken === "string" && providerRefreshToken.length > 0
+        ? { providerRefreshToken }
+        : {}),
     };
   }
 

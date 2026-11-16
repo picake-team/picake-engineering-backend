@@ -12,6 +12,7 @@ import {
 import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
 import { AuthKakaoOauthService } from "@apps/backend/modules/auth/services/auth-kakao-oauth.service";
+import { AuthNaverOauthService } from "@apps/backend/modules/auth/services/auth-naver-oauth.service";
 
 import { AuthWithdrawService } from "./auth-withdraw.service";
 import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
@@ -21,6 +22,7 @@ describe("AuthWithdrawService.withdraw", () => {
   const prismaMock = mockDeep<PrismaService>();
   const authAppleOauthServiceMock = { revokeToken: vi.fn() };
   const authKakaoOauthServiceMock = { unlink: vi.fn() };
+  const authNaverOauthServiceMock = { revoke: vi.fn() };
   const quoteCleanupMock = {
     deleteAllForConsumer: vi.fn().mockResolvedValue({ requests: 0, photos: 0 }),
   };
@@ -40,6 +42,7 @@ describe("AuthWithdrawService.withdraw", () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuthAppleOauthService, useValue: authAppleOauthServiceMock },
         { provide: AuthKakaoOauthService, useValue: authKakaoOauthServiceMock },
+        { provide: AuthNaverOauthService, useValue: authNaverOauthServiceMock },
         { provide: QuoteRequestCleanupService, useValue: quoteCleanupMock },
         { provide: ChatCleanupService, useValue: chatCleanupMock },
       ],
@@ -142,6 +145,8 @@ describe("AuthWithdrawService.withdraw", () => {
           appleId: null,
           appleEmail: null,
           appleRefreshToken: null,
+          naverId: null,
+          naverRefreshToken: null,
           withdrawReason: "서비스 불만족",
         }),
       });
@@ -359,5 +364,82 @@ describe("AuthWithdrawService.withdraw", () => {
     await expect(service.withdraw("unknown" as any, "id-1", "탈퇴 사유")).rejects.toThrow(
       NotFoundException,
     );
+  });
+  describe("네이버 연결 끊기", () => {
+    it("네이버로 가입한 손님은 탈퇴를 마친 뒤 저장해 둔 갱신 토큰으로 연결을 끊는다", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+        kakaoId: null,
+        naverId: "naver-1",
+        naverRefreshToken: "enc-naver-refresh",
+      } as any);
+      prismaMock.seller.findFirst.mockResolvedValue(null);
+
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
+
+      expect(authNaverOauthServiceMock.revoke).toHaveBeenCalledWith(
+        AUDIENCE.CONSUMER,
+        "enc-naver-refresh",
+      );
+      expect(authNaverOauthServiceMock.revoke.mock.invocationCallOrder[0]).toBeGreaterThan(
+        prismaMock.consumer.update.mock.invocationCallOrder[0],
+      );
+      expect(authKakaoOauthServiceMock.unlink).not.toHaveBeenCalled();
+    });
+
+    it("네이버로 가입한 사장님도 끊는다", async () => {
+      prismaMock.seller.findUnique.mockResolvedValue({
+        id: "seller-1",
+        withdrawnAt: null,
+        phone: "01012345678",
+        kakaoId: null,
+        naverId: "naver-2",
+        naverRefreshToken: "enc-seller-refresh",
+      } as any);
+      prismaMock.consumer.findFirst.mockResolvedValue(null);
+
+      await service.withdraw(AUDIENCE.SELLER, "seller-1", "탈퇴 사유");
+
+      expect(prismaMock.seller.update).toHaveBeenCalledWith({
+        where: { id: "seller-1" },
+        data: expect.objectContaining({ naverId: null, naverRefreshToken: null }),
+      });
+      expect(authNaverOauthServiceMock.revoke).toHaveBeenCalledWith(
+        AUDIENCE.SELLER,
+        "enc-seller-refresh",
+      );
+    });
+
+    it("같은 네이버로 가입한 다른 역할 계정이 있으면 끊지 않는다(같은 네이버 앱)", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+        naverId: "naver-1",
+        naverRefreshToken: "enc-naver-refresh",
+      } as any);
+      prismaMock.seller.findFirst.mockResolvedValue({ id: "seller-9" } as any);
+
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
+
+      expect(prismaMock.consumer.update).toHaveBeenCalled();
+      expect(authNaverOauthServiceMock.revoke).not.toHaveBeenCalled();
+    });
+
+    it("네이버로 가입하지 않았으면 끊지 않는다", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+        naverId: null,
+        naverRefreshToken: null,
+      } as any);
+
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
+
+      expect(authNaverOauthServiceMock.revoke).not.toHaveBeenCalled();
+    });
   });
 });

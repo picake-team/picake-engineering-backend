@@ -23,10 +23,7 @@ import {
 import { AppleUserInfo, AppleIdTokenPayload } from "@apps/backend/modules/auth/types/auth.types";
 import { AuthPhoneService } from "@apps/backend/modules/auth/services/auth-phone.service";
 import { PhoneUtil } from "@apps/backend/modules/auth/utils/phone.util";
-import {
-  maskDisplayNameForPrivacy,
-  maskLoginEmail,
-} from "@apps/backend/modules/auth/utils/display-name.util";
+import { phoneTakenConflict } from "@apps/backend/modules/auth/utils/phone-conflict.util";
 import {
   AppleLoginRequestDto,
   AppleRegisterRequestDto,
@@ -338,35 +335,10 @@ export class AuthAppleOauthService {
       throw new ForbiddenException(AUTH_ERROR_MESSAGES.ACCOUNT_INACTIVE);
     }
 
-    if (existingPhone?.googleId) {
-      throw new ConflictException({
-        message: AUTH_ERROR_MESSAGES.PHONE_GOOGLE_ACCOUNT_EXISTS,
-        name: maskDisplayNameForPrivacy(existingPhone.name),
-        phone: PhoneUtil.maskPhone(existingPhone.phone),
-        email: maskLoginEmail(existingPhone.googleEmail),
-      });
-    }
-
-    if (existingPhone?.kakaoId) {
-      throw new ConflictException({
-        message: AUTH_ERROR_MESSAGES.PHONE_KAKAO_ACCOUNT_EXISTS,
-        name: maskDisplayNameForPrivacy(existingPhone.name),
-        phone: PhoneUtil.maskPhone(existingPhone.phone),
-        email: maskLoginEmail(existingPhone.kakaoEmail),
-      });
-    }
-
-    if (existingPhone?.appleId) {
-      throw new ConflictException({
-        message: AUTH_ERROR_MESSAGES.PHONE_APPLE_ACCOUNT_EXISTS,
-        name: maskDisplayNameForPrivacy(existingPhone.name),
-        phone: PhoneUtil.maskPhone(existingPhone.phone),
-        email: maskLoginEmail(existingPhone.appleEmail),
-      });
-    }
-    // 소셜 연결이 없는 계정의 번호여도 500(중복 저장 오류)이 아니라 409(11-16 검토, 카카오·구글 가입과 같게)
-    if (existingPhone) {
-      throw new ConflictException(AUTH_ERROR_MESSAGES.PHONE_ALREADY_EXISTS);
+    // 이 번호로 이미 가입한 계정이 있으면 그 로그인 수단을 알린다(이름·번호·이메일은 가려서). 소셜 연결이 없는 계정이면 PHONE_ALREADY_EXISTS
+    const phoneConflict = phoneTakenConflict(existingPhone, ["google", "kakao", "apple", "naver"]);
+    if (phoneConflict) {
+      throw phoneConflict;
     }
 
     return await this.prisma

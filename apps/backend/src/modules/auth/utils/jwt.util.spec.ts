@@ -147,5 +147,26 @@ describe("JwtUtil", () => {
         AUTH_ERROR_MESSAGES.REGISTER_TICKET_INVALID,
       );
     });
+
+    it("네이버 가입표는 이메일 없이도 받고, 암호화한 갱신 토큰을 그대로 돌려준다", async () => {
+      const naverTicket = await jwtUtil.generateRegisterTicket({
+        aud: "seller",
+        provider: "naver",
+        providerId: "naver-1",
+        email: "",
+        phone: "01012345678",
+        name: "김사장",
+        providerRefreshToken: "iv:tag:cipher",
+      });
+      await expect(
+        jwtUtil.verifyRegisterTicket(naverTicket, { aud: "seller", provider: "naver" }),
+      ).resolves.toEqual({
+        providerId: "naver-1",
+        email: "",
+        phone: "01012345678",
+        name: "김사장",
+        providerRefreshToken: "iv:tag:cipher",
+      });
+    });
   });
 });
