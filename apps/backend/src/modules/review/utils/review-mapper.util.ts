@@ -58,11 +58,13 @@ type ProductReviewResponseSource = {
     storeId: string;
     store: { name: string };
   };
-  order: ProductReviewWithUserAndProductStore["order"];
+  /** 공개 후기 응답에는 쓰지 않는다(아래 mapToReviewResponse). 내 후기만 읽어 온다 */
+  order?: ProductReviewWithUserAndProductStore["order"];
 };
 
 /** 마이페이지 내 후기 조회용 ProductReview 타입 (상품 요약 필드 포함) */
 type ProductReviewForMyReview = ProductReviewResponseSource & {
+  order: ProductReviewWithUserAndProductStore["order"];
   product: ProductReviewResponseSource["product"] & {
     name: string;
     salePrice: number;
@@ -132,7 +134,9 @@ export class ReviewMapperUtil {
   } as const;
 
   /**
-   * Prisma ProductReview 엔티티를 ReviewResponseDto로 변환
+   * Prisma ProductReview 엔티티를 ReviewResponseDto로 변환 — 로그인 없이 누구나 보는 공개 후기용.
+   * 주문(`order`)은 늘 null: 주문에는 예약자 이름·휴대폰·입금자명·환불 계좌가 들어 있어 공개 응답에 실으면 안 된다
+   * (11-16 검토 — 그전에는 공개 후기 목록·상세가 주문 전체를 함께 돌려줬다). 주문은 내 후기(mapToMyReviewResponse)에만.
    * @param review - Prisma ProductReview 엔티티 (consumer, product.store 포함)
    * @returns ReviewResponseDto 객체
    */
@@ -144,7 +148,7 @@ export class ReviewMapperUtil {
       storeName: review.product.store.name,
       userId: review.consumerId,
       orderId: review.orderId ?? null,
-      order: review.order ? OrderMapperUtil.mapToOrderResponse(review.order) : null,
+      order: null,
       rating: review.rating,
       content: review.content,
       imageUrls: review.imageUrls,
@@ -165,6 +169,8 @@ export class ReviewMapperUtil {
 
     return {
       ...base,
+      // 내 후기에만 주문을 붙인다(본인 주문)
+      order: order ? OrderMapperUtil.mapToOrderResponse(order) : null,
       productName: order?.productName ?? review.product.name,
       productPrice: order?.totalPrice ?? review.product.salePrice,
       productImageUrl: order?.productImages?.[0] ?? review.product.images[0] ?? null,

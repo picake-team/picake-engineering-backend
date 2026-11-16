@@ -23,13 +23,13 @@ export class QuoteRequestOpsAlertService {
       return;
     }
 
-    const nodeEnv = this.configService.get<string>("NODE_ENV");
-    const message = buildNewQuoteRequestDiscordMessage(row, {
-      adminDomain: this.configService.get<string>("PUBLIC_ADMIN_DOMAIN"),
-      environmentLabel: isProduction(nodeEnv) ? null : (nodeEnv ?? "dev"),
-    });
-
     try {
+      // 메시지 만들기도 try 안에서 — 부르는 곳이 기다리지 않아(void) 여기서 던지면 잡는 곳이 없다(11-16 검토)
+      const nodeEnv = this.configService.get<string>("NODE_ENV");
+      const message = buildNewQuoteRequestDiscordMessage(row, {
+        adminDomain: this.configService.get<string>("PUBLIC_ADMIN_DOMAIN"),
+        environmentLabel: isProduction(nodeEnv) ? null : (nodeEnv ?? "dev"),
+      });
       const res = await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

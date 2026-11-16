@@ -10,6 +10,12 @@ import type {
 } from "@apps/backend/modules/statistics/seller/dto/seller-order-statistics-overview.dto";
 
 const SEOUL_TZ = "Asia/Seoul";
+/*
+ * 시각 칸(created_at·pickup_date)은 시간대 없는 timestamp에 UTC 시각을 담는다(Prisma 기본). 그래서
+ * - 한국 요일·시간: (칸 AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul' — 칸에 바로 AT TIME ZONE 'Asia/Seoul'을 붙이면
+ *   "서울 시각"으로 읽혀 9시간 어긋났다(12시 주문이 3시·전날로, 11-16 검토)
+ * - 기간 비교: Prisma가 Date를 timestamptz로 보내므로 (값 AT TIME ZONE 'UTC')로 맞춰 DB 세션 시간대와 상관없게 한다
+ */
 
 type DowRow = { dow: number; sales_sum: bigint; order_count: bigint };
 type HourRow = { hour: number; order_count: bigint };
@@ -85,15 +91,15 @@ export async function loadSellerOrderStatisticsTimeBuckets(
 
   const baseWhere = Prisma.sql`
     o.store_id = ${storeId}
-    AND o.created_at >= ${start}
-    AND o.created_at <= ${end}
+    AND o.created_at >= (${start}::timestamptz AT TIME ZONE 'UTC')
+    AND o.created_at <= (${end}::timestamptz AT TIME ZONE 'UTC')
     AND o.order_status IN (${statusIn})
   `;
 
   const [createdDow, createdHour, pickupDow, pickupHour] = await Promise.all([
     prisma.$queryRaw<DowRow[]>(Prisma.sql`
       SELECT
-        EXTRACT(DOW FROM (o.created_at AT TIME ZONE ${SEOUL_TZ}))::int AS dow,
+        EXTRACT(DOW FROM ((o.created_at AT TIME ZONE 'UTC') AT TIME ZONE ${SEOUL_TZ}))::int AS dow,
         COALESCE(SUM(o.total_price), 0)::bigint AS sales_sum,
         COUNT(*)::bigint AS order_count
       FROM orders o
@@ -102,7 +108,7 @@ export async function loadSellerOrderStatisticsTimeBuckets(
     `),
     prisma.$queryRaw<HourRow[]>(Prisma.sql`
       SELECT
-        EXTRACT(HOUR FROM (o.created_at AT TIME ZONE ${SEOUL_TZ}))::int AS hour,
+        EXTRACT(HOUR FROM ((o.created_at AT TIME ZONE 'UTC') AT TIME ZONE ${SEOUL_TZ}))::int AS hour,
         COUNT(*)::bigint AS order_count
       FROM orders o
       WHERE ${baseWhere}
@@ -110,7 +116,7 @@ export async function loadSellerOrderStatisticsTimeBuckets(
     `),
     prisma.$queryRaw<DowRow[]>(Prisma.sql`
       SELECT
-        EXTRACT(DOW FROM (o.pickup_date AT TIME ZONE ${SEOUL_TZ}))::int AS dow,
+        EXTRACT(DOW FROM ((o.pickup_date AT TIME ZONE 'UTC') AT TIME ZONE ${SEOUL_TZ}))::int AS dow,
         COALESCE(SUM(o.total_price), 0)::bigint AS sales_sum,
         COUNT(*)::bigint AS order_count
       FROM orders o
@@ -120,7 +126,7 @@ export async function loadSellerOrderStatisticsTimeBuckets(
     `),
     prisma.$queryRaw<HourRow[]>(Prisma.sql`
       SELECT
-        EXTRACT(HOUR FROM (o.pickup_date AT TIME ZONE ${SEOUL_TZ}))::int AS hour,
+        EXTRACT(HOUR FROM ((o.pickup_date AT TIME ZONE 'UTC') AT TIME ZONE ${SEOUL_TZ}))::int AS hour,
         COUNT(*)::bigint AS order_count
       FROM orders o
       WHERE ${baseWhere}

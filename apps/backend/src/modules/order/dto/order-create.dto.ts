@@ -12,6 +12,7 @@ import {
   ArrayMaxSize,
   IsInt,
   IsEnum,
+  Max,
 } from "class-validator";
 import { OrderEntrySource } from "@apps/backend/infra/database/prisma/generated/client";
 import { Transform, Type } from "class-transformer";
@@ -134,6 +135,8 @@ export class CreateOrderItemDto {
   })
   @IsOptional()
   @IsString()
+  // 한도가 없어 아주 긴 글도 받았다(웹 칸은 200자, 11-16 검토)
+  @MaxLength(500)
   requestMessage?: string;
 
   @ApiProperty({
@@ -141,8 +144,10 @@ export class CreateOrderItemDto {
     example: SWAGGER_EXAMPLES.ORDER_ITEM.quantity,
   })
   @IsNotEmpty()
-  @IsNumber()
+  // 정수·상한 — 1.5 같은 값이 400이 아니라 500이 되던 것(11-16 검토)
+  @IsInt()
   @Min(1)
+  @Max(999)
   quantity: number;
 
   @ApiPropertyOptional({
@@ -209,8 +214,9 @@ export class CreateOrderRequestDto extends PickupAddressDto {
     example: SWAGGER_EXAMPLES.ORDER_DATA.totalQuantity,
   })
   @IsNotEmpty()
-  @IsNumber()
+  @IsInt()
   @Min(1)
+  @Max(9999)
   totalQuantity: number;
 
   @ApiProperty({

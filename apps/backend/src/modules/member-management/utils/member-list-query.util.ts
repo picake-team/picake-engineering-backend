@@ -32,7 +32,8 @@ export function buildMemberSearchWhere(search?: string) {
     OR: [
       { name: { contains: keyword, mode: Prisma.QueryMode.insensitive } },
       { nickname: { contains: keyword, mode: Prisma.QueryMode.insensitive } },
-      { phone: { contains: keyword } },
+      // 번호는 숫자만 저장한다 — "010-1234-5678"처럼 하이픈·띄어쓰기를 넣어 찾으면 0명이던 것(11-16 검토)
+      { phone: { contains: /\d/.test(keyword) ? keyword.replace(/[\s-]/g, "") : keyword } },
     ],
   };
 }

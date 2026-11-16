@@ -43,7 +43,6 @@ export class ReviewDetailService {
           select: ReviewMapperUtil.USER_INFO_SELECT,
         },
         ...ReviewMapperUtil.PRODUCT_STORE_INCLUDE,
-        ...ReviewMapperUtil.REVIEW_ORDER_INCLUDE,
       },
     });
 
@@ -111,7 +110,6 @@ export class ReviewDetailService {
           select: ReviewMapperUtil.USER_INFO_SELECT,
         },
         ...ReviewMapperUtil.PRODUCT_STORE_INCLUDE,
-        ...ReviewMapperUtil.REVIEW_ORDER_INCLUDE,
       },
     });
 

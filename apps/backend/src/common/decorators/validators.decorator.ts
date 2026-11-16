@@ -65,8 +65,9 @@ export class IsValidKoreanPhoneConstraint implements ValidatorConstraintInterfac
     // 하이픈 제거
     const normalizedPhone = phone.replace(/[-\s]/g, "");
 
-    // 한국 휴대폰 번호 패턴: 010, 011, 016, 017, 018, 019로 시작하는 11자리
-    const phonePattern = /^01[0-9]\d{7,8}$/;
+    // 한국 휴대폰 번호: 010은 11자리만, 옛 번호 011·016~019는 10·11자리. 한 자리 빠진 010 번호를 받아
+    // 예약자 번호로 쓰면 알림톡이 아무에게도 가지 않았다(11-16 검토, 웹 PHONE_PATTERN과 같게)
+    const phonePattern = /^(010\d{8}|01[16-9]\d{7,8})$/;
     return phonePattern.test(normalizedPhone);
   }
 

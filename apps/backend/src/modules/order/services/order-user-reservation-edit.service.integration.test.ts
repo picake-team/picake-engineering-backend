@@ -186,4 +186,29 @@ describe("OrderUserReservationEditService.updatePickupDate — 그사이 사장�
     expect(saved.orderStatus).toBe("CONFIRMED");
     expect(saved.pickupDate?.toISOString()).toBe(before.toISOString());
   });
+
+  it("지난 시각으로는 픽업 일시를 바꾸지 않는다(11-16 검토)", async () => {
+    const prisma = getTestPrisma();
+    const seller = await createTestSeller(prisma);
+    const store = await createTestStore(prisma, seller.id);
+    const product = await createTestProduct(prisma, store.id);
+    const consumer = await createTestConsumer(prisma);
+    const before = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const order = await createTestOrder(
+      prisma,
+      { consumerId: consumer.id, productId: product.id, storeId: store.id },
+      { pickupDate: before },
+    );
+    const automation = { syncOrderLifecycleById: vi.fn() } as unknown as OrderAutomationService;
+    const service = new OrderUserReservationEditService(prisma, automation);
+
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await expect(
+      service.updatePickupDate(order.id, consumer.id, {
+        pickupDate: yesterday.toISOString(),
+      } as any),
+    ).rejects.toThrow(ORDER_ERROR_MESSAGES.PICKUP_IN_PAST);
+    const saved = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(saved.pickupDate?.toISOString()).toBe(before.toISOString());
+  });
 });

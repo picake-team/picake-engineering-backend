@@ -10,6 +10,16 @@ import {
   isSellerStatusUpdate,
 } from "@apps/backend/modules/notification/utils/user-order-notification-transition.util";
 
+/**
+ * 알림톡 #{취소사유}에 넣는 사장님 글은 잘라 넣는다 — 서버는 2,000자까지 받는데(PC 화면은 제한이 없었음) 카카오 알림톡
+ * 본문 1,000자 한도를 넘으면 거절돼 손님에게 취소 안내가 가지 않았다(11-16 검토). 템플릿 나머지 글을 빼고도 남게 300자.
+ */
+export const ALIMTALK_REASON_MAX = 300;
+export function clipReason(reason: string | null | undefined): string {
+  const text = (reason ?? "").trim();
+  return text.length > ALIMTALK_REASON_MAX ? `${text.slice(0, ALIMTALK_REASON_MAX - 1)}…` : text;
+}
+
 export interface UserOrderAlimtalkPayload {
   templateId: string;
   /** 템플릿 치환 변수 (키는 `#{변수명}` 형식, 등록된 템플릿과 정확히 일치해야 함) */
@@ -221,7 +231,7 @@ export function buildUserOrderAlimtalkPayload(
       if (isSellerStatusUpdate(payload)) {
         return emit(T.CANCEL_COMPLETED_BY_SELLER, {
           ...base,
-          "#{취소사유}": order.sellerCancelReason ?? "",
+          "#{취소사유}": clipReason(order.sellerCancelReason),
         });
       }
       // 사용자 직접 취소(입금 전)는 본인 액션이라 발송하지 않음.
@@ -240,7 +250,7 @@ export function buildUserOrderAlimtalkPayload(
         ...base,
         "#{결제금액}": 결제금액,
         "#{픽업일시}": 픽업일시,
-        "#{취소사유}": order.sellerCancelRefundPendingReason ?? "",
+        "#{취소사유}": clipReason(order.sellerCancelRefundPendingReason),
       });
     }
 
