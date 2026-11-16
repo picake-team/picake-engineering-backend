@@ -33,6 +33,9 @@ export const AUTH_ERROR_MESSAGES = {
   PHONE_APPLE_ACCOUNT_EXISTS: "해당 휴대폰 번호로 이미 등록된 애플 계정이 있어요.",
   APPLE_ID_ALREADY_EXISTS: "이미 사용 중인 애플 계정이에요.",
   APPLE_OAUTH_TOKEN_EXCHANGE_FAILED: "애플 OAuth 토큰 교환 실패",
+  PHONE_NAVER_ACCOUNT_EXISTS: "해당 휴대폰 번호로 이미 등록된 네이버 계정이 있어요.",
+  NAVER_ID_ALREADY_EXISTS: "이미 사용 중인 네이버 계정이에요.",
+  NAVER_OAUTH_TOKEN_EXCHANGE_FAILED: "네이버 OAuth 토큰 교환 실패",
   /** 소셜 회원가입 가입표(registerToken)가 없거나 만료·변조·다른 용도일 때 (400 — 401은 액세스·리프레시 토큰 전용) */
   REGISTER_TICKET_INVALID: "가입 시간이 지났어요. 다시 로그인해 주세요.",
   /** 앱스토어/플레이스토어 심사용 로그인 — 코드 불일치 또는 미설정(비활성화) */
@@ -114,6 +117,8 @@ export const OAUTH_REDIRECT_PATHS = {
   KAKAO: "/auth/login/kakao",
   /** Apple Return URL — Services ID에 등록된 값과 정확히 일치해야 함(쿼리 아님, form_post로 옴) */
   APPLE: "/auth/login/apple",
+  /** 네이버 Callback URL — 네이버 개발자센터 앱에 손님·사장님·환경별로 등록(손님·사장님이 앱 하나를 같이 씀) */
+  NAVER: "/auth/login/naver",
 } as const;
 
 /**
@@ -184,6 +189,7 @@ export enum PhoneVerificationPurpose {
   GOOGLE_REGISTRATION = "google_registration",
   KAKAO_REGISTRATION = "kakao_registration",
   APPLE_REGISTRATION = "apple_registration",
+  NAVER_REGISTRATION = "naver_registration",
   PHONE_CHANGE = "phone_change",
   FIND_ACCOUNT = "find_account",
 }
@@ -247,6 +253,7 @@ export const SWAGGER_EXAMPLES = {
     kakaoEmail: "user@kakao.com",
     appleId: "001234.abcd1234efgh5678.5678",
     appleEmail: "user@privaterelay.appleid.com",
+    naverId: "a1B2c3D4e5F6g7H8i9J0naverExample",
     createdAt: new Date("2024-01-01T00:00:00.000Z"),
     lastLoginAt: new Date("2024-01-01T00:00:00.000Z"),
   },
@@ -262,6 +269,7 @@ export const SWAGGER_EXAMPLES = {
     googleEmail: "seller@gmail.com",
     kakaoId: "9876543210",
     kakaoEmail: "seller@kakao.com",
+    naverId: "z9Y8x7W6v5U4t3S2r1Q0naverExample",
     sellerVerificationStatus: "BUSINESS_VERIFIED" as const,
     createdAt: new Date("2024-01-01T00:00:00.000Z"),
     lastLoginAt: new Date("2024-01-01T00:00:00.000Z"),
@@ -297,6 +305,8 @@ export const SWAGGER_EXAMPLES = {
   APPLE_CODE: "c1234567890abcdef.0.example_authorization_code",
   APPLE_ID: "001234.abcd1234efgh5678.5678",
   APPLE_EMAIL: "user@privaterelay.appleid.com",
+  NAVER_CODE: "Ac3B9xNaverAuthCodeExample",
+  NAVER_STATE: "f3c1a7e2b9d84c56",
   REGISTER_TOKEN:
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0eXBlIjoicmVnaXN0ZXIiLCJhdWQiOiJjb25zdW1lciIsInByb3ZpZGVyIjoia2FrYW8ifQ.example_sig",
   VERIFICATION_CODE: "123456",
@@ -317,10 +327,13 @@ export const SWAGGER_DESCRIPTIONS = {
   KAKAO_ID: "카카오 사용자 ID (`/v2/user/me`의 `id`)",
   KAKAO_EMAIL: "카카오 계정 이메일 (동의 항목에 따라 없을 수 있음)",
   APPLE_CODE: "애플 OAuth Authorization Code (Return URL·Services ID와 짝이 맞아야 함)",
+  NAVER_CODE: "네이버 OAuth Authorization Code (콜백 주소의 code — 한 번만 쓸 수 있음)",
+  NAVER_STATE:
+    "네이버 로그인 요청 때 화면이 만든 state(콜백 주소의 state) — 화면이 자기 것과 같은지 먼저 확인하고, 토큰 발급에 그대로 넘긴다",
   REGISTER_TOKEN:
-    "가입표 — 로그인 API가 400 PHONE_VERIFICATION_REQUIRED와 함께 준 registerToken(30분). 서버가 소셜 서비스에 확인한 ID·이메일(카카오는 받은 경우 전화번호·이름·간편가입 약관 동의)이 들어 있어 가입은 이 값으로만 한다",
+    "가입표 — 로그인 API가 400 PHONE_VERIFICATION_REQUIRED와 함께 준 registerToken(30분). 서버가 소셜 서비스에 확인한 ID·이메일(카카오·네이버는 받은 경우 전화번호·이름, 카카오는 간편가입 약관 동의도)이 들어 있어 가입은 이 값으로만 한다",
   USE_TICKET_PHONE:
-    "카카오가 준 전화번호(가입표 안)를 손님·사장님이 '맞아요'로 확인했으면 true — phone·문자 인증 없이 그 번호로 가입. false나 없으면 phone + 문자 인증",
+    "카카오·네이버가 준 전화번호(가입표 안)로 가입하면 true — phone·문자 인증 없이 그 번호로 가입. false나 없으면 phone + 문자 인증",
   APPLE_ID: "애플 사용자 ID (id_token `sub`)",
   APPLE_EMAIL:
     "애플 계정 이메일 (id_token `email`, 릴레이 이메일 `@privaterelay.appleid.com` 포함 가능)",
@@ -328,7 +341,7 @@ export const SWAGGER_DESCRIPTIONS = {
   NICKNAME: "표시용 닉네임 (구글 최초 가입 시 `{실명}_{난수}` 자동 부여 가능)",
   REFRESH_TOKEN: "리프레시 토큰",
   PHONE_VERIFICATION_PURPOSE:
-    "인증 목적 enum — registration | google_registration | kakao_registration | apple_registration | phone_change | find_account (경로에 따라 audience는 consumer/seller로 고정)",
+    "인증 목적 enum — registration | google_registration | kakao_registration | apple_registration | naver_registration | phone_change | find_account (경로에 따라 audience는 consumer/seller로 고정)",
   PHONE_VERIFICATION_AUDIENCE:
     "요청 DTO에 포함되나, consumer/seller 각 인증 API에서는 서버가 audience를 덮어씁니다.",
   ADMIN_USERNAME: "관리자 아이디 (4-20자 영문·숫자·언더스코어)",

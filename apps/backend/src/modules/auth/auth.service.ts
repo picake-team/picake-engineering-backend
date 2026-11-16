@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { AuthPhoneService } from "@apps/backend/modules/auth/services/auth-phone.service";
 import { AuthGoogleOauthService } from "@apps/backend/modules/auth/services/auth-google-oauth.service";
 import { AuthKakaoOauthService } from "@apps/backend/modules/auth/services/auth-kakao-oauth.service";
+import { AuthNaverOauthService } from "@apps/backend/modules/auth/services/auth-naver-oauth.service";
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
 import { AuthAdminService } from "@apps/backend/modules/auth/services/auth-admin.service";
 import { AuthAccountFindService } from "@apps/backend/modules/auth/services/auth-account-find.service";
@@ -17,6 +18,10 @@ import {
   KakaoLoginRequestDto,
   KakaoRegisterRequestDto,
 } from "@apps/backend/modules/auth/dto/auth-kakao-oauth.dto";
+import {
+  NaverLoginRequestDto,
+  NaverRegisterRequestDto,
+} from "@apps/backend/modules/auth/dto/auth-naver-oauth.dto";
 import {
   AppleLoginRequestDto,
   AppleRegisterRequestDto,
@@ -44,6 +49,7 @@ export class AuthService {
     private readonly authPhoneService: AuthPhoneService,
     private readonly authGoogleOauthService: AuthGoogleOauthService,
     private readonly authKakaoOauthService: AuthKakaoOauthService,
+    private readonly authNaverOauthService: AuthNaverOauthService,
     private readonly authAppleOauthService: AuthAppleOauthService,
     private readonly authAdminService: AuthAdminService,
     private readonly authReviewLoginService: AuthReviewLoginService,
@@ -108,6 +114,34 @@ export class AuthService {
    */
   async sellerKakaoRegisterWithPhone(dto: KakaoRegisterRequestDto) {
     return this.authKakaoOauthService.sellerKakaoRegisterWithPhone(dto);
+  }
+
+  /**
+   * 네이버 — Authorization Code(+state) 로그인 (구매자)
+   */
+  async consumerNaverLoginWithCode(dto: NaverLoginRequestDto) {
+    return this.authNaverOauthService.consumerNaverLoginWithCode(dto);
+  }
+
+  /**
+   * 네이버 — 회원가입 (네이버 번호 또는 휴대폰 인증, 구매자)
+   */
+  async consumerNaverRegisterWithPhone(dto: NaverRegisterRequestDto) {
+    return this.authNaverOauthService.consumerNaverRegisterWithPhone(dto);
+  }
+
+  /**
+   * 네이버 — Authorization Code(+state) 로그인 (판매자)
+   */
+  async sellerNaverLoginWithCode(dto: NaverLoginRequestDto) {
+    return this.authNaverOauthService.sellerNaverLoginWithCode(dto);
+  }
+
+  /**
+   * 네이버 — 회원가입 (네이버 번호 또는 휴대폰 인증, 판매자)
+   */
+  async sellerNaverRegisterWithPhone(dto: NaverRegisterRequestDto) {
+    return this.authNaverOauthService.sellerNaverRegisterWithPhone(dto);
   }
 
   /**

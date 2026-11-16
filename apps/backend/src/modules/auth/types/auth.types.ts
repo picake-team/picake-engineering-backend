@@ -23,7 +23,7 @@ export interface JwtVerifiedPayload extends JwtPayload {
 }
 
 /** 소셜 로그인 종류 */
-export type SocialProvider = "google" | "kakao" | "apple";
+export type SocialProvider = "google" | "kakao" | "apple" | "naver";
 
 /**
  * 가입표(registerToken) 내용 — 로그인 때 서버가 소셜 서비스에 확인한 값만 담는다. 서명·검증용, HTTP DTO 아님
@@ -32,13 +32,19 @@ export interface RegisterTicketPayload {
   aud: AudienceConst;
   provider: SocialProvider;
   providerId: string;
+  /** 소셜 계정 이메일. 네이버는 이메일을 받지 않아 빈 문자열 */
   email: string;
-  /** 카카오가 준 국내 휴대폰 번호(숫자만) — 가입 화면에서 "맞아요"로 확인받으면 문자 인증 없이 쓴다(I-59 B) */
+  /** 카카오·네이버가 준 국내 휴대폰 번호(숫자만) — 가입 화면에서 그 번호로 가입하면 문자 인증 없이 쓴다(I-59 B) */
   phone?: string;
   /** 소셜 서비스가 준 이름 — 가입 화면 이름 칸 미리 채우기 */
   name?: string;
   /** 카카오 간편가입에서 동의한 약관 태그(이 대상 것만) */
   terms?: string[];
+  /**
+   * 소셜 갱신 토큰을 우리 키로 암호화한 값(`TokenEncryptionUtil`) — 가입하면 계정에 저장해 탈퇴 때 연결 끊기에 쓴다(네이버).
+   * 가입표는 화면이 읽을 수 있지만 이 값은 암호문이라 풀 수 없다.
+   */
+  providerRefreshToken?: string;
 }
 
 /**
@@ -84,6 +90,22 @@ export interface KakaoUserInfo {
   };
   /** 카카오 액세스 토큰 — 가입이 필요할 때 간편가입 약관 동의 내역을 묻는 데만 쓰고 저장하지 않는다 */
   accessToken?: string;
+}
+
+/**
+ * 네이버 토큰 교환 직후 프로필 조회 결과 — 서비스 내부 전달용, HTTP DTO 아님
+ */
+export interface NaverUserInfo {
+  userInfo: {
+    /** 네이버 회원 식별자(앱마다 다름 — 손님·사장님이 앱 하나를 같이 써서 같은 사람이면 같다) */
+    naverId: string;
+    /** 휴대전화번호 제공 동의를 받았을 때만(국내 휴대폰, 숫자만) */
+    phone?: string;
+    /** 이름 제공 동의를 받았을 때만 */
+    name?: string;
+  };
+  /** 네이버 갱신 토큰(평문) — 탈퇴 때 연결 끊기용. 계정·가입표에는 암호화해서만 담는다 */
+  refreshToken?: string;
 }
 
 /**

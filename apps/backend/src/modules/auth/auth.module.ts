@@ -12,6 +12,7 @@ import { AuthPhoneService } from "@apps/backend/modules/auth/services/auth-phone
 import { AuthSmsService } from "@apps/backend/modules/auth/services/auth-sms.service";
 import { AuthGoogleOauthService } from "@apps/backend/modules/auth/services/auth-google-oauth.service";
 import { AuthKakaoOauthService } from "@apps/backend/modules/auth/services/auth-kakao-oauth.service";
+import { AuthNaverOauthService } from "@apps/backend/modules/auth/services/auth-naver-oauth.service";
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
 import { AuthAccountFindService } from "@apps/backend/modules/auth/services/auth-account-find.service";
 import { AuthMypagePhoneService } from "@apps/backend/modules/auth/services/auth-mypage-phone.service";
@@ -59,6 +60,7 @@ import { ChatModule } from "@apps/backend/modules/chat/chat.module";
     AuthSmsService,
     AuthGoogleOauthService,
     AuthKakaoOauthService,
+    AuthNaverOauthService,
     AuthAppleOauthService,
     AuthAdminService,
     AuthReviewLoginService,

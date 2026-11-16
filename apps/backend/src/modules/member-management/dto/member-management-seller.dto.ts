@@ -77,6 +77,12 @@ export class MemberSellerItemResponseDto {
   @ApiProperty({ nullable: true, description: "카카오 연동 이메일 (null이면 미연동)" })
   kakaoEmail: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    description: "네이버 회원 식별자 (null이면 미연동 — 네이버는 이메일을 받지 않음)",
+  })
+  naverId: string | null;
+
   @ApiProperty({ description: "판매자 검증 상태", enum: SellerVerificationStatus })
   sellerVerificationStatus: SellerVerificationStatus;
 
