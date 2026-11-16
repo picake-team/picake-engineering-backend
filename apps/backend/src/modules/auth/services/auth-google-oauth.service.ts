@@ -28,6 +28,7 @@ import {
   GoogleRegisterRequestDto,
 } from "@apps/backend/modules/auth/dto/auth-google-oauth.dto";
 import { buildInitialNickname } from "@apps/backend/modules/auth/utils/register-nickname.util";
+import { socialNameToDisplay } from "@apps/backend/modules/auth/utils/social-signup.util";
 import { ExternalApiErrorUtil } from "@apps/backend/common/utils/external-api-error.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
 import { rethrowRegisterUniqueConflict } from "@apps/backend/modules/auth/utils/register-conflict.util";
@@ -186,10 +187,13 @@ export class AuthGoogleOauthService {
         throw new BadRequestException(AUTH_ERROR_MESSAGES.GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED);
       }
 
+      // 이름은 가입 화면 이름 칸을 미리 채우는 데만 쓴다(없어도 로그인·가입은 그대로)
+      const name = socialNameToDisplay(userInfo?.name);
       return {
         userInfo: {
           googleId,
           googleEmail,
+          ...(name ? { name } : {}),
         },
       };
     } catch (error: any) {
@@ -211,19 +215,21 @@ export class AuthGoogleOauthService {
 
   /**
    * 가입이 필요할 때(400 PHONE_VERIFICATION_REQUIRED) 화면에 줄 응답.
-   * 서버가 구글에 직접 확인한 ID·이메일을 가입표(registerToken, 30분)에 담는다 — 가입 API는 이 가입표로만 가입시킨다.
+   * 서버가 구글에 직접 확인한 ID·이메일(+ 이름)을 가입표(registerToken, 30분)에 담는다 — 가입 API는 이 가입표로만 가입시킨다.
    * 소셜 ID·이메일은 응답 본문에 따로 주지 않는다(서명한 가입표 안에만 — 서명이라 화면이 읽을 수는 있지만 고칠 수 없다).
+   * 이름은 가입 화면 이름 칸을 미리 채우는 데만 쓴다(가입 API는 화면이 보낸 이름으로 가입 — 손님·사장님이 고칠 수 있음).
    */
   private async buildRegisterRequiredError(
     aud: AudienceConst,
-    googleId: string,
-    googleEmail: string,
+    googleUserInfo: GoogleUserInfo,
   ): Promise<BadRequestException> {
+    const { googleId, googleEmail, name } = googleUserInfo.userInfo;
     const registerToken = await this.jwtUtil.generateRegisterTicket({
       aud,
       provider: "google",
       providerId: googleId,
       email: googleEmail,
+      ...(name ? { name } : {}),
     });
     return new BadRequestException({
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
@@ -238,7 +244,7 @@ export class AuthGoogleOauthService {
    */
   async googleLogin(googleUserInfo: GoogleUserInfo) {
     const {
-      userInfo: { googleId, googleEmail },
+      userInfo: { googleId },
     } = googleUserInfo;
 
     if (!googleId) {
@@ -254,7 +260,7 @@ export class AuthGoogleOauthService {
     // 1. googleId로 기존 사용자 조회
     if (!consumer) {
       // 새 사용자인 경우 -> 휴대폰 인증 필요
-      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, googleId, googleEmail);
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, googleUserInfo);
     }
 
     // 관리자 비활성 계정은 로그인·재가입 모두 불가 (계정·데이터 유지)
@@ -264,7 +270,7 @@ export class AuthGoogleOauthService {
 
     // 2. 휴대폰 인증 상태 확인
     if (!consumer.phone || !consumer.isPhoneVerified) {
-      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, googleId, googleEmail);
+      throw await this.buildRegisterRequiredError(AUDIENCE.CONSUMER, googleUserInfo);
     }
 
     // JWT 발급 및 마지막 로그인 시간 업데이트
@@ -288,7 +294,7 @@ export class AuthGoogleOauthService {
    */
   private async googleLoginSeller(googleUserInfo: GoogleUserInfo) {
     const {
-      userInfo: { googleId, googleEmail },
+      userInfo: { googleId },
     } = googleUserInfo;
 
     if (!googleId) {
@@ -304,7 +310,7 @@ export class AuthGoogleOauthService {
     // 1. googleId로 기존 사용자 조회
     if (!seller) {
       // 새 사용자인 경우 -> 휴대폰 인증 필요
-      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, googleId, googleEmail);
+      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, googleUserInfo);
     }
 
     // 관리자 비활성 계정은 로그인·재가입 모두 불가 (계정·데이터 유지)
@@ -314,7 +320,7 @@ export class AuthGoogleOauthService {
 
     // 2. 휴대폰 인증 상태 확인
     if (!seller.phone || !seller.isPhoneVerified) {
-      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, googleId, googleEmail);
+      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, googleUserInfo);
     }
     // JWT 발급 및 마지막 로그인 시간 업데이트
     return await this.prisma.$transaction(async (tx) => {

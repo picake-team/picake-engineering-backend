@@ -65,6 +65,8 @@ export interface GoogleUserInfo {
   userInfo: {
     googleId: string;
     googleEmail: string;
+    /** 구글 계정 이름(`profile` 범위) — 가입 화면 이름 칸 미리 채우기에만. 없거나 50자를 넘으면 없음 */
+    name?: string;
   };
 }
 

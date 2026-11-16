@@ -132,6 +132,48 @@ describe("AuthGoogleOauthService.consumerGoogleLoginWithCode", () => {
     expect(jwtUtilMock.generateRegisterTicket).toHaveBeenCalledWith(
       expect.objectContaining({ aud: "consumer", provider: "google" }),
     );
+    // 구글이 이름을 안 주면 가입표에도 이름이 없다(가입 화면은 빈 칸)
+    expect(jwtUtilMock.generateRegisterTicket.mock.calls[0][0]).not.toHaveProperty("name");
+  });
+
+  it("구글이 준 이름을 가입표에 담는다(가입 화면 이름 칸 미리 채우기)", async () => {
+    httpClientMock.post.mockResolvedValue({
+      data: { access_token: "google-access-token", token_type: "Bearer" },
+      status: 200,
+    });
+    httpClientMock.get.mockResolvedValue({
+      data: { id: "google-user-1", email: "user@gmail.com", name: "  홍길동 " },
+      status: 200,
+    });
+    prismaMock.consumer.findUnique.mockResolvedValue(null);
+
+    await expect(service.consumerGoogleLoginWithCode({ code: "auth-code" })).rejects.toMatchObject({
+      response: expect.objectContaining({ registerToken: "test-register-ticket" }),
+    });
+    expect(jwtUtilMock.generateRegisterTicket).toHaveBeenCalledWith({
+      aud: "consumer",
+      provider: "google",
+      providerId: "google-user-1",
+      email: "user@gmail.com",
+      name: "홍길동",
+    });
+  });
+
+  it("구글 이름이 50자를 넘으면 가입표에 담지 않는다(가입 화면 이름 칸 규칙)", async () => {
+    httpClientMock.post.mockResolvedValue({
+      data: { access_token: "google-access-token", token_type: "Bearer" },
+      status: 200,
+    });
+    httpClientMock.get.mockResolvedValue({
+      data: { id: "google-user-1", email: "user@gmail.com", name: "가".repeat(51) },
+      status: 200,
+    });
+    prismaMock.consumer.findUnique.mockResolvedValue(null);
+
+    await expect(service.consumerGoogleLoginWithCode({ code: "auth-code" })).rejects.toMatchObject({
+      response: expect.objectContaining({ registerToken: "test-register-ticket" }),
+    });
+    expect(jwtUtilMock.generateRegisterTicket.mock.calls[0][0]).not.toHaveProperty("name");
   });
 
   it("비활성화된 계정은 로그인이 거부된다", async () => {
