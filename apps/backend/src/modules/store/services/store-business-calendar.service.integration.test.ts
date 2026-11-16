@@ -77,6 +77,18 @@ describe("영업 캘린더 저장과 기존 예약 보호 (integration)", () => 
     expect(saved.businessCalendarOverrides).toEqual([DAY_OVERRIDE]);
   });
 
+  it("픽업 시각이 지난 진행 중 예약(픽업 완료를 안 누른 픽업대기)은 막지 않는다", async () => {
+    const { prisma, store, service, user } = await setup(OrderStatus.PICKUP_PENDING);
+    // 지난주 화요일 14:00 KST
+    const lastTuesday = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    await prisma.order.updateMany({ where: { storeId: store.id }, data: { pickupDate: lastTuesday } });
+
+    await service.updateForSeller(store.id, calendar([0, 1, 2, 3, 4, 5, 6]), user);
+
+    const saved = await prisma.store.findUniqueOrThrow({ where: { id: store.id } });
+    expect(saved.weeklyClosedWeekdays).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
   it("끝난 예약(픽업 완료)은 막지 않는다", async () => {
     const { prisma, store, service, user } = await setup(OrderStatus.PICKUP_COMPLETED);
 

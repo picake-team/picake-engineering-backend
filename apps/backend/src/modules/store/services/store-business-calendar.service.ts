@@ -105,7 +105,9 @@ export class StoreBusinessCalendarService {
       where: {
         storeId,
         orderStatus: { in: [...STORE_BUSINESS_CALENDAR_BLOCKING_ORDER_STATUSES] },
-        pickupDate: { not: null },
+        // 앞으로의 픽업만 — 지난 픽업이 "픽업 완료"를 안 눌러 픽업대기로 남아 있으면 앞으로의 영업시간 바꾸기를
+        // 막았다(픽업대기에는 취소가 없어 안내대로 풀 수도 없음, 11-16 검토)
+        pickupDate: { not: null, gte: new Date() },
       },
       select: {
         id: true,
