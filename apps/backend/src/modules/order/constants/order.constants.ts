@@ -182,6 +182,7 @@ export const SWAGGER_EXAMPLES = {
     paymentPendingAt: null as null,
     paymentPendingDeadlineAt: null as null,
     paymentPendingExpiredAt: null as null,
+    reservationExpiredAt: null as null,
     canceledAt: null as null,
     depositorName: null as null,
     reservationContactName: "김예약",

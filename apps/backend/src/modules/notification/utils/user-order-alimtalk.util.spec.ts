@@ -102,3 +102,18 @@ describe("픽업 완료 알림톡(M-05 후기 유도)", () => {
     expect(toPickupCompleted({ ...order, productId: null })).toBeNull();
   });
 });
+
+describe("예약신청 자동 취소 알림톡", () => {
+  it("승인된 템플릿이 없어 보내지 않는다(입금대기 만료 템플릿으로 잘못 가지 않게)", () => {
+    expect(
+      buildUserOrderAlimtalkPayload(
+        {
+          fromStatus: OrderStatus.RESERVATION_REQUESTED,
+          toStatus: OrderStatus.CANCEL_COMPLETED,
+          source: ORDER_STATUS_TRANSITION_SOURCE.AUTOMATION_BATCH,
+        },
+        order,
+      ),
+    ).toBeNull();
+  });
+});

@@ -2,6 +2,7 @@ import { OrderStatus } from "@apps/backend/modules/order/constants/order.constan
 import type { OrderStatusTransitionPayload } from "@apps/backend/modules/order/types/order-lifecycle.types";
 import {
   isPaymentExpiredCancelSource,
+  isReservationExpiredCancelSource,
   isReservationRequestedOnCreate,
   isAdminStatusUpdate,
   isSellerStatusUpdate,
@@ -67,6 +68,13 @@ export function buildUserOrderNotificationCopy(
   }
 
   if (toStatus === OrderStatus.CANCEL_COMPLETED) {
+    // 가게가 픽업 날이 지나도록 확인하지 않은 예약신청(입금 전이라 낼 돈 없음). 알림톡은 승인된 문구가 없어 앱 알림·푸시만
+    if (isReservationExpiredCancelSource(payload)) {
+      return {
+        title: "가게가 확인하지 않아 예약이 취소되었어요",
+        body: "픽업 날까지 가게가 예약을 확인하지 않아 자동으로 취소되었어요. 입금 전이라 결제된 금액은 없어요.",
+      };
+    }
     if (isPaymentExpiredCancelSource(payload)) {
       return {
         title: "입금 시간이 지나 주문이 취소되었어요",

@@ -321,7 +321,15 @@ export class OrderResponseDto extends PickupAddressDto {
 
   @ApiPropertyOptional({
     description:
-      "취소한 시각(손님 취소·환불 요청, 사장님 취소, 입금 마감 자동 취소 — 처음 취소 상태가 될 때). 취소 전이거나 2026-11-16 전에 취소된 주문은 null",
+      "가게가 픽업 날이 지나도록(그날 자정, 한국 시간) 예약신청을 확인하지 않아 자동 취소된 시각. 입금 전 취소라 돈이 오가지 않았습니다. 그 외에는 null",
+    example: "2024-01-15T15:00:00.000Z",
+    nullable: true,
+  })
+  reservationExpiredAt: Date | null;
+
+  @ApiPropertyOptional({
+    description:
+      "취소한 시각(손님 취소·환불 요청, 사장님 취소, 입금 마감·확인 안 한 예약신청 자동 취소 — 처음 취소 상태가 될 때). 취소 전이거나 2026-11-16 전에 취소된 주문은 null",
     example: "2024-01-15T14:00:00.000Z",
     nullable: true,
   })
