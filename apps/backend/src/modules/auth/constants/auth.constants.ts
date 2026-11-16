@@ -5,14 +5,14 @@ export const AUTH_ERROR_MESSAGES = {
   USER_ID_INVALID_FORMAT: "아이디는 4-20자의 영문, 숫자, 언더스코어만 사용할 수 있어요.",
   PASSWORD_INVALID_FORMAT:
     "비밀번호는 8자 이상의 영문 대소문자, 숫자, 특수문자(@$!%*?&)를 포함해야 합니다.",
-  PHONE_INVALID_FORMAT: "올바른 한국 휴대폰 번호 형식이 아닙니다. (예: 010-1234-5678)",
+  PHONE_INVALID_FORMAT: "올바른 휴대폰 번호가 아니에요. (예: 010-1234-5678)",
   PHONE_ALREADY_EXISTS: "이미 사용 중인 휴대폰 번호예요.",
   PHONE_VERIFICATION_REQUIRED: "휴대폰 인증이 필요합니다.",
   PHONE_VERIFICATION_CODE_GENERATION_FAILED:
-    "인증번호 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    "인증번호를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
   PHONE_VERIFICATION_FAILED: "인증번호가 올바르지 않아요.",
-  PHONE_VERIFICATION_SEND_FAILED: "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해주세요.",
-  VERIFICATION_CODE_INVALID_FORMAT: "인증번호는 6자리 숫자여야 합니다.",
+  PHONE_VERIFICATION_SEND_FAILED: "인증번호를 보내지 못했어요. 잠시 후 다시 시도해 주세요.",
+  VERIFICATION_CODE_INVALID_FORMAT: "인증번호는 6자리 숫자예요.",
   ACCOUNT_NOT_FOUND_BY_PHONE: "해당 휴대폰 번호로 등록된 계정이 없어요.",
   GOOGLE_REGISTER_FAILED: "구글 로그인 회원가입에 실패했어요.",
   PROFILE_UPDATE_NO_FIELDS:
@@ -80,11 +80,11 @@ export const AUTH_ERROR_MESSAGES = {
   /** 로그인·회원가입 시 관리자 비활성 계정 차단 (401 ACCESS_TOKEN_* 와 구분) */
   ACCOUNT_INACTIVE: "비활성화된 계정입니다. 관리자에게 문의해주세요.",
   /* ------------------------------------------------------------------------------------------------------ */
-  AUDIENCE_NOT_AUTHORIZED: "이 API에 사용할 수 있는 인증 토큰이 아닙니다.",
+  AUDIENCE_NOT_AUTHORIZED: "이 요청에 사용할 수 없는 로그인이에요.",
   JWT_TYPE_NOT_ALLOWED_FOR_ROUTE: "이 요청에 사용할 수 없는 토큰이에요.",
-  REQUIRED_TERMS_NOT_AGREED: "필수 약관에 모두 동의해야 회원가입이 가능합니다.",
+  REQUIRED_TERMS_NOT_AGREED: "필수 약관에 모두 동의해야 가입할 수 있어요.",
   WITHDRAW_BLOCKED_ACTIVE_ORDERS:
-    "진행 중인 주문이 있어 회원 탈퇴할 수 없습니다. 주문을 완료하거나 취소한 뒤 다시 시도해 주세요.",
+    "진행 중인 주문이 있어 탈퇴할 수 없어요. 주문을 완료하거나 취소한 뒤 다시 시도해 주세요.",
 } as const;
 
 /**
