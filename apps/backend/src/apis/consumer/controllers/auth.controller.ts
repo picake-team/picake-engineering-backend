@@ -12,6 +12,10 @@ import {
   KakaoRegisterRequestDto,
 } from "@apps/backend/modules/auth/dto/auth-kakao-oauth.dto";
 import {
+  NaverLoginRequestDto,
+  NaverRegisterRequestDto,
+} from "@apps/backend/modules/auth/dto/auth-naver-oauth.dto";
+import {
   AppleLoginRequestDto,
   AppleRegisterRequestDto,
 } from "@apps/backend/modules/auth/dto/auth-apple-oauth.dto";
@@ -136,6 +140,52 @@ export class ConsumerAuthController {
   })
   async kakaoRegisterWithPhone(@Body() registerDto: KakaoRegisterRequestDto) {
     return await this.authService.consumerKakaoRegisterWithPhone(registerDto);
+  }
+
+  @Post("naver/login")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "네이버 로그인 (구매자)",
+    description:
+      "프론트엔드에서 받은 Authorization Code와 state로 네이버 로그인을 처리합니다(state는 화면이 로그인 요청 때 만든 값 — 화면이 콜백에서 같은지 먼저 확인). 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED일 때는 가입표 registerToken(30분, 서버가 확인한 네이버 회원 식별자와 받은 경우 이름·휴대전화번호가 들어 있음)을 반환하며, 네이버 회원가입 API에 registerToken을 보내 가입합니다.",
+  })
+  @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
+  @SwaggerResponse(400, {
+    dataExample: {
+      message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
+      registerToken: SWAGGER_EXAMPLES.REGISTER_TOKEN,
+    },
+  })
+  @SwaggerResponse(400, {
+    dataExample: createMessageObject(AUTH_ERROR_MESSAGES.NAVER_OAUTH_TOKEN_EXCHANGE_FAILED),
+  })
+  @SwaggerResponse(403, {
+    dataExample: createMessageObject(AUTH_ERROR_MESSAGES.ACCOUNT_INACTIVE),
+  })
+  async naverAuth(@Body() authDto: NaverLoginRequestDto) {
+    return await this.authService.consumerNaverLoginWithCode(authDto);
+  }
+
+  @Post("naver/register")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: "네이버 회원가입 (구매자)",
+    description:
+      "새로운 네이버 사용자를 등록합니다. 로그인 응답의 가입표 registerToken(30분)으로만 가입합니다(지났거나 위조됐으면 400 REGISTER_TICKET_INVALID). useTicketPhone=true면 가입표 안 네이버 휴대전화번호로 문자 인증 없이, 아니면 phone + 휴대폰 인증(naver_registration)으로 가입합니다. 약관은 늘 이 요청으로 받습니다(네이버 동의 화면에는 약관을 넣을 수 없음). 같은 네이버 계정이나 휴대폰 번호가 있으면 409.",
+  })
+  @SwaggerResponse(201, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
+  @SwaggerResponse(409, {
+    dataExample: {
+      message: AUTH_ERROR_MESSAGES.PHONE_NAVER_ACCOUNT_EXISTS,
+      name: "홍*동",
+      phone: "010-****-5678",
+    },
+  })
+  @SwaggerResponse(409, {
+    dataExample: createMessageObject(AUTH_ERROR_MESSAGES.NAVER_ID_ALREADY_EXISTS),
+  })
+  async naverRegisterWithPhone(@Body() registerDto: NaverRegisterRequestDto) {
+    return await this.authService.consumerNaverRegisterWithPhone(registerDto);
   }
 
   @Post("apple/login")

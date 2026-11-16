@@ -104,6 +104,13 @@ export class MypageProfileBaseResponseDto {
   kakaoEmail: string;
 
   @ApiProperty({
+    description:
+      "네이버 회원 식별자(네이버로 가입했을 때만, 아니면 빈 문자열). 네이버는 이메일을 받지 않는다",
+    example: SWAGGER_EXAMPLES.CONSUMER_DATA.naverId,
+  })
+  naverId: string;
+
+  @ApiProperty({
     type: String,
     format: "date-time",
     example: SWAGGER_EXAMPLES.CONSUMER_DATA.createdAt,

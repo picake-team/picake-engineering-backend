@@ -165,6 +165,7 @@ describe("확인하지 않은 예약신청 자동 취소 (integration)", () => {
       prisma,
       { revokeToken: vi.fn() } as unknown as AuthAppleOauthService,
       { unlink: vi.fn() } as unknown as AuthKakaoOauthService,
+      { revoke: vi.fn() } as any,
       {
         deleteAllForConsumer: vi.fn().mockResolvedValue({ requests: 0, photos: 0 }),
       } as unknown as QuoteRequestCleanupService,

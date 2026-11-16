@@ -290,6 +290,7 @@ describe("AuthSellerReviewLoginService (integration)", () => {
       prisma,
       { revokeToken: vi.fn() } as any,
       { unlink: vi.fn() } as any,
+      { revoke: vi.fn() } as any,
       {
         deleteAllForConsumer: vi.fn(),
       } as any,

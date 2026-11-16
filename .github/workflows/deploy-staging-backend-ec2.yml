@@ -300,6 +300,11 @@ jobs:
             # 탈퇴 때 카카오 연결 끊기는 staging에서 하지 않는다(KAKAO_ADMIN_KEY 비움). staging도 상용과 같은 카카오 앱을 써서,
             # staging에서 탈퇴를 시험하면 그 사람의 상용 계정 카카오 연결까지 끊기고, 상용 어드민 키를 staging 서버에 두지 않기 위해(11-16 검토)
 
+            # NAVER 로그인 (손님·사장님 공용 앱 하나) - development & staging & production (공용).
+            # 탈퇴 때 네이버 연결 끊기는 서버가 NODE_ENV=production일 때만 한다(staging도 같은 네이버 앱이라)
+            NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }}
+            NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}
+
             # APPLE OAuth (Consumer, web-user 전용) - development & staging & production (공용)
             APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}
             APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}

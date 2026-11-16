@@ -41,6 +41,15 @@ export class MemberConsumerItemResponseDto {
   @ApiProperty({ nullable: true, description: "카카오 연동 이메일 (null이면 미연동)" })
   kakaoEmail: string | null;
 
+  @ApiProperty({ nullable: true, description: "애플 연동 이메일 (null이면 미연동)" })
+  appleEmail: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: "네이버 회원 식별자 (null이면 미연동 — 네이버는 이메일을 받지 않음)",
+  })
+  naverId: string | null;
+
   @ApiProperty({ description: "누적 주문 수 (모든 상태)" })
   orderCount: number;
 

@@ -30,7 +30,7 @@ export class AuthAccountFindService {
     dto: FindAccountRequestDto,
     audience: typeof AUDIENCE.CONSUMER | typeof AUDIENCE.SELLER,
   ): Promise<{
-    loginType: "google" | "kakao" | "apple";
+    loginType: "google" | "kakao" | "apple" | "naver";
     loginId: string;
     loginEmail: string | null;
   }> {
@@ -55,6 +55,7 @@ export class AuthAccountFindService {
           kakaoEmail: true,
           appleId: true,
           appleEmail: true,
+          naverId: true,
         },
       });
       if (!row) {
@@ -84,6 +85,10 @@ export class AuthAccountFindService {
           loginEmail: row.appleEmail ?? null,
         };
       }
+      if (row.naverId) {
+        // 네이버는 이메일을 받지 않는다
+        return { loginType: "naver", loginId: row.naverId, loginEmail: null };
+      }
       throw new NotFoundException(AUTH_ERROR_MESSAGES.ACCOUNT_NOT_FOUND_BY_PHONE);
     }
 
@@ -95,6 +100,7 @@ export class AuthAccountFindService {
         googleEmail: true,
         kakaoId: true,
         kakaoEmail: true,
+        naverId: true,
       },
     });
     if (!row) {
@@ -116,6 +122,9 @@ export class AuthAccountFindService {
         loginId: row.googleId,
         loginEmail: row.googleEmail ?? null,
       };
+    }
+    if (row.naverId) {
+      return { loginType: "naver", loginId: row.naverId, loginEmail: null };
     }
     throw new NotFoundException(AUTH_ERROR_MESSAGES.ACCOUNT_NOT_FOUND_BY_PHONE);
   }

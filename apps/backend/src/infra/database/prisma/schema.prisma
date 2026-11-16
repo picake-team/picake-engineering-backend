@@ -143,6 +143,10 @@ model Consumer {
   appleEmail        String? @map("apple_email")
   /// Apple `refresh_token` (AES-256-GCM 암호화, `TokenEncryptionUtil`) — 탈퇴 시 `/auth/revoke` 호출용으로만 사용
   appleRefreshToken String? @map("apple_refresh_token")
+  /// 네이버 로그인 회원 식별자(앱마다 다름 — 손님·사장님이 네이버 앱 하나를 같이 써서 같은 사람이면 같다)
+  naverId           String? @unique @map("naver_id")
+  /// 네이버 `refresh_token` (AES-256-GCM 암호화, `TokenEncryptionUtil`) — 탈퇴 때 연결 끊기(토큰 폐기)용으로만 사용
+  naverRefreshToken String? @map("naver_refresh_token")
 
   createdAt   DateTime  @default(now()) @map("created_at")
   lastLoginAt DateTime? @map("last_login_at")
@@ -165,6 +169,7 @@ model Consumer {
   @@index([googleId])
   @@index([kakaoId])
   @@index([appleId])
+  @@index([naverId])
   @@map("consumers")
 }
 
@@ -443,10 +448,14 @@ model Seller {
   withdrawReason  String?   @map("withdraw_reason")
   withdrawnAt     DateTime? @map("withdrawn_at")
 
-  googleId    String? @unique @map("google_id")
-  googleEmail String? @map("google_email")
-  kakaoId     String? @unique @map("kakao_id")
-  kakaoEmail  String? @map("kakao_email")
+  googleId          String? @unique @map("google_id")
+  googleEmail       String? @map("google_email")
+  kakaoId           String? @unique @map("kakao_id")
+  kakaoEmail        String? @map("kakao_email")
+  /// 네이버 로그인 회원 식별자(손님과 같은 네이버 앱 — 같은 사람이면 손님 naverId와 같다)
+  naverId           String? @unique @map("naver_id")
+  /// 네이버 `refresh_token` (AES-256-GCM 암호화) — 탈퇴 때 연결 끊기용으로만 사용
+  naverRefreshToken String? @map("naver_refresh_token")
 
   /// 판매자 온보딩·검증 단계 (스토어 생성 후 갱신)
   sellerVerificationStatus SellerVerificationStatus @default(REGISTERED) @map("seller_verification_status")
@@ -464,6 +473,7 @@ model Seller {
   @@index([phone])
   @@index([googleId])
   @@index([kakaoId])
+  @@index([naverId])
   @@map("sellers")
 }
 
@@ -688,6 +698,7 @@ model Store {
 
   // 비즈니스 필드 - 영업 캘린더 (판매자 설정, Asia/Seoul 기준)
   /**
+   * /**
    * /**
    * /**
    * /**

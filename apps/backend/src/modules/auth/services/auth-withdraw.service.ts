@@ -11,6 +11,7 @@ import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/
 import { ORDER_STATUSES_BLOCKING_ACCOUNT_WITHDRAWAL } from "@apps/backend/modules/order/constants/order.constants";
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
 import { AuthKakaoOauthService } from "@apps/backend/modules/auth/services/auth-kakao-oauth.service";
+import { AuthNaverOauthService } from "@apps/backend/modules/auth/services/auth-naver-oauth.service";
 
 /**
  * 회원 탈퇴 — 계정을 "익명화 후 비활성화" 처리합니다(하드 삭제 아님).
@@ -26,8 +27,8 @@ import { AuthKakaoOauthService } from "@apps/backend/modules/auth/services/auth-
  * - `phone`/`googleId`/`kakaoId` 등 재가입 식별에 쓰이는 값은 파기 후 고유값으로 치환해, 관리자
  *   비활성(정지)과 달리 동일 OAuth·휴대폰으로 즉시 재가입이 가능하도록 유지합니다.
  * - `name`/`nickname`/`profileImageUrl` 등 더 이상 필요 없는 개인정보는 null 처리합니다.
- * - 카카오로 가입했으면 카카오 연결을 끊습니다(애플 revoke와 같게, 실패해도 탈퇴는 진행). 손님·사장님이 같은 카카오 앱을 써서
- *   같은 카카오 계정으로 가입한 다른 역할 계정이 남아 있으면 끊지 않습니다. 끊기·revoke는 DB에서 탈퇴 처리를 마친 뒤에 합니다
+ * - 카카오·네이버로 가입했으면 그 연결을 끊습니다(애플 revoke와 같게, 실패해도 탈퇴는 진행). 손님·사장님이 같은 카카오·네이버 앱을 써서
+ *   같은 계정으로 가입한 다른 역할 계정이 남아 있으면 끊지 않습니다(네이버는 상용에서만 끊음 — `AuthNaverOauthService.revoke`). 끊기·revoke는 DB에서 탈퇴 처리를 마친 뒤에 합니다
  *   (먼저 끊고 DB 저장이 실패하면 계정은 살아 있는데 카카오만 끊긴 반쯤 탈퇴가 된다).
  * - 견적 요청(사진 포함)은 계약이 아니라 보관 의무가 없어 지웁니다(QuoteRequestCleanupService).
  * - 케이크 디자인 모음 좋아요(DesignLike)도 지웁니다(디자인별 좋아요 수에서 빠지게).
@@ -42,6 +43,7 @@ export class AuthWithdrawService {
     private readonly prisma: PrismaService,
     private readonly authAppleOauthService: AuthAppleOauthService,
     private readonly authKakaoOauthService: AuthKakaoOauthService,
+    private readonly authNaverOauthService: AuthNaverOauthService,
     private readonly quoteRequestCleanup: QuoteRequestCleanupService,
     private readonly chatCleanup: ChatCleanupService,
   ) {}
@@ -54,7 +56,14 @@ export class AuthWithdrawService {
     if (audience === AUDIENCE.CONSUMER) {
       const row = await this.prisma.consumer.findUnique({
         where: { id: accountId },
-        select: { id: true, withdrawnAt: true, appleRefreshToken: true, kakaoId: true },
+        select: {
+          id: true,
+          withdrawnAt: true,
+          appleRefreshToken: true,
+          kakaoId: true,
+          naverId: true,
+          naverRefreshToken: true,
+        },
       });
       if (!row) {
         throw new NotFoundException(AUTH_ERROR_MESSAGES.USER_NOT_FOUND);
@@ -97,13 +106,24 @@ export class AuthWithdrawService {
       if (row.kakaoId && !(await this.hasOtherRoleWithKakaoId(AUDIENCE.SELLER, row.kakaoId))) {
         await this.authKakaoOauthService.unlink(AUDIENCE.CONSUMER, row.kakaoId);
       }
+      // 네이버 연결 끊기 — 같은 네이버로 가입한 사장님 계정이 있으면 끊지 않는다(같은 네이버 앱이라 사장님 연결도 같이 끊긴다)
+      if (row.naverId && !(await this.hasOtherRoleWithNaverId(AUDIENCE.SELLER, row.naverId))) {
+        await this.authNaverOauthService.revoke(row.naverRefreshToken);
+      }
       return;
     }
 
     if (audience === AUDIENCE.SELLER) {
       const row = await this.prisma.seller.findUnique({
         where: { id: accountId },
-        select: { id: true, withdrawnAt: true, phone: true, kakaoId: true },
+        select: {
+          id: true,
+          withdrawnAt: true,
+          phone: true,
+          kakaoId: true,
+          naverId: true,
+          naverRefreshToken: true,
+        },
       });
       if (!row) {
         throw new NotFoundException(AUTH_ERROR_MESSAGES.USER_NOT_FOUND);
@@ -130,6 +150,10 @@ export class AuthWithdrawService {
       // 카카오 연결 끊기(탈퇴 처리를 마친 뒤). 같은 카카오로 가입한 손님 계정이 있으면 끊지 않는다
       if (row.kakaoId && !(await this.hasOtherRoleWithKakaoId(AUDIENCE.CONSUMER, row.kakaoId))) {
         await this.authKakaoOauthService.unlink(AUDIENCE.SELLER, row.kakaoId);
+      }
+      // 네이버 연결 끊기. 같은 네이버로 가입한 손님 계정이 있으면 끊지 않는다
+      if (row.naverId && !(await this.hasOtherRoleWithNaverId(AUDIENCE.CONSUMER, row.naverId))) {
+        await this.authNaverOauthService.revoke(row.naverRefreshToken);
       }
       return;
     }
@@ -171,6 +195,23 @@ export class AuthWithdrawService {
     return Boolean(found);
   }
 
+  /** 같은 네이버 계정으로 가입한 다른 역할 계정이 있는지(손님·사장님이 네이버 앱 하나를 같이 써서 naverId가 같다) */
+  private async hasOtherRoleWithNaverId(
+    other: typeof AUDIENCE.CONSUMER | typeof AUDIENCE.SELLER,
+    naverId: string,
+  ): Promise<boolean> {
+    const found =
+      other === AUDIENCE.SELLER
+        ? await this.prisma.seller.findFirst({ where: { naverId }, select: { id: true } })
+        : await this.prisma.consumer.findFirst({ where: { naverId }, select: { id: true } });
+    if (found) {
+      LoggerUtil.log(
+        `네이버 연결 끊기 건너뜀: 같은 네이버로 가입한 다른 역할 계정이 있음(${other})`,
+      );
+    }
+    return Boolean(found);
+  }
+
   /**
    * 탈퇴 시 Consumer/Seller에 공통 적용할 익명화 데이터.
    * `phone`은 `@unique` 필수 컬럼이라 null 처리가 불가능해 계정 id 기반의 재사용 불가능한 값으로
@@ -191,6 +232,8 @@ export class AuthWithdrawService {
       googleEmail: null,
       kakaoId: null,
       kakaoEmail: null,
+      naverId: null,
+      naverRefreshToken: null,
     };
   }
 
