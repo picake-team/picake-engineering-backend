@@ -3,7 +3,6 @@ import {
   IsNotEmpty,
   IsBoolean,
   IsOptional,
-  ValidateIf,
   IsArray,
   MinLength,
   MaxLength,
@@ -36,31 +35,10 @@ export class KakaoRegisterRequestDto {
   @ApiProperty({
     description: SWAGGER_DESCRIPTIONS.REGISTER_TOKEN,
     example: SWAGGER_EXAMPLES.REGISTER_TOKEN,
-    required: false,
   })
-  @IsOptional()
-  @IsString()
-  registerToken?: string;
-
-  @ApiProperty({
-    description: `${SWAGGER_DESCRIPTIONS.KAKAO_ID} — ${SWAGGER_DESCRIPTIONS.LEGACY_SOCIAL_ID}`,
-    example: SWAGGER_EXAMPLES.KAKAO_ID,
-    required: false,
-  })
-  @ValidateIf((o) => !o.registerToken)
   @IsNotEmpty()
   @IsString()
-  kakaoId?: string;
-
-  @ApiProperty({
-    description: `${SWAGGER_DESCRIPTIONS.KAKAO_EMAIL} — ${SWAGGER_DESCRIPTIONS.LEGACY_SOCIAL_ID}`,
-    example: SWAGGER_EXAMPLES.KAKAO_EMAIL,
-    required: false,
-  })
-  @ValidateIf((o) => !o.registerToken)
-  @IsNotEmpty()
-  @IsString()
-  kakaoEmail?: string;
+  registerToken: string;
 
   @ApiProperty({
     description: SWAGGER_DESCRIPTIONS.DISPLAY_NAME,

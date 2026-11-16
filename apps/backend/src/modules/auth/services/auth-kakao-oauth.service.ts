@@ -195,7 +195,7 @@ export class AuthKakaoOauthService {
   /**
    * 가입이 필요할 때(400 PHONE_VERIFICATION_REQUIRED) 화면에 줄 응답.
    * 서버가 카카오에 직접 확인한 ID·이메일을 가입표(registerToken, 30분)에 담는다 — 가입 API는 이 가입표로만 가입시킨다.
-   * kakaoId·kakaoEmail은 옛 화면 호환으로 같이 준다.
+   * 소셜 ID·이메일은 화면에 주지 않는다(가입표 안에만).
    */
   private async buildRegisterRequiredError(
     aud: AudienceConst,
@@ -210,8 +210,6 @@ export class AuthKakaoOauthService {
     });
     return new BadRequestException({
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-      kakaoId,
-      kakaoEmail,
       registerToken,
     });
   }
@@ -292,12 +290,8 @@ export class AuthKakaoOauthService {
 
   async consumerKakaoRegisterWithPhone(kakaoRegisterDto: KakaoRegisterRequestDto) {
     const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = kakaoRegisterDto;
-    const { providerId: kakaoId, email: kakaoEmail } = await this.jwtUtil.resolveRegisterIdentity(
-      {
-        registerToken: kakaoRegisterDto.registerToken,
-        legacyProviderId: kakaoRegisterDto.kakaoId,
-        legacyEmail: kakaoRegisterDto.kakaoEmail,
-      },
+    const { providerId: kakaoId, email: kakaoEmail } = await this.jwtUtil.verifyRegisterTicket(
+      kakaoRegisterDto.registerToken,
       { aud: AUDIENCE.CONSUMER, provider: "kakao" },
     );
     const trimmedName = name.trim();
@@ -380,12 +374,8 @@ export class AuthKakaoOauthService {
 
   async sellerKakaoRegisterWithPhone(kakaoRegisterDto: KakaoRegisterRequestDto) {
     const { phone, name, agreedToTerms, agreedToPrivacy } = kakaoRegisterDto;
-    const { providerId: kakaoId, email: kakaoEmail } = await this.jwtUtil.resolveRegisterIdentity(
-      {
-        registerToken: kakaoRegisterDto.registerToken,
-        legacyProviderId: kakaoRegisterDto.kakaoId,
-        legacyEmail: kakaoRegisterDto.kakaoEmail,
-      },
+    const { providerId: kakaoId, email: kakaoEmail } = await this.jwtUtil.verifyRegisterTicket(
+      kakaoRegisterDto.registerToken,
       { aud: AUDIENCE.SELLER, provider: "kakao" },
     );
     const trimmedName = name.trim();

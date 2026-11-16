@@ -235,7 +235,7 @@ export class AuthAppleOauthService {
   /**
    * 가입이 필요할 때(400 PHONE_VERIFICATION_REQUIRED) 화면에 줄 응답.
    * 서버가 애플에 직접 확인한 ID·이메일을 가입표(registerToken, 30분)에 담는다 — 가입 API는 이 가입표로만 가입시킨다.
-   * appleId·appleEmail은 옛 화면 호환으로 같이 준다.
+   * 소셜 ID·이메일은 화면에 주지 않는다(가입표 안에만).
    */
   private async buildRegisterRequiredError(
     aud: AudienceConst,
@@ -250,8 +250,6 @@ export class AuthAppleOauthService {
     });
     return new BadRequestException({
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-      appleId,
-      appleEmail,
       registerToken,
     });
   }
@@ -304,12 +302,8 @@ export class AuthAppleOauthService {
    */
   async consumerAppleRegisterWithPhone(appleRegisterDto: AppleRegisterRequestDto) {
     const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = appleRegisterDto;
-    const { providerId: appleId, email: appleEmail } = await this.jwtUtil.resolveRegisterIdentity(
-      {
-        registerToken: appleRegisterDto.registerToken,
-        legacyProviderId: appleRegisterDto.appleId,
-        legacyEmail: appleRegisterDto.appleEmail,
-      },
+    const { providerId: appleId, email: appleEmail } = await this.jwtUtil.verifyRegisterTicket(
+      appleRegisterDto.registerToken,
       { aud: AUDIENCE.CONSUMER, provider: "apple" },
     );
     const trimmedName = name.trim();

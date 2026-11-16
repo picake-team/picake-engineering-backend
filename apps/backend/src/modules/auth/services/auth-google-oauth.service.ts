@@ -211,7 +211,7 @@ export class AuthGoogleOauthService {
   /**
    * 가입이 필요할 때(400 PHONE_VERIFICATION_REQUIRED) 화면에 줄 응답.
    * 서버가 구글에 직접 확인한 ID·이메일을 가입표(registerToken, 30분)에 담는다 — 가입 API는 이 가입표로만 가입시킨다.
-   * googleId·googleEmail은 옛 화면 호환으로 같이 준다.
+   * 소셜 ID·이메일은 화면에 주지 않는다(가입표 안에만).
    */
   private async buildRegisterRequiredError(
     aud: AudienceConst,
@@ -226,8 +226,6 @@ export class AuthGoogleOauthService {
     });
     return new BadRequestException({
       message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
-      googleId,
-      googleEmail,
       registerToken,
     });
   }
@@ -337,12 +335,8 @@ export class AuthGoogleOauthService {
    */
   async consumerGoogleRegisterWithPhone(googleRegisterDto: GoogleRegisterRequestDto) {
     const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = googleRegisterDto;
-    const { providerId: googleId, email: googleEmail } = await this.jwtUtil.resolveRegisterIdentity(
-      {
-        registerToken: googleRegisterDto.registerToken,
-        legacyProviderId: googleRegisterDto.googleId,
-        legacyEmail: googleRegisterDto.googleEmail,
-      },
+    const { providerId: googleId, email: googleEmail } = await this.jwtUtil.verifyRegisterTicket(
+      googleRegisterDto.registerToken,
       { aud: AUDIENCE.CONSUMER, provider: "google" },
     );
     const trimmedName = name.trim();
@@ -434,12 +428,8 @@ export class AuthGoogleOauthService {
    */
   async sellerGoogleRegisterWithPhone(googleRegisterDto: GoogleRegisterRequestDto) {
     const { phone, name, agreedToTerms, agreedToPrivacy } = googleRegisterDto;
-    const { providerId: googleId, email: googleEmail } = await this.jwtUtil.resolveRegisterIdentity(
-      {
-        registerToken: googleRegisterDto.registerToken,
-        legacyProviderId: googleRegisterDto.googleId,
-        legacyEmail: googleRegisterDto.googleEmail,
-      },
+    const { providerId: googleId, email: googleEmail } = await this.jwtUtil.verifyRegisterTicket(
+      googleRegisterDto.registerToken,
       { aud: AUDIENCE.SELLER, provider: "google" },
     );
     const trimmedName = name.trim();

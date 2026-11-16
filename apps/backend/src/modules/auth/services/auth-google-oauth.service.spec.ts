@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockDeep } from "vitest-mock-extended";
 
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
-import { AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.constants";
+import { AUDIENCE, AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.constants";
 import { AuthPhoneService } from "@apps/backend/modules/auth/services/auth-phone.service";
 import { JwtUtil } from "@apps/backend/modules/auth/utils/jwt.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
@@ -168,6 +168,7 @@ describe("AuthGoogleOauthService.consumerGoogleLoginWithCode", () => {
 describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone — 이미 가입한 번호", () => {
   const prismaMock = mockDeep<PrismaService>();
   const phoneServiceMock = { checkPhoneVerificationStatus: vi.fn().mockResolvedValue(true) };
+  const jwtUtil = new JwtUtil(new JwtService({ secret: "test-secret" }), {} as ConfigService);
   let service: AuthGoogleOauthService;
 
   beforeEach(async () => {
@@ -178,10 +179,7 @@ describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone — 이미 가�
       providers: [
         AuthGoogleOauthService,
         { provide: PrismaService, useValue: prismaMock },
-        {
-          provide: JwtUtil,
-          useValue: new JwtUtil(new JwtService({ secret: "test-secret" }), {} as ConfigService),
-        },
+        { provide: JwtUtil, useValue: jwtUtil },
         { provide: ConfigService, useValue: { get: vi.fn(() => "x") } },
         { provide: AuthPhoneService, useValue: phoneServiceMock },
         { provide: TermsService, useValue: {} },
@@ -204,8 +202,12 @@ describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone — 이미 가�
 
     await expect(
       service.consumerGoogleRegisterWithPhone({
-        googleId: "google-new",
-        googleEmail: "other@gmail.com",
+        registerToken: await jwtUtil.generateRegisterTicket({
+          aud: AUDIENCE.CONSUMER,
+          provider: "google",
+          providerId: "google-new",
+          email: "other@gmail.com",
+        }),
         phone: "010-1234-5678",
         name: "홍길동",
         agreedToTerms: true,

@@ -301,8 +301,6 @@ export const SWAGGER_DESCRIPTIONS = {
   APPLE_CODE: "애플 OAuth Authorization Code (Return URL·Services ID와 짝이 맞아야 함)",
   REGISTER_TOKEN:
     "가입표 — 로그인 API가 400 PHONE_VERIFICATION_REQUIRED와 함께 준 registerToken(30분). 서버가 소셜 서비스에 확인한 ID·이메일이 들어 있어 가입은 이 값으로만 한다",
-  LEGACY_SOCIAL_ID:
-    "옛 화면 호환용(가입표를 보내기 전 웹). registerToken이 있으면 쓰지 않으며 곧 없앤다",
   APPLE_ID: "애플 사용자 ID (id_token `sub`)",
   APPLE_EMAIL:
     "애플 계정 이메일 (id_token `email`, 릴레이 이메일 `@privaterelay.appleid.com` 포함 가능)",
