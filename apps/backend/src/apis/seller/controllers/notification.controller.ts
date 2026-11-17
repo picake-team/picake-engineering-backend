@@ -42,6 +42,7 @@ import { PaginationMetaResponseDto } from "@apps/backend/common/dto/pagination-r
 export class SellerNotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
+  @AllowActAs()
   @Get()
   @ApiOperation({ summary: "판매자 웹 알림 목록 (스토어별)" })
   @SwaggerResponse(200, { dataDto: SellerNotificationListResponseDto })
@@ -78,6 +79,7 @@ export class SellerNotificationController {
     return { count };
   }
 
+  @AllowActAs()
   @Get("preferences")
   @ApiOperation({ summary: "판매자 웹 알림 설정 조회 (스토어별)" })
   @SwaggerResponse(200, { dataDto: SellerNotificationPreferenceResponseDto })

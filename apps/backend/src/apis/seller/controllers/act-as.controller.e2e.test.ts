@@ -56,13 +56,13 @@ describe("가게 대신 입력 중 판매자 경로 (e2e)", () => {
       ["get", `/v1/seller/stores/${store.id}/chats`],
       ["patch", "/v1/seller/orders/ord_1/status", { status: "CONFIRMED" }],
       ["get", `/v1/seller/stores/${store.id}/quote-requests/req_1`],
-      ["get", "/v1/seller/notifications"],
+      ["put", "/v1/seller/notifications/preferences", { storeId: store.id }],
       ["patch", "/v1/seller/notifications/read-all", { storeId: store.id }],
       ["get", `/v1/seller/stores/${store.id}/calendar-feed`],
       ["post", "/v1/seller/fcm-tokens", { token: "t", deviceId: "d" }],
       ["post", "/v1/seller/store/create", {}],
       ["get", `/v1/seller/store/${store.id}/link-stats`],
-      ["get", "/v1/seller/statistics/orders/overview"],
+      ["get", `/v1/seller/store/${store.id}/feed`],
     ];
     for (const [method, url, body] of blocked) {
       const res = await (request(server) as never as Record<string, (u: string) => request.Test>)

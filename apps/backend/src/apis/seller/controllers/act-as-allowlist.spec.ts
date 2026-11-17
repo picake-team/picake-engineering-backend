@@ -11,8 +11,8 @@ import { ConsumerApiModule } from "@apps/backend/apis/consumer/consumer-api.modu
  * 운영자 대신 입력(기획 I-41) 허용 목록 표.
  * 판매자 경로를 모두 돌며 `@AllowActAs()`를 붙인 경로가 이 표와 같은지 본다. 판매자 경로를 새로 만들거나
  * 표시를 붙이면 이 테스트가 깨진다 — 대리 출입증으로 열어도 되는지 판단하고 표를 고친다(기본은 막기).
- * 막는 것: 탈퇴·번호·프로필, 채팅(목록·내용·보내기·신고), 주문 상태 바꾸기, 견적, 알림 목록·읽음·설정, 알림 토큰,
- * 캘린더 내보내기 주소, 스토어 만들기·사업자 확인, 피드, 통계, 링크 효과.
+ * 막는 것: 탈퇴·번호·프로필, 채팅(목록·내용·보내기·신고), 주문 상태 바꾸기, 견적, 알림 읽음·설정 바꾸기, 알림 토큰,
+ * 캘린더 내보내기 주소, 스토어 만들기·사업자 확인, 피드, 링크 효과.
  */
 const EXPECTED_ALLOWED = [
   "GET /seller/auth/me",
@@ -45,7 +45,11 @@ const EXPECTED_ALLOWED = [
   "DELETE /seller/stores/:storeId/manual-orders/:id",
   "GET /seller/orders",
   "GET /seller/orders/:id",
+  // 보기만: 판매자 화면이 모든 화면(알림 묶음)·홈에서 부른다(로컬 대리 접속으로 확인, 11-18). 쓰기는 막힘
+  "GET /seller/notifications",
   "GET /seller/notifications/unread-count",
+  "GET /seller/notifications/preferences",
+  "GET /seller/statistics/orders/overview",
   "GET /seller/stores/:storeId/chats/unread",
   "GET /seller/act-as/me",
   "POST /seller/act-as/end",
