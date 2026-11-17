@@ -41,12 +41,12 @@ export const EMPTY_READ_RESULT: ManualOrderReadResult = {
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
-export function buildReadSystemPrompt(params: { today: string; storeName: string }): string {
-  const weekday = WEEKDAYS[ymdWeekday(params.today)];
-  return `당신은 케이크 가게 사장님이 카톡·인스타 DM·문자·네이버 톡톡에서 받은 주문 대화를 읽어, 판매자 앱 "주문 적기" 칸을 채우는 도우미입니다. 사장님은 결과를 보고 고친 뒤 등록합니다.
-
-가게 이름: ${params.storeName}
-오늘: ${params.today} (${weekday}요일, 한국 시간)
+/**
+ * 시스템 프롬프트는 고정 글만 둔다. 오늘 날짜·가게 이름은 요청마다 달라 사용자 메시지 맨 앞에 넣는다
+ * (요청 값이 시스템 프롬프트에 들어가지 않게 — CodeQL, 2026-11-17)
+ */
+export function buildReadSystemPrompt(): string {
+  return `당신은 케이크 가게 사장님이 카톡·인스타 DM·문자·네이버 톡톡에서 받은 주문 대화를 읽어, 판매자 앱 "주문 적기" 칸을 채우는 도우미입니다. 사장님은 결과를 보고 고친 뒤 등록합니다. 오늘 날짜와 가게 이름은 사용자 메시지 맨 앞 <정보>에 있습니다.
 
 반드시 지킬 것:
 - 대화에 나온 것만 씁니다. 나오지 않았거나 확실하지 않으면 그 칸은 null로 둡니다. 짐작해서 채우지 않습니다.
@@ -193,14 +193,14 @@ export function toManualOrderReadResult(raw: unknown, today?: string): ManualOrd
 
 /**
  * 대화 글이 길면 최근(뒤쪽)만 남기고, 전화번호·계좌번호는 AI에 보내기 전에 가린다.
- * 대화 틀(`<대화>`) 글자는 빼서 손님 글이 틀을 닫지 못하게 한다.
+ * 틀 글자(`<대화>`·`<정보>`)는 빼서 손님 글이 틀을 닫거나 오늘 날짜를 바꾸지 못하게 한다.
  */
 export function clipConversation(text: string): string {
   const max = MANUAL_ORDER_READ_LIMITS.TEXT_MAX_CHARS;
   // 4MB 글 전체를 글자 배열로 만들지 않게 뒤쪽(글자 수의 두 배 UTF-16)만 먼저 자른다
   const tail = text.length > max * 2 ? text.slice(text.length - max * 2) : text;
   const normalized = maskContactNumbers(
-    tail.replace(/\r\n?/g, "\n").replace(/<\/?대화>/g, ""),
+    tail.replace(/\r\n?/g, "\n").replace(/<\/?(대화|정보)>/g, ""),
   ).trim();
   const chars = Array.from(normalized);
   if (chars.length <= MANUAL_ORDER_READ_LIMITS.TEXT_MAX_CHARS) return normalized;
@@ -218,6 +218,13 @@ export type ManualOrderReadGeneration = {
  * 대화(글 또는 캡처)를 읽는다(저장하지 않음). effort low, 생각 끔, 출력 상한, JSON 스키마로 토큰을 아낀다.
  * 거절·출력 상한·형식이 틀린 응답은 못 읽음(found false).
  */
+/** 사용자 메시지 맨 앞에 넣는 오늘 날짜·가게 이름 */
+export function buildReadContextText(params: { today: string; storeName: string }): string {
+  const weekday = WEEKDAYS[ymdWeekday(params.today)];
+  const storeName = params.storeName.replace(/[<>]/g, "");
+  return `<정보>\n오늘: ${params.today} (${weekday}요일, 한국 시간)\n가게 이름: ${storeName}\n</정보>`;
+}
+
 export async function readOrderConversation(
   client: Anthropic,
   model: string,
@@ -233,7 +240,7 @@ export async function readOrderConversation(
       ? [
           {
             type: "text",
-            text: `아래 <대화> 안은 사장님이 붙여 넣은 주문 대화입니다. 주문 적기 칸을 채워 주세요.\n<대화>\n${input.text}\n</대화>`,
+            text: `${buildReadContextText(context)}\n아래 <대화> 안은 사장님이 붙여 넣은 주문 대화입니다. 주문 적기 칸을 채워 주세요.\n<대화>\n${input.text}\n</대화>`,
           },
         ]
       : [
@@ -241,14 +248,17 @@ export async function readOrderConversation(
             type: "image",
             source: { type: "base64", media_type: input.mediaType, data: input.data },
           },
-          { type: "text", text: "이 대화 캡처를 읽어 주문 적기 칸을 채워 주세요." },
+          {
+            type: "text",
+            text: `${buildReadContextText(context)}\n이 대화 캡처를 읽어 주문 적기 칸을 채워 주세요.`,
+          },
         ];
 
   const response = await client.messages.create(
     {
       model,
       max_tokens: MANUAL_ORDER_READ_LIMITS.MAX_OUTPUT_TOKENS,
-      system: buildReadSystemPrompt(context),
+      system: buildReadSystemPrompt(),
       messages: [{ role: "user", content }],
       ...(thinking ? { thinking } : {}),
       output_config: {

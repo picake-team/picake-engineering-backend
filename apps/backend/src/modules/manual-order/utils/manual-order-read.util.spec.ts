@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_READ_RESULT,
+  buildReadContextText,
   buildReadSystemPrompt,
   clipConversation,
   maskContactNumbers,
@@ -140,9 +141,10 @@ describe("clipConversation", () => {
   });
 });
 
-describe("buildReadSystemPrompt", () => {
-  it("오늘 날짜·요일과 가게 이름을 넣는다", () => {
-    const prompt = buildReadSystemPrompt({ today: "2026-11-17", storeName: "보늬케이크" });
+describe("buildReadSystemPrompt·buildReadContextText", () => {
+  it("시스템 프롬프트는 고정 글, 오늘 날짜·요일과 가게 이름은 사용자 메시지 앞 <정보>에", () => {
+    expect(buildReadSystemPrompt()).not.toContain("보늬케이크");
+    const prompt = buildReadContextText({ today: "2026-11-17", storeName: "보늬<케이크>" });
     expect(prompt).toContain("오늘: 2026-11-17 (화요일");
     expect(prompt).toContain("가게 이름: 보늬케이크");
   });
