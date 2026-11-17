@@ -69,6 +69,7 @@ jobs:
       # - 탈퇴 때 카카오 연결 끊기는 staging에서 하지 않는다(KAKAO_ADMIN_KEY 비움). staging도 상용과 같은 카카오 앱이라,
       #   staging에서 탈퇴를 시험하면 그 사람의 상용 카카오 연결까지 끊기고, 상용 어드민 키를 staging에 두지 않기 위해(11-16 검토).
       # - 네이버 로그인 키(NAVER_CLIENT_ID·_SECRET)는 손님·사장님·환경 공용. 탈퇴 때 네이버 연결 끊기는 서버가 NODE_ENV=production일 때만.
+      # - 가게 대신 입력(기획 I-41)에 들어갈 수 있는 관리자 아이디(쉼표 목록, 비밀값 ADMIN_ACT_AS_USERNAMES). 비우면 아무도 못 들어간다.
       - name: Deploy to EC2
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5 (커밋으로 고정)
         with:
@@ -350,6 +351,7 @@ jobs:
 
             # 견적 요청 새 요청 알림(I-46). staging은 테스트 요청이 운영자 휴대폰을 울리지 않게 【PICAKE】개발 채널로 보낸다([staging] 표시)
             DISCORD_WEBHOOK_URL_OPS=${{ secrets.DISCORD_WEBHOOK_URL_WEB_BE }}
+            ADMIN_ACT_AS_USERNAMES=${{ secrets.ADMIN_ACT_AS_USERNAMES }}
             EOF
 
             # 환경 변수 파일 권한 설정
