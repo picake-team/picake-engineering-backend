@@ -1,6 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { UploadCreateService } from "@apps/backend/modules/upload/services/upload-create.service";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
+import {
+  isUploadKey,
+  uploadUrlOptionsFromEnv,
+  uploadUrlSpellings,
+  uploadUrlToKey,
+} from "@apps/backend/modules/upload/utils/upload-url.util";
 
 /**
  * 업로드 서비스
@@ -33,14 +39,29 @@ export class UploadService {
   }
 
   /**
-   * 사진 주소를 담는 칸(12곳) 어디에도 남아 있지 않은 주소만 돌려준다.
+   * 사진 주소를 담는 칸(13곳) 어디에도 남아 있지 않은 파일의 주소만 돌려준다(파일 하나에 주소 하나).
    * 주소만 보고 지우면 채팅·견적에 들어온 주소가 상품·가게·배너 같은 다른 곳 파일일 때 그 파일이 지워지고,
    * 견적 예약 주문은 견적 사진 주소를 그대로 쓰므로 손님이 탈퇴하면 사장님 주문 사진이 깨졌다(11-16 검토).
+   * 비교는 주소 글자가 아니라 S3 키로 한다: 같은 파일 주소에 `?x`·`#x`·다른 인코딩·S3 꼴을 붙여 넣으면
+   * 글자로는 "아무도 안 쓰는 주소"라 남의 상품 사진이 지워졌다(11-17 검토). 업로드 API가 만든 키(`uploads/…`)만 지운다.
    * 지운(deletedAt) 행도 참조로 센다(지우지 않는 쪽이 안전). 사진 칸을 새로 만들면 여기에 더한다.
    */
   async filterUnreferencedUrls(urls: string[]): Promise<string[]> {
-    const unique = [...new Set(urls.filter(Boolean))];
-    if (unique.length === 0) return [];
+    const opts = uploadUrlOptionsFromEnv();
+    // 키마다 주소 하나(처음 받은 주소)
+    const byKey = new Map<string, string>();
+    for (const url of urls) {
+      if (!url) continue;
+      const key = uploadUrlToKey(url, opts);
+      if (key && isUploadKey(key) && !byKey.has(key)) byKey.set(key, url);
+    }
+    if (byKey.size === 0) return [];
+    // 같은 파일을 가리키는 꼴 전부 + 받은 주소 그대로
+    const unique = [
+      ...new Set(
+        [...byKey.entries()].flatMap(([key, url]) => [url, ...uploadUrlSpellings(key, opts)]),
+      ),
+    ];
     const p = this.prisma;
     const inArray = { hasSome: unique };
     const inScalar = { in: unique };
@@ -81,8 +102,17 @@ export class UploadService {
       p.quote
         .findMany({ where: { photoUrls: inArray }, select: { photoUrls: true } })
         .then((r) => r.flatMap((x) => x.photoUrls)),
+      // 직접 적은 주문(기획 I-42)
+      p.manualOrder
+        .findMany({ where: { photoUrls: inArray }, select: { photoUrls: true } })
+        .then((r) => r.flatMap((x) => x.photoUrls)),
     ]);
-    const used = new Set(found.flat());
-    return unique.filter((url) => !used.has(url));
+    const usedKeys = new Set(
+      found
+        .flat()
+        .map((url) => (url ? uploadUrlToKey(url, opts) : null))
+        .filter((key): key is string => key !== null),
+    );
+    return [...byKey.entries()].filter(([key]) => !usedKeys.has(key)).map(([, url]) => url);
   }
 }

@@ -38,6 +38,7 @@ import { AuthNaverOauthService } from "@apps/backend/modules/auth/services/auth-
  */
 import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
 import { ChatCleanupService } from "@apps/backend/modules/chat/services/chat-cleanup.service";
+import { ManualOrderService } from "@apps/backend/modules/manual-order/services/manual-order.service";
 @Injectable()
 export class AuthWithdrawService {
   constructor(
@@ -47,6 +48,7 @@ export class AuthWithdrawService {
     private readonly authNaverOauthService: AuthNaverOauthService,
     private readonly quoteRequestCleanup: QuoteRequestCleanupService,
     private readonly chatCleanup: ChatCleanupService,
+    private readonly manualOrderService: ManualOrderService,
   ) {}
 
   async withdraw(audience: AudienceConst, accountId: string, reason: string): Promise<void> {
@@ -138,6 +140,8 @@ export class AuthWithdrawService {
       if (row.phone === SELLER_REVIEW_ACCOUNT_PHONE_MARKER) {
         // 판매자 앱 심사용 계정(I-48): 심사관이 탈퇴까지 확인할 수 있게 예시 주문이 진행 중이어도 탈퇴한다.
         // 예시 가게·상품·주문은 보존할 실제 거래가 아니므로 지우고, 다음 심사용 로그인 때 다시 만든다.
+        // 직접 적은 주문은 가게를 지우면 행이 같이 지워져 사진 파일이 남으므로 먼저 지운다
+        await this.manualOrderService.deleteAllForSeller(accountId);
         await this.prisma.store.deleteMany({
           where: { sellerId: accountId, businessNo: REVIEW_STORE_BUSINESS_NO },
         });
@@ -150,6 +154,13 @@ export class AuthWithdrawService {
       });
       // 탈퇴한 판매자의 휴대폰으로 더 이상 푸시가 가지 않게 판매자 앱 토큰을 지움
       await this.prisma.sellerFcmToken.deleteMany({ where: { sellerId: accountId } });
+      // 직접 적은 주문(기획 I-42)은 Picake 거래가 아닌 사장님 장부라 남길 까닭이 없다. 다른 캘린더로 내보낸
+      // 주소를 먼저 끊고, 손님 이름·사진이 있어 행과 사진 파일을 지운다(사진 지우기 실패는 탈퇴를 막지 않음)
+      await this.prisma.store.updateMany({
+        where: { sellerId: accountId },
+        data: { calendarFeedToken: null },
+      });
+      await this.manualOrderService.deleteAllForSeller(accountId);
       await this.afterWithdrawal(AUDIENCE.SELLER, async () => {
         // 카카오 연결 끊기(탈퇴 처리를 마친 뒤). 같은 카카오로 가입한 손님 계정이 있으면 끊지 않는다
         if (row.kakaoId && !(await this.hasOtherRoleWithKakaoId(AUDIENCE.CONSUMER, row.kakaoId))) {

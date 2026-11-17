@@ -60,3 +60,64 @@ export function uploadUrlToKey(
     return null;
   }
 }
+
+type UploadUrlOptions = {
+  cloudfrontDomain?: string | null;
+  bucket?: string | null;
+  region?: string | null;
+};
+
+/** 서버 환경값의 업로드 주소 설정(UploadCreateService와 같은 값) */
+export function uploadUrlOptionsFromEnv(): UploadUrlOptions {
+  return {
+    cloudfrontDomain: process.env.CLOUDFRONT_DOMAIN,
+    bucket: process.env.S3_BUCKET,
+    region: process.env.AWS_REGION,
+  };
+}
+
+/** 업로드 API가 만드는 키(`uploads/<시각>_<무작위>.<확장자>`, 한 조각)인지. 이 모양만 지운다 */
+export function isUploadKey(key: string): boolean {
+  return /^uploads\/[^/]+$/.test(key) && !key.includes("..");
+}
+
+function encodeKey(key: string): string {
+  return key
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
+/**
+ * 같은 파일(키)을 가리키는 주소 꼴 전부(CloudFront·S3 두 꼴). 다른 칸이 이 파일을 쓰는지 볼 때 쓴다.
+ * 주소 문자열로만 비교하면 `?x`·`#x`·다른 인코딩·S3 꼴을 붙인 주소가 "아무도 안 쓰는 주소"로 보여
+ * 남의 상품 사진 파일이 지워진다(2026-11-17 검토).
+ */
+export function uploadUrlSpellings(key: string, opts: UploadUrlOptions): string[] {
+  const encoded = encodeKey(key);
+  const keys = encoded === key ? [key] : [encoded, key];
+  const prefixes: string[] = [];
+  if (opts.cloudfrontDomain) prefixes.push(`https://${opts.cloudfrontDomain}/`);
+  if (opts.bucket && opts.region) {
+    prefixes.push(`https://${opts.bucket}.s3.${opts.region}.amazonaws.com/`);
+    prefixes.push(`https://s3.${opts.region}.amazonaws.com/${opts.bucket}/`);
+  }
+  return prefixes.flatMap((prefix) => keys.map((k) => `${prefix}${k}`));
+}
+
+/**
+ * 업로드 API가 지금 발급하는 꼴 그대로인지(CloudFront가 있으면 CloudFront, 없으면 S3 꼴, 키는 조각마다 인코딩).
+ * 뒤에 `?`·`#`을 붙이거나 다르게 인코딩한 주소는 받지 않는다. 업로드 설정이 없는 환경(테스트 등)은 https면 허용.
+ */
+export function isCanonicalUploadUrl(
+  url: string,
+  opts: UploadUrlOptions = uploadUrlOptionsFromEnv(),
+): boolean {
+  if (!opts.cloudfrontDomain && !(opts.bucket && opts.region)) return url.startsWith("https://");
+  const key = uploadUrlToKey(url, opts);
+  if (!key || !isUploadKey(key)) return false;
+  const prefix = opts.cloudfrontDomain
+    ? `https://${opts.cloudfrontDomain}/`
+    : `https://${opts.bucket}.s3.${opts.region}.amazonaws.com/`;
+  return url === `${prefix}${encodeKey(key)}`;
+}

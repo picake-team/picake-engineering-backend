@@ -10,6 +10,7 @@ import {
 } from "@apps/backend/modules/order/utils/order-list-query.util";
 import { withSellerStorePrefix } from "@apps/backend/modules/notification/utils/seller-order-notification-copy.util";
 import { SellerFcmPushService } from "@apps/backend/modules/fcm/services/seller-fcm-push.service";
+import { kstDateTimeToUtc } from "@apps/backend/modules/manual-order/utils/manual-order-date.util";
 import {
   FCM_ANDROID_CHANNEL_ID,
   FCM_PUSH_TYPE,
@@ -56,20 +57,28 @@ export function formatKstTime(date: Date): string {
   }).format(date);
 }
 
-/** 아침 요약 문구: "오늘 픽업 2건" / "첫 픽업 11:00". 스토어가 여럿이면 제목 앞에 [스토어 이름] (기획 I-48) */
+/**
+ * 아침 요약 문구: "오늘 픽업 2건" / "첫 픽업 11:00". 스토어가 여럿이면 제목 앞에 [스토어 이름] (기획 I-48).
+ * 직접 적은 주문(기획 I-42)도 센다. 시각을 아는 주문이 없으면 "픽업 시간 미정", 입금 전인 직접 적은 주문이 있으면 " · 입금 전 n건"
+ */
 export function buildMorningSummaryCopy(params: {
   pickupCount: number;
-  firstPickupAt: Date;
+  firstPickupAt: Date | null;
   storeName: string;
   sellerStoreCount: number;
+  unpaidCount?: number;
 }): { title: string; body: string } {
+  const body = [
+    params.firstPickupAt ? `첫 픽업 ${formatKstTime(params.firstPickupAt)}` : "픽업 시간 미정",
+  ];
+  if (params.unpaidCount) body.push(`입금 전 ${params.unpaidCount}건`);
   return {
     title: withSellerStorePrefix(
       `오늘 픽업 ${params.pickupCount}건`,
       params.storeName,
       params.sellerStoreCount,
     ),
-    body: `첫 픽업 ${formatKstTime(params.firstPickupAt)}`,
+    body: body.join(" · "),
   };
 }
 
@@ -174,14 +183,27 @@ export class SellerMorningSummaryService implements OnModuleInit, OnModuleDestro
           select: { pickupDate: true },
           orderBy: { pickupDate: "asc" },
         });
-        const firstPickupAt = orders[0]?.pickupDate;
-        if (!firstPickupAt) continue;
+        // 직접 적은 주문(기획 I-42)도 그날 픽업으로 센다
+        const manualOrders = await this.prisma.manualOrder.findMany({
+          where: { storeId: store.id, pickupDate: dateKey },
+          select: { pickupTime: true, paid: true },
+        });
+        const pickupCount = orders.length + manualOrders.length;
+        if (pickupCount === 0) continue;
+
+        const pickupTimes = [
+          ...orders.flatMap((order) => (order.pickupDate ? [order.pickupDate] : [])),
+          ...manualOrders.flatMap((row) =>
+            row.pickupTime ? [kstDateTimeToUtc(dateKey, row.pickupTime)] : [],
+          ),
+        ].sort((a, b) => a.getTime() - b.getTime());
 
         const copy = buildMorningSummaryCopy({
-          pickupCount: orders.length,
-          firstPickupAt,
+          pickupCount,
+          firstPickupAt: pickupTimes[0] ?? null,
           storeName: store.name,
           sellerStoreCount: storeCountBySeller.get(store.sellerId) ?? 1,
+          unpaidCount: manualOrders.filter((row) => row.paid === false).length,
         });
         await this.sellerFcmPushService.sendToSeller({
           sellerId: store.sellerId,
