@@ -13,6 +13,8 @@ import {
 } from "@apps/backend/modules/auth/constants/auth.constants";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
+import { ACT_AS_ALLOWED_ADMINS_ENV } from "@apps/backend/modules/act-as/constants/act-as.constants";
+import { parseActAsAllowedAdmins } from "@apps/backend/modules/act-as/utils/act-as-allowed-admins.util";
 
 /**
  * JWT 전략 (passport-jwt)
@@ -251,6 +253,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           select: {
             id: true,
             adminId: true,
+            adminUsername: true,
             sellerId: true,
             storeId: true,
             expiresAt: true,
@@ -272,7 +275,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: session.adminId },
       select: { isActive: true, approvalStatus: true },
     });
-    if (!admin || !admin.isActive || admin.approvalStatus !== "APPROVED") {
+    // 허용 관리자 목록에서 빠지면(비밀값을 고쳐 다시 배포) 진행 중인 세션도 바로 끝난다
+    const allowed = parseActAsAllowedAdmins(
+      this.configService.get<string>(ACT_AS_ALLOWED_ADMINS_ENV),
+    ).includes(session.adminUsername);
+    if (!admin || !admin.isActive || admin.approvalStatus !== "APPROVED" || !allowed) {
       LoggerUtil.log(`JWT 검증 실패: 대리 입력 관리자 꺼짐 - sid: ${session.id}`);
       throw new UnauthorizedException(AUTH_ERROR_MESSAGES.ACT_AS_SESSION_ENDED);
     }

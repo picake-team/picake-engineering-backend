@@ -142,6 +142,10 @@ export class AuthGuard extends BaseAuthGuard(["jwt", "admin-api-key"]) implement
         LoggerUtil.log(
           `인증 실패: aud 불일치 - userAud: ${user.aud}, required: ${authMetadata.audiences.join(",")}`,
         );
+        // 대리 출입증으로 관리자·손님 경로를 부른 것도 기록에 남긴다(기획 I-41)
+        if (user.type === TOKEN_TYPES.ACT_AS) {
+          this.recordActAsBlocked(user as AuthenticatedUser, context.switchToHttp().getRequest());
+        }
         throw new ForbiddenException(AUTH_ERROR_MESSAGES.AUDIENCE_NOT_AUTHORIZED);
       }
     }

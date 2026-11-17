@@ -33,14 +33,14 @@ export function actAsTargetId(
   params: Record<string, unknown> | undefined,
   responseData?: unknown,
 ): string | null {
-  for (const key of TARGET_PARAM_ORDER) {
-    const v = params?.[key];
-    if (typeof v === "string" && v.length > 0) return v.slice(0, 64);
-  }
-  // 새로 만든 것(상품·주문 등록)은 응답의 id
+  // 새로 만든 것(상품·직접 적은 주문 등록)은 응답의 id를 먼저 — 주소의 storeId보다 좁다
   if (responseData && typeof responseData === "object" && "id" in responseData) {
     const id = (responseData as { id?: unknown }).id;
     if (typeof id === "string" && id.length > 0) return id.slice(0, 64);
+  }
+  for (const key of TARGET_PARAM_ORDER) {
+    const v = params?.[key];
+    if (typeof v === "string" && v.length > 0) return v.slice(0, 64);
   }
   return null;
 }
@@ -78,6 +78,8 @@ export function actAsActionArea(action: {
   if (action.status === 403) return "blocked";
   if (action.method === "GET") return "view";
   const r = action.route;
+  // 캡처 읽기는 AI가 읽기만 하고 저장하지 않는다
+  if (r.endsWith("/manual-orders/read")) return "view";
   if (r.includes("/manual-orders")) return "manualOrder";
   if (r.includes("/business-calendar")) return "calendar";
   if (
@@ -114,6 +116,8 @@ export function summarizeActAsActions(
     blocked: 0,
   };
   for (const a of actions) {
+    // 들어오기·끝내기·띠 정보는 운영자가 한 일이 아니다
+    if (a.route.startsWith("/seller/act-as")) continue;
     const area = actAsActionArea(a);
     if (area === "blocked" || area === "view") {
       summary[area] += 1;

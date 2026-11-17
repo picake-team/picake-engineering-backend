@@ -9,6 +9,7 @@ import { ProductMapperUtil } from "@apps/backend/modules/product/utils/product-m
 import { LikeProductDetailService } from "@apps/backend/modules/like/services/like-product-detail.service";
 import { ProductOwnershipUtil } from "@apps/backend/modules/product/utils/product-ownership.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
+import { assertActAsStore } from "@apps/backend/modules/act-as/utils/act-as-scope.util";
 
 @Injectable()
 export class ProductDetailService {
@@ -73,12 +74,13 @@ export class ProductDetailService {
    */
   async getProductDetailForSeller(id: string, user: JwtVerifiedPayload) {
     // 상품 소유권 확인
-    await ProductOwnershipUtil.verifyProductOwnership(
+    const owned = await ProductOwnershipUtil.verifyProductOwnership(
       this.prisma,
       id,
       user.sub,
       ProductMapperUtil.STORE_INFO_WITH_USER_ID_SELECT,
     );
+    assertActAsStore(user, owned.storeId);
 
     // 후기 정보 포함하여 조회
     const productWithReviews = await this.prisma.product.findUnique({

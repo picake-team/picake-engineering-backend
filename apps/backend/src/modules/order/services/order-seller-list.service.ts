@@ -18,6 +18,7 @@ import { OrderResponseDto } from "@apps/backend/modules/order/dto/order-detail.d
 import { ORDER_ERROR_MESSAGES } from "@apps/backend/modules/order/constants/order.constants";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { OrderAutomationService } from "@apps/backend/modules/order/services/order-automation.service";
+import { actAsStoreWhere } from "@apps/backend/modules/act-as/utils/act-as-scope.util";
 
 /**
  * 판매자용 주문 목록 조회 서비스
@@ -54,10 +55,11 @@ export class OrderSellerListService {
       pickupEndDate,
     } = query;
 
-    // 사용자가 소유한 스토어 목록 조회
+    // 사용자가 소유한 스토어 목록 조회(운영자 대신 입력 중이면 들어간 가게만, 기획 I-41)
     const userStores = await this.prisma.store.findMany({
       where: {
         sellerId: user.sub,
+        ...actAsStoreWhere(user),
       },
       select: {
         id: true,

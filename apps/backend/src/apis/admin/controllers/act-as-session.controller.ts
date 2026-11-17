@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Request } from "@nestjs/common";
+import {
+  ForbiddenException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Request,
+} from "@nestjs/common";
 import { ApiExtraModels, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
@@ -94,6 +104,8 @@ export class AdminActAsSessionController {
   @SwaggerResponse(200, { dataExample: { ended: true } })
   @SwaggerAuthResponses()
   async end(@Param("id") id: string, @Request() req: { user: AuthenticatedUser }) {
+    // 자동화용 관리자 API 키는 끝내기도 못 한다(끝낸 사람이 사람 관리자와 섞이지 않게)
+    if (req.user.isApiKey) throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.HUMAN_ONLY);
     return await this.actAsSessionService.endByAdmin(id, req.user.id);
   }
 }

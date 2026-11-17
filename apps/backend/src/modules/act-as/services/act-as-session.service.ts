@@ -9,6 +9,7 @@ import { ConfigService } from "@nestjs/config";
 import { createHash, randomBytes } from "node:crypto";
 import * as speakeasy from "speakeasy";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
+import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.constants";
 import type { ActAsActor, AuthenticatedUser } from "@apps/backend/modules/auth/types/auth.types";
 import { JwtUtil } from "@apps/backend/modules/auth/utils/jwt.util";
@@ -30,17 +31,10 @@ import type {
   StartActAsSessionResponseDto,
 } from "@apps/backend/modules/act-as/dto/act-as.dto";
 import { summarizeActAsActions } from "@apps/backend/modules/act-as/utils/act-as-audit.util";
+import { parseActAsAllowedAdmins } from "@apps/backend/modules/act-as/utils/act-as-allowed-admins.util";
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
-}
-
-/** 쉼표 목록 환경값 → 아이디 목록(빈 칸 무시) */
-export function parseActAsAllowedAdmins(raw: string | undefined): string[] {
-  return (raw ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
 }
 
 /**
@@ -66,6 +60,10 @@ export class ActAsSessionService {
   ): Promise<StartActAsSessionResponseDto> {
     // 자동화용 관리자 API 키(AI 루틴)로는 열 수 없다
     if (admin.isApiKey) throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.HUMAN_ONLY);
+    // DB 칸(VARCHAR 200)은 글자(코드 포인트)로 센다 — 이모지 변형 기호가 섞이면 검사와 어긋나 500이 나지 않게
+    if (Array.from(dto.reason).length > ACT_AS_LIMITS.REASON_MAX) {
+      throw new BadRequestException(ACT_AS_ERROR_MESSAGES.REASON_TOO_LONG);
+    }
 
     const row = await this.prisma.admin.findUnique({
       where: { id: admin.id },
@@ -149,7 +147,8 @@ export class ActAsSessionService {
     );
     return {
       sessionId: session.id,
-      sellerUrl: `${sellerDomain}${ACT_AS_SELLER_ENTRY_PATH}?code=${encodeURIComponent(code)}`,
+      // 코드는 주소의 # 뒤에 싣는다 — 서버·호스팅 접근 기록에 가지 않는다
+      sellerUrl: `${sellerDomain}${ACT_AS_SELLER_ENTRY_PATH}#code=${encodeURIComponent(code)}`,
       expiresAt: session.expiresAt,
     };
   }
@@ -189,16 +188,23 @@ export class ActAsSessionService {
       { sellerId: session.sellerId, sessionId: session.id },
       (session.expiresAt.getTime() - now.getTime()) / 1000,
     );
-    await this.prisma.adminActAsAction.create({
-      data: {
-        sessionId: session.id,
-        method: "POST",
-        route: "/seller/act-as/exchange",
-        targetId: session.storeId,
-        status: 200,
-        createdAt: now,
-      },
-    });
+    // 코드는 이미 썼으니 기록이 실패해도 출입증은 돌려준다(다시 들어가려면 OTP부터 다시 해야 해서)
+    await this.prisma.adminActAsAction
+      .create({
+        data: {
+          sessionId: session.id,
+          method: "POST",
+          route: "/seller/act-as/exchange",
+          targetId: session.storeId,
+          status: 200,
+          createdAt: now,
+        },
+      })
+      .catch((error: unknown) => {
+        LoggerUtil.log(
+          `대리 입력 들어오기 기록 실패 - sid: ${session.id}, error: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
     return { accessToken, storeId: session.storeId, expiresAt: session.expiresAt };
   }
 
@@ -277,8 +283,9 @@ export class ActAsSessionService {
       select: { id: true },
     });
     if (!session) throw new NotFoundException(ACT_AS_ERROR_MESSAGES.SESSION_NOT_FOUND);
+    // 화면을 여는 GET은 많아서(알림·배지) 쓰기가 묻힌다 — 목록에는 쓰기와 실패만, 본 화면 수는 세션 요약에 있다
     return await this.prisma.adminActAsAction.findMany({
-      where: { sessionId },
+      where: { sessionId, OR: [{ method: { not: "GET" } }, { status: { gte: 400 } }] },
       orderBy: { createdAt: "asc" },
       take: ACT_AS_LIMITS.ACTIONS_MAX,
       select: {

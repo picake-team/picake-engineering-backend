@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { UpdateProductRequestDto } from "@apps/backend/modules/product/dto/product-update.dto";
 import { PRODUCT_ERROR_MESSAGES } from "@apps/backend/modules/product/constants/product.constants";
@@ -14,6 +14,8 @@ import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { ProductOwnershipUtil } from "@apps/backend/modules/product/utils/product-ownership.util";
 import { validateProductPrices } from "@apps/backend/modules/product/utils/product-price.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
+import { ACT_AS_ERROR_MESSAGES } from "@apps/backend/modules/act-as/constants/act-as.constants";
+import { assertActAsStore } from "@apps/backend/modules/act-as/utils/act-as-scope.util";
 
 @Injectable()
 export class ProductUpdateService {
@@ -78,9 +80,19 @@ export class ProductUpdateService {
     user: JwtVerifiedPayload,
   ) {
     // 상품 소유권 확인
-    await ProductOwnershipUtil.verifyProductOwnership(this.prisma, id, user.sub, {
+    const owned = await ProductOwnershipUtil.verifyProductOwnership(this.prisma, id, user.sub, {
       sellerId: true,
     });
+    assertActAsStore(user, owned.storeId);
+    // 손님에게 보이기는 사장님만 바꾼다(기획 I-41 운영자 결정 "숨김 저장, 사장님이 켜기").
+    // 수정 화면은 지금 값을 늘 같이 보내므로 같으면 통과한다
+    if (
+      user.actor &&
+      updateProductDto.visibilityStatus !== undefined &&
+      updateProductDto.visibilityStatus !== owned.visibilityStatus
+    ) {
+      throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.VISIBILITY_OWNER_ONLY);
+    }
 
     // 기존 상품 정보 조회 (옵션 업데이트를 위해 필요)
     const product = await this.prisma.product.findUnique({

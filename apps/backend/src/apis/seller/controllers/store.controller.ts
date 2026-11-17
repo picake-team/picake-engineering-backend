@@ -170,7 +170,12 @@ export class SellerStoreController {
     @Request() req: { user: JwtVerifiedPayload },
     @Query() query: GetSellerStoresRequestDto,
   ) {
-    return await this.storeService.getStoresByUserIdForSeller(req.user.sub, query);
+    // 운영자 대신 입력 중(기획 I-41)이면 들어간 가게만 보인다
+    return await this.storeService.getStoresByUserIdForSeller(
+      req.user.sub,
+      query,
+      req.user.actor?.storeId,
+    );
   }
 
   /**

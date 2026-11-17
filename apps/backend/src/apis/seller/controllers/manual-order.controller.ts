@@ -169,7 +169,13 @@ export class SellerManualOrderController {
     @Body() dto: ManualOrderInputDto,
     @Request() req: { user: JwtVerifiedPayload },
   ) {
-    return await this.manualOrderService.update(req.user.sub, storeId, id, dto);
+    return await this.manualOrderService.update(
+      req.user.sub,
+      storeId,
+      id,
+      dto,
+      Boolean(req.user.actor),
+    );
   }
 
   @AllowActAs()
@@ -184,7 +190,13 @@ export class SellerManualOrderController {
     @Body() dto: ManualOrderPaidInputDto,
     @Request() req: { user: JwtVerifiedPayload },
   ) {
-    return await this.manualOrderService.setPaid(req.user.sub, storeId, id, dto.paid);
+    return await this.manualOrderService.setPaid(
+      req.user.sub,
+      storeId,
+      id,
+      dto.paid,
+      Boolean(req.user.actor),
+    );
   }
 
   @AllowActAs()

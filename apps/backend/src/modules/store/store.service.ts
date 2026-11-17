@@ -52,8 +52,12 @@ export class StoreService {
   /**
    * 내 스토어 목록 조회 (판매자용)
    */
-  async getStoresByUserIdForSeller(userId: string, query: GetSellerStoresRequestDto) {
-    return await this.storeListService.getStoresByUserIdForSeller(userId, query);
+  async getStoresByUserIdForSeller(
+    userId: string,
+    query: GetSellerStoresRequestDto,
+    onlyStoreId?: string,
+  ) {
+    return await this.storeListService.getStoresByUserIdForSeller(userId, query, onlyStoreId);
   }
 
   /**

@@ -2,7 +2,10 @@ import { createHash, randomBytes } from "node:crypto";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 
-import { ACT_AS_ERROR_MESSAGES } from "@apps/backend/modules/act-as/constants/act-as.constants";
+import {
+  ACT_AS_ALLOWED_ADMINS_ENV,
+  ACT_AS_ERROR_MESSAGES,
+} from "@apps/backend/modules/act-as/constants/act-as.constants";
 import { AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.constants";
 import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
 import { ADMIN_API_KEY_HEADER } from "@apps/backend/modules/admin-api-key/constants/admin-api-key.constants";
@@ -33,8 +36,10 @@ describe("가게 대신 입력 세션 (e2e)", () => {
     });
     expect(res.status).toBe(201);
     const { sessionId, sellerUrl } = res.body.data;
-    expect(sellerUrl).toMatch(/\/act-as\?code=/);
-    const code = new URL(sellerUrl, "http://localhost").searchParams.get("code")!;
+    expect(sellerUrl).toMatch(/\/act-as#code=/);
+    const code = new URLSearchParams(new URL(sellerUrl, "http://localhost").hash.slice(1)).get(
+      "code",
+    )!;
     // 코드 원문은 저장하지 않는다(해시만)
     const row = await prisma.adminActAsSession.findUniqueOrThrow({ where: { id: sessionId } });
     expect(row.codeHash).toBe(createHash("sha256").update(code).digest("hex"));
@@ -82,9 +87,9 @@ describe("가게 대신 입력 세션 (e2e)", () => {
       .get(`/v1/admin/act-as-sessions/${sessionId}/actions`)
       .set("Authorization", adminAuth);
     expect(actions.status).toBe(200);
+    // 목록에는 쓰기와 실패만(본 화면 GET은 세션 요약의 수로만)
     expect(actions.body.data.data.map((a: { route: string }) => a.route)).toEqual([
       "/seller/act-as/exchange",
-      "/seller/act-as/me",
       "/seller/act-as/end",
     ]);
   });
@@ -93,7 +98,9 @@ describe("가게 대신 입력 세션 (e2e)", () => {
     const app = getTestApp();
     const { prisma, adminAuth, otp, store } = await setupActAs(app);
     const res = await start(adminAuth, store.id, { reason: "시간 지난 코드", totpCode: otp() });
-    const code = new URL(res.body.data.sellerUrl, "http://localhost").searchParams.get("code")!;
+    const code = new URLSearchParams(
+      new URL(res.body.data.sellerUrl, "http://localhost").hash.slice(1),
+    ).get("code")!;
     await prisma.adminActAsSession.update({
       where: { id: res.body.data.sessionId },
       data: { codeExpiresAt: new Date(Date.now() - 1000) },
@@ -118,6 +125,12 @@ describe("가게 대신 입력 세션 (e2e)", () => {
       .send({ reason: "루틴", totpCode: "123456" });
     expect(byKey.status).toBe(403);
     expect(byKey.body.data.message).toBe(ACT_AS_ERROR_MESSAGES.HUMAN_ONLY);
+    // API 키로는 세션 끝내기도 못 한다
+    const endByKey = await request(app.getHttpServer())
+      .post("/v1/admin/act-as-sessions/any/end")
+      .set(ADMIN_API_KEY_HEADER, rawKey);
+    expect(endByKey.status).toBe(403);
+    expect(endByKey.body.data.message).toBe(ACT_AS_ERROR_MESSAGES.HUMAN_ONLY);
 
     const wrongOtp = await start(adminAuth, store.id, { reason: "틀린 OTP", totpCode: "000000" });
     expect(wrongOtp.status).toBe(400);
@@ -176,6 +189,14 @@ describe("가게 대신 입력 세션 (e2e)", () => {
     await prisma.admin.update({ where: { id: admin.id }, data: { isActive: false } });
     expect((await me(adminOff.auth)).status).toBe(401);
     await prisma.admin.update({ where: { id: admin.id }, data: { isActive: true } });
+
+    // 허용 관리자 목록에서 빠지면(비밀값을 고쳐 다시 배포) 진행 중인 세션도 바로 끝난다
+    const delisted = await actAs();
+    const allowedBefore = process.env[ACT_AS_ALLOWED_ADMINS_ENV];
+    process.env[ACT_AS_ALLOWED_ADMINS_ENV] = "other";
+    expect((await me(delisted.auth)).status).toBe(401);
+    process.env[ACT_AS_ALLOWED_ADMINS_ENV] = allowedBefore;
+    expect((await me(delisted.auth)).status).toBe(200);
 
     const sellerOff = await actAs();
     await prisma.seller.update({ where: { id: seller.id }, data: { isActive: false } });

@@ -9,6 +9,7 @@ import {
   NaverProductSource,
   ProductNaverLinkResponseDto,
 } from "@apps/backend/modules/product-naver/dto/product-naver.dto";
+import { assertActAsStore } from "@apps/backend/modules/act-as/utils/act-as-scope.util";
 
 /**
  * 기존 상품 ↔ 네이버 예약 상품 연결 서비스
@@ -31,6 +32,7 @@ export class ProductNaverLinkService {
       productId,
       user.sub,
     );
+    assertActAsStore(user, product.storeId);
 
     // 네이버에 실제로 있는 예약 상품인지 확인한다 (메뉴는 연결하지 않음)
     const resolved = await this.importService.resolveItem(product.storeId, bizItemId, user);
@@ -58,7 +60,12 @@ export class ProductNaverLinkService {
     productId: string,
     user: JwtVerifiedPayload,
   ): Promise<ProductNaverLinkResponseDto> {
-    await ProductOwnershipUtil.verifyProductOwnership(this.prisma, productId, user.sub);
+    const owned = await ProductOwnershipUtil.verifyProductOwnership(
+      this.prisma,
+      productId,
+      user.sub,
+    );
+    assertActAsStore(user, owned.storeId);
     const updated = await this.prisma.product.update({
       where: { id: productId },
       data: { naverBizItemId: null, naverLinkedAt: null },

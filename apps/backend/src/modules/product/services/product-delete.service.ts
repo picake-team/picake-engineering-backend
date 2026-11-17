@@ -5,6 +5,7 @@ import { ProductOwnershipUtil } from "@apps/backend/modules/product/utils/produc
 import { PRODUCT_ERROR_MESSAGES } from "@apps/backend/modules/product/constants/product.constants";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { ACT_AS_ERROR_MESSAGES } from "@apps/backend/modules/act-as/constants/act-as.constants";
+import { assertActAsStore } from "@apps/backend/modules/act-as/utils/act-as-scope.util";
 
 @Injectable()
 export class ProductDeleteService {
@@ -22,6 +23,7 @@ export class ProductDeleteService {
       sellerId: true,
     });
 
+    assertActAsStore(user, product.storeId);
     // 운영자 대신 입력 중(기획 I-41)에는 운영자가 만든 상품만 지운다
     if (user.actor && !product.createdByAdminId) {
       throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.DELETE_OPERATOR_ONLY);

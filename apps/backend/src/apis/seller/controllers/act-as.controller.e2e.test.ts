@@ -122,6 +122,39 @@ describe("가게 대신 입력 중 판매자 경로 (e2e)", () => {
       .set("Authorization", auth)
       .send(productBody(other.id));
     expect(create.status).toBe(403);
+
+    // 상품 id로 부르는 경로도 다른 가게 상품이면 403(가드는 가게를 모르므로 서비스가 막는다)
+    const otherProduct = await createTestProduct(prisma, other.id, { name: "다른 가게 케이크" });
+    for (const [method, url, body] of [
+      ["get", `/v1/seller/products/${otherProduct.id}`],
+      ["put", `/v1/seller/products/${otherProduct.id}`, { name: "바꿈" }],
+      ["delete", `/v1/seller/products/${otherProduct.id}`],
+      ["delete", `/v1/seller/products/${otherProduct.id}/naver-item`],
+    ] as Array<[string, string, object?]>) {
+      const res = await (request(server) as never as Record<string, (u: string) => request.Test>)
+        [method](url)
+        .set("Authorization", auth)
+        .send(body ?? {});
+      expect(res.status, `${method} ${url}`).toBe(403);
+      expect(res.body.data.message, `${method} ${url}`).toBe(
+        AUTH_ERROR_MESSAGES.ACT_AS_OTHER_STORE,
+      );
+    }
+    expect((await prisma.product.findUniqueOrThrow({ where: { id: otherProduct.id } })).name).toBe(
+      "다른 가게 케이크",
+    );
+
+    // storeId 없이 부르는 목록은 들어간 가게 것만
+    const products = await request(server)
+      .get("/v1/seller/products?page=1&limit=50&sortBy=latest")
+      .set("Authorization", auth);
+    expect(products.status).toBe(200);
+    expect(JSON.stringify(products.body)).not.toContain(otherProduct.id);
+    const stores = await request(server)
+      .get("/v1/seller/store/list?page=1&limit=20")
+      .set("Authorization", auth);
+    expect(stores.status).toBe(200);
+    expect(JSON.stringify(stores.body)).not.toContain(other.id);
   });
 
   it("정산 계좌: 대리 입력은 바꾸면 403·같으면 통과, 사장님은 그대로 바꾼다", async () => {
@@ -205,6 +238,29 @@ describe("가게 대신 입력 중 판매자 경로 (e2e)", () => {
     expect(forConsumer.body.data).not.toHaveProperty("enteredByOperator");
     expect(forConsumer.body.data).not.toHaveProperty("createdByAdminId");
 
+    // 손님에게 보이기는 사장님만 바꾼다: 대리 입력으로 바꾸면 403, 그대로 두고 고치면 통과
+    const ownRow = await prisma.product.findUniqueOrThrow({ where: { id: own.id } });
+    const flip = ownRow.visibilityStatus === "ENABLE" ? "DISABLE" : "ENABLE";
+    const hideOwn = await request(server)
+      .put(`/v1/seller/products/${own.id}`)
+      .set("Authorization", auth)
+      .send({ visibilityStatus: flip });
+    expect(hideOwn.status).toBe(403);
+    expect(hideOwn.body.data.message).toBe(ACT_AS_ERROR_MESSAGES.VISIBILITY_OWNER_ONLY);
+    // (위에서 사장님이 공개해 지금은 ENABLE) 운영자가 숨기려 해도 403, 그대로 보내며 이름만 고치면 통과
+    const hideMine = await request(server)
+      .put(`/v1/seller/products/${productId}`)
+      .set("Authorization", auth)
+      .send({ visibilityStatus: "DISABLE" });
+    expect(hideMine.status).toBe(403);
+    const renameMine = await request(server)
+      .put(`/v1/seller/products/${productId}`)
+      .set("Authorization", auth)
+      .send({ name: "딸기 케이크", visibilityStatus: "ENABLE" });
+    expect(renameMine.status).toBe(200);
+    const renamed = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+    expect(renamed).toMatchObject({ name: "딸기 케이크", visibilityStatus: "ENABLE" });
+
     const delOwn = await request(server)
       .delete(`/v1/seller/products/${own.id}`)
       .set("Authorization", auth);
@@ -257,8 +313,30 @@ describe("가게 대신 입력 중 판매자 경로 (e2e)", () => {
       .delete(`${base}/${byOperator.body.data.id}`)
       .set("Authorization", auth);
     expect(delOperator.status).toBe(200);
-    // 사장님은 운영자가 적은 것도 지울 수 있다(사장님 장부)
+    // 사장님이 적은 주문은 운영자가 고치거나 입금 표시를 바꾸지 못한다(사진·내용을 되살릴 수 없어서)
+    const sellerOrderId = bySeller.body.data.id as string;
+    const editSeller = await request(server)
+      .put(`${base}/${sellerOrderId}`)
+      .set("Authorization", auth)
+      .send({ ...order, customerName: null, photoUrls: [] });
+    expect(editSeller.status).toBe(403);
+    expect(editSeller.body.data.message).toBe(ACT_AS_ERROR_MESSAGES.EDIT_OPERATOR_ONLY);
+    const paidSeller = await request(server)
+      .patch(`${base}/${sellerOrderId}/paid`)
+      .set("Authorization", auth)
+      .send({ paid: true });
+    expect(paidSeller.status).toBe(403);
+    expect(
+      await prisma.manualOrder.findUniqueOrThrow({ where: { id: sellerOrderId } }),
+    ).toMatchObject({ customerName: "홍길순", paid: null });
+
+    // 사장님은 운영자가 적은 것도 지울 수 있다(사장님 장부). 운영자는 자기가 적은 것은 고친다
     const again = await request(server).post(base).set("Authorization", auth).send(order);
+    const editMine = await request(server)
+      .put(`${base}/${again.body.data.id}`)
+      .set("Authorization", auth)
+      .send({ ...order, cakeName: "레터링 케이크 2호" });
+    expect(editMine.status).toBe(200);
     const sellerDeletes = await request(server)
       .delete(`${base}/${again.body.data.id}`)
       .set("Authorization", sellerAuth);
@@ -266,8 +344,8 @@ describe("가게 대신 입력 중 판매자 경로 (e2e)", () => {
 
     const actions = await prisma.adminActAsAction.findMany({ where: { sessionId: session.id } });
     expect(JSON.stringify(actions)).not.toContain("홍길순");
-    // 사장님 출입증 요청(만들기 1·지우기 1)은 기록에 없다: 대리 요청 4개만
-    expect(await prisma.adminActAsAction.count()).toBe(4);
+    // 사장님 출입증 요청(만들기 1·지우기 1)은 기록에 없다: 대리 요청 7개만
+    expect(await prisma.adminActAsAction.count()).toBe(7);
     expect(actions.every((a) => a.route.startsWith("/seller/stores/:storeId/manual-orders"))).toBe(
       true,
     );

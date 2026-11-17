@@ -53,9 +53,9 @@ export class StoreUpdateService {
       zonecode: string;
       latitude: number;
       longitude: number;
-      bankAccountNumber: string;
-      bankName: StoreBankName;
-      accountHolderName: string;
+      bankAccountNumber?: string;
+      bankName?: StoreBankName;
+      accountHolderName?: string;
       refundCancellationPolicy: Prisma.InputJsonValue;
     } = {
       // 필수 필드
@@ -74,6 +74,13 @@ export class StoreUpdateService {
         updateStoreDto.refundCancellationPolicy,
       ),
     };
+
+    // 대리 입력 중에는 계좌를 아예 쓰지 않는다 — 위 비교와 저장 사이에 사장님이 바꾼 새 계좌를 옛 값으로 덮지 않게
+    if (user.actor) {
+      delete updateData.bankAccountNumber;
+      delete updateData.bankName;
+      delete updateData.accountHolderName;
+    }
 
     // 선택적 필드: 값이 제공된 경우에만 업데이트
     if (updateStoreDto.logoImageUrl !== undefined) {

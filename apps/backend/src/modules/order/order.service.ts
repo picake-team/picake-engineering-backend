@@ -88,7 +88,7 @@ export class OrderService {
     orderId: string,
     user: JwtVerifiedPayload,
   ): Promise<OrderResponseDto> {
-    return this.orderDetailService.getOrderByIdForSeller(orderId, user.sub);
+    return this.orderDetailService.getOrderByIdForSeller(orderId, user.sub, user);
   }
 
   /**
