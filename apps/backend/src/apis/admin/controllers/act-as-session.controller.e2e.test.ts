@@ -34,7 +34,7 @@ describe("가게 대신 입력 세션 (e2e)", () => {
     expect(res.status).toBe(201);
     const { sessionId, sellerUrl } = res.body.data;
     expect(sellerUrl).toMatch(/\/act-as\?code=/);
-    const code = new URL(sellerUrl).searchParams.get("code")!;
+    const code = new URL(sellerUrl, "http://localhost").searchParams.get("code")!;
     // 코드 원문은 저장하지 않는다(해시만)
     const row = await prisma.adminActAsSession.findUniqueOrThrow({ where: { id: sessionId } });
     expect(row.codeHash).toBe(createHash("sha256").update(code).digest("hex"));
@@ -93,7 +93,7 @@ describe("가게 대신 입력 세션 (e2e)", () => {
     const app = getTestApp();
     const { prisma, adminAuth, otp, store } = await setupActAs(app);
     const res = await start(adminAuth, store.id, { reason: "시간 지난 코드", totpCode: otp() });
-    const code = new URL(res.body.data.sellerUrl).searchParams.get("code")!;
+    const code = new URL(res.body.data.sellerUrl, "http://localhost").searchParams.get("code")!;
     await prisma.adminActAsSession.update({
       where: { id: res.body.data.sessionId },
       data: { codeExpiresAt: new Date(Date.now() - 1000) },

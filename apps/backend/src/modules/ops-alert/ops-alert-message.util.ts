@@ -249,11 +249,8 @@ export function buildActAsStartedMessage(alert: ActAsStartedAlert, ctx: OpsAlert
     path: "/seller/stores",
     fields: [
       { name: "스토어", value: plainText(alert.storeName) },
-      // 관리자 아이디는 영문·숫자·_ 뿐이다. _는 기울임이 되지 않게 이스케이프한다
-      {
-        name: "관리자",
-        value: alert.adminUsername.replace(/[^A-Za-z0-9_]/g, "").replace(/_/g, "\\_"),
-      },
+      // 관리자 아이디(영문·숫자·_)는 코드 칸으로 보여 _가 기울임이 되지 않게 한다
+      { name: "관리자", value: `\`${alert.adminUsername.replace(/[^A-Za-z0-9_]/g, "")}\`` },
       { name: "사유", value: plainText(alert.reason), inline: false },
     ],
     footer: `스토어 ${alert.storeId}`,

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { INestApplication } from "@nestjs/common";
 import * as speakeasy from "speakeasy";
 
@@ -18,7 +19,7 @@ export async function setupActAs(app: INestApplication, opts: { allowAdmin?: boo
   const totpSecret = speakeasy.generateSecret().base32;
   const admin = await prisma.admin.create({
     data: {
-      username: `ops_${Math.random().toString(36).slice(2, 10)}`,
+      username: `ops_${randomBytes(4).toString("hex")}`,
       passwordHash: "x",
       totpSecret,
       isTotpEnabled: true,

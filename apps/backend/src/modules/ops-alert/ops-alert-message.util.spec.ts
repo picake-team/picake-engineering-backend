@@ -91,7 +91,7 @@ describe("운영자 실시간 알림 문구 (I-56)", () => {
     expect(e.description).toContain("13:00에 저절로 끝나요.");
     expect(e.fields.map((f) => f.value)).toEqual([
       "구름케이크",
-      "ops\\_admin",
+      "`ops_admin`",
       "카톡 요청 — 첫 상품 3개",
     ]);
     expect(e.footer.text).toBe("스토어 st1");
