@@ -519,6 +519,9 @@ https://api-staging.picakes.com/health
 
 3. S3_BUCKET, CLOUDFRONT_DOMAIN 등 환경 변수 저장
 
+- **서버에는 AWS 키를 넣지 않는다**(2026-11-18). staging·production 서버는 EC2 인스턴스 역할로 S3에 올린다. 역할의 인라인 정책이 서버마다 자기 버킷의 `uploads/`에 올리기·지우기만 허용한다(`ec2:SourceInstanceARN` 조건 — staging 서버는 상용 버킷을 못 건드림). 설정·확인은 picake-hq `weekly/scripts/setup-aws-no-root.sh server`.
+- `AWS_ACCESS_KEY_ID`·`AWS_SECRET_ACCESS_KEY`는 로컬 개발·테스트(`.env.development`·`.env.test`)에서만 쓴다. staging 버킷 `uploads/`만 되는 개발용 IAM 사용자 키이고, 둘 중 하나만 넣으면 서버가 켜지지 않는다.
+
 4. 백엔드에서 @aws-sdk/client-s3 설치 후 파일 업로드 API 구현
 
 ### 2. CloudFront 생성
