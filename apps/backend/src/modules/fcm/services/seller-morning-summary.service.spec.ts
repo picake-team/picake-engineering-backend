@@ -47,6 +47,26 @@ describe("buildMorningSummaryCopy", () => {
     ).toEqual({ title: "오늘 픽업 2건", body: "첫 픽업 11:00" });
   });
 
+  it("직접 적은 주문(I-42): 시각을 아는 주문이 없으면 '픽업 시간 미정', 입금 전이 있으면 덧붙인다", () => {
+    expect(
+      buildMorningSummaryCopy({
+        pickupCount: 3,
+        firstPickupAt,
+        storeName: "달콤케이크",
+        sellerStoreCount: 1,
+        unpaidCount: 1,
+      }).body,
+    ).toBe("첫 픽업 11:00 · 입금 전 1건");
+    expect(
+      buildMorningSummaryCopy({
+        pickupCount: 1,
+        firstPickupAt: null,
+        storeName: "달콤케이크",
+        sellerStoreCount: 1,
+      }).body,
+    ).toBe("픽업 시간 미정");
+  });
+
   it("스토어가 여럿이면 제목 앞에 [스토어 이름]", () => {
     expect(
       buildMorningSummaryCopy({

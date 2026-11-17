@@ -150,6 +150,13 @@ export class AuthWithdrawService {
       });
       // 탈퇴한 판매자의 휴대폰으로 더 이상 푸시가 가지 않게 판매자 앱 토큰을 지움
       await this.prisma.sellerFcmToken.deleteMany({ where: { sellerId: accountId } });
+      // 직접 적은 주문(기획 I-42)은 Picake 거래가 아닌 사장님 장부라 남길 까닭이 없다. 손님 이름·사진이 있어 지우고,
+      // 다른 캘린더로 내보낸 주소도 끊는다
+      await this.prisma.manualOrder.deleteMany({ where: { store: { sellerId: accountId } } });
+      await this.prisma.store.updateMany({
+        where: { sellerId: accountId },
+        data: { calendarFeedToken: null },
+      });
       await this.afterWithdrawal(AUDIENCE.SELLER, async () => {
         // 카카오 연결 끊기(탈퇴 처리를 마친 뒤). 같은 카카오로 가입한 손님 계정이 있으면 끊지 않는다
         if (row.kakaoId && !(await this.hasOtherRoleWithKakaoId(AUDIENCE.CONSUMER, row.kakaoId))) {

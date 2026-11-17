@@ -15,6 +15,8 @@ import {
 } from "@apps/backend/modules/statistics/seller/dto/seller-order-statistics-overview.dto";
 import { loadSellerOrderStatisticsTimeBuckets } from "@apps/backend/modules/statistics/seller/utils/seller-order-statistics-time-buckets.util";
 import { kstYmdRangeToUtcBounds } from "@apps/backend/modules/statistics/common/utils/statistics-datetime.util";
+import { buildManualOrderStatistics } from "@apps/backend/modules/statistics/seller/utils/seller-manual-order-statistics.util";
+import { koreaCalendarYmd } from "@apps/backend/modules/order/utils/order-list-query.util";
 
 /**
  * 스토어 단위 주문 통계.
@@ -55,7 +57,11 @@ export class SellerOrderStatisticsService {
       orderStatus: { in: SELLER_ORDER_STATISTICS_INCLUDED_STATUSES },
     };
 
-    const [aggregate, productGroups, timeBuckets] = await Promise.all([
+    // 직접 적은 주문(기획 I-42): 픽업 날이 기간 안이고 오늘까지 지난 주문
+    const today = koreaCalendarYmd(new Date());
+    const manualEnd = endDate < today ? endDate : today;
+
+    const [aggregate, productGroups, timeBuckets, manualRows] = await Promise.all([
       this.prisma.order.aggregate({
         where,
         _sum: { totalPrice: true },
@@ -74,6 +80,12 @@ export class SellerOrderStatisticsService {
         end,
         orderStatuses: SELLER_ORDER_STATISTICS_INCLUDED_STATUSES,
       }),
+      startDate <= manualEnd
+        ? this.prisma.manualOrder.findMany({
+            where: { storeId, pickupDate: { gte: startDate, lte: manualEnd } },
+            select: { pickupDate: true, pickupTime: true, price: true, source: true },
+          })
+        : Promise.resolve([]),
     ]);
 
     const totalSales = aggregate._sum.totalPrice ?? 0;
@@ -118,6 +130,7 @@ export class SellerOrderStatisticsService {
       weekdayPickupSales,
       weekdayPickupOrders,
       hourlyPickupOrders,
+      manual: buildManualOrderStatistics(manualRows),
     };
   }
 }

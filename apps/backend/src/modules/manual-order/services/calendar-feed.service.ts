@@ -1,0 +1,193 @@
+import { randomBytes } from "crypto";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "@apps/backend/infra/database/prisma.service";
+import {
+  ManualOrderSource,
+  OrderStatus,
+} from "@apps/backend/infra/database/prisma/generated/client";
+import { API_PREFIX } from "@apps/backend/common/constants/app.constants";
+import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
+import {
+  koreaCalendarDayEndUtc,
+  koreaCalendarDayStartUtc,
+  koreaCalendarYmd,
+} from "@apps/backend/modules/order/utils/order-list-query.util";
+import { formatKstTime } from "@apps/backend/modules/fcm/services/seller-morning-summary.service";
+import {
+  CALENDAR_FEED,
+  CALENDAR_FEED_ERROR_MESSAGES,
+  MANUAL_ORDER_ERROR_MESSAGES,
+} from "@apps/backend/modules/manual-order/constants/manual-order.constants";
+import { CalendarFeedDto } from "@apps/backend/modules/manual-order/dto/manual-order.dto";
+import {
+  buildCalendarIcs,
+  buildEventSummary,
+  type CalendarFeedEvent,
+} from "@apps/backend/modules/manual-order/utils/calendar-feed-ics.util";
+import { addDaysToYmd } from "@apps/backend/modules/manual-order/utils/manual-order-date.util";
+
+export const MANUAL_ORDER_SOURCE_LABEL: Record<ManualOrderSource, string> = {
+  KAKAO: "카톡",
+  INSTAGRAM: "인스타",
+  PHONE: "전화",
+  NAVER: "네이버",
+  OTHER: "기타",
+};
+
+/** 내보내는 Picake 주문: 취소·노쇼는 뺀다 */
+const FEED_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.RESERVATION_REQUESTED,
+  OrderStatus.PAYMENT_PENDING,
+  OrderStatus.PAYMENT_COMPLETED,
+  OrderStatus.CONFIRMED,
+  OrderStatus.PICKUP_PENDING,
+  OrderStatus.PICKUP_COMPLETED,
+];
+
+export const CALENDAR_FEED_PATH_PREFIX = `${API_PREFIX}/${AUDIENCE.SELLER}/calendar-feeds`;
+
+/** 주소의 비밀 값: 영문·숫자·-·_ 32자 */
+export function newCalendarFeedToken(): string {
+  return randomBytes(CALENDAR_FEED.TOKEN_BYTES).toString("base64url");
+}
+
+/**
+ * 다른 캘린더로 내보내기(기획 I-42): 아이폰·구글 캘린더가 구독하는 ics 주소.
+ * 주소의 비밀 값을 아는 사람은 로그인 없이 일정을 읽으므로 손님 이름은 기본으로 가리고, 새로 만들면 옛 주소는 끊긴다.
+ * Picake 예약(취소·노쇼 빼고)과 직접 적은 주문을 같이 내보낸다. 지난 60일부터 앞으로 1년.
+ */
+@Injectable()
+export class CalendarFeedService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  /** 주소를 보여 준다. 처음이면 만든다 */
+  async get(sellerId: string, storeId: string): Promise<CalendarFeedDto> {
+    const store = await this.findOwned(sellerId, storeId);
+    if (store.calendarFeedToken) {
+      return this.toDto(store.calendarFeedToken, store.calendarFeedShowCustomer);
+    }
+    return this.reset(sellerId, storeId);
+  }
+
+  /** 새 주소를 만든다(옛 주소는 끊김) */
+  async reset(sellerId: string, storeId: string): Promise<CalendarFeedDto> {
+    await this.findOwned(sellerId, storeId);
+    const updated = await this.prisma.store.update({
+      where: { id: storeId },
+      data: { calendarFeedToken: newCalendarFeedToken() },
+      select: { calendarFeedToken: true, calendarFeedShowCustomer: true },
+    });
+    return this.toDto(updated.calendarFeedToken!, updated.calendarFeedShowCustomer);
+  }
+
+  async updateSettings(
+    sellerId: string,
+    storeId: string,
+    showCustomerName: boolean,
+  ): Promise<CalendarFeedDto> {
+    const store = await this.findOwned(sellerId, storeId);
+    const updated = await this.prisma.store.update({
+      where: { id: storeId },
+      data: {
+        calendarFeedShowCustomer: showCustomerName,
+        calendarFeedToken: store.calendarFeedToken ?? newCalendarFeedToken(),
+      },
+      select: { calendarFeedToken: true, calendarFeedShowCustomer: true },
+    });
+    return this.toDto(updated.calendarFeedToken!, updated.calendarFeedShowCustomer);
+  }
+
+  /** 구독 주소로 온 요청에 줄 ics. 없는 주소·탈퇴한 사장님이면 404 */
+  async buildIcs(token: string, now: Date = new Date()): Promise<string> {
+    if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) {
+      throw new NotFoundException(CALENDAR_FEED_ERROR_MESSAGES.NOT_FOUND);
+    }
+    const store = await this.prisma.store.findUnique({
+      where: { calendarFeedToken: token },
+      select: {
+        id: true,
+        name: true,
+        calendarFeedShowCustomer: true,
+        seller: { select: { withdrawnAt: true } },
+      },
+    });
+    if (!store || store.seller.withdrawnAt) {
+      throw new NotFoundException(CALENDAR_FEED_ERROR_MESSAGES.NOT_FOUND);
+    }
+
+    const today = koreaCalendarYmd(now);
+    const from = addDaysToYmd(today, -CALENDAR_FEED.PAST_DAYS);
+    const to = addDaysToYmd(today, CALENDAR_FEED.FUTURE_DAYS);
+    const showCustomerName = store.calendarFeedShowCustomer;
+
+    const [orders, manualOrders] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          storeId: store.id,
+          orderStatus: { in: FEED_ORDER_STATUSES },
+          pickupDate: { gte: koreaCalendarDayStartUtc(from), lte: koreaCalendarDayEndUtc(to) },
+        },
+        select: {
+          id: true,
+          pickupDate: true,
+          productName: true,
+          reservationContactName: true,
+          updatedAt: true,
+        },
+        orderBy: { pickupDate: "asc" },
+      }),
+      this.prisma.manualOrder.findMany({
+        where: { storeId: store.id, pickupDate: { gte: from, lte: to } },
+        orderBy: [{ pickupDate: "asc" }, { pickupTime: { sort: "asc", nulls: "last" } }],
+      }),
+    ]);
+
+    const events: CalendarFeedEvent[] = [];
+    for (const order of orders) {
+      if (!order.pickupDate) continue;
+      events.push({
+        uid: `order-${order.id}@picakes.com`,
+        date: koreaCalendarYmd(order.pickupDate),
+        time: formatKstTime(order.pickupDate),
+        summary: buildEventSummary({
+          title: order.productName ?? "견적 주문",
+          sourceLabel: "Picake",
+          customerName: order.reservationContactName,
+          showCustomerName,
+        }),
+        description: null,
+        updatedAt: order.updatedAt,
+      });
+    }
+    for (const row of manualOrders) {
+      events.push({
+        uid: `manual-${row.id}@picakes.com`,
+        date: row.pickupDate,
+        time: row.pickupTime,
+        summary: buildEventSummary({
+          title: row.cakeName,
+          sourceLabel: MANUAL_ORDER_SOURCE_LABEL[row.source],
+          customerName: row.customerName,
+          showCustomerName,
+        }),
+        description: row.paid === false ? "입금 전" : null,
+        updatedAt: row.updatedAt,
+      });
+    }
+
+    return buildCalendarIcs({ calendarName: `픽케이크 ${store.name}`, events, now });
+  }
+
+  private async findOwned(sellerId: string, storeId: string) {
+    const store = await this.prisma.store.findFirst({
+      where: { id: storeId, sellerId },
+      select: { id: true, calendarFeedToken: true, calendarFeedShowCustomer: true },
+    });
+    if (!store) throw new ForbiddenException(MANUAL_ORDER_ERROR_MESSAGES.STORE_NOT_OWNED);
+    return store;
+  }
+
+  private toDto(token: string, showCustomerName: boolean): CalendarFeedDto {
+    return { path: `${CALENDAR_FEED_PATH_PREFIX}/${token}.ics`, showCustomerName };
+  }
+}

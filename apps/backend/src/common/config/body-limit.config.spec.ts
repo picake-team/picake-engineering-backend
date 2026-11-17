@@ -8,8 +8,21 @@ describe("isLargeJsonBodyRequest(큰 JSON을 받는 요청)", () => {
     ).toBe(true);
   });
 
+  it("직접 적은 주문 대화 캡처 읽기(기획 I-42)도", () => {
+    expect(
+      isLargeJsonBodyRequest({
+        method: "POST",
+        path: "/v1/seller/stores/cmabc123xyz/manual-orders/read",
+      }),
+    ).toBe(true);
+  });
+
   it("앞부분만 같은 경로·끝에 / 붙인 경로·다른 메서드·다른 경로는 기본 한도", () => {
     for (const req of [
+      { method: "POST", path: "/v1/seller/stores/cmabc123xyz/manual-orders/read/" },
+      { method: "POST", path: "/v1/seller/stores/cmabc123xyz/manual-orders" },
+      { method: "POST", path: "/v1/seller/stores/a/b/manual-orders/read" },
+      { method: "GET", path: "/v1/seller/stores/cmabc123xyz/manual-orders/read" },
       { method: "POST", path: "/v1/consumer/quote-requests/photo-read/x" },
       { method: "POST", path: "/v1/consumer/quote-requests/photo-read/" },
       { method: "POST", path: "/v1/consumer/quote-requests/photo-reader" },

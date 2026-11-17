@@ -10,13 +10,21 @@ import {
 /** 사진(data URL)을 JSON으로 받는 경로. 기본 JSON 한도(100kb)로는 1280px 사진도 들어오지 않는다 */
 export const PHOTO_READ_PATH = `${API_PREFIX}/consumer/quote-requests/photo-read`;
 
+/** 직접 적은 주문 대화 캡처 읽기(기획 I-42): `POST /v1/seller/stores/{storeId}/manual-orders/read` */
+const MANUAL_ORDER_READ_PATH = new RegExp(
+  `^${API_PREFIX.replace("/", "\\/")}\\/seller\\/stores\\/[A-Za-z0-9_-]{1,64}\\/manual-orders\\/read$`,
+);
+
 /**
- * 큰 JSON을 받아도 되는 요청인지: `POST /v1/consumer/quote-requests/photo-read` 딱 하나.
+ * 큰 JSON을 받아도 되는 요청인지: `POST /v1/consumer/quote-requests/photo-read`와
+ * `POST /v1/seller/stores/{storeId}/manual-orders/read` 둘뿐.
  * 경로 앞부분만 같은 요청(`.../photo-read/x`)·다른 메서드·끝에 `/`를 붙인 요청은 기본 한도(100kb) 그대로다
  * (`app.use(경로, …)`는 앞부분만 맞아도 붙어서 쓰지 않는다)
  */
 export function isLargeJsonBodyRequest(req: Pick<express.Request, "method" | "path">): boolean {
-  return req.method === "POST" && req.path === PHOTO_READ_PATH;
+  return (
+    req.method === "POST" && (req.path === PHOTO_READ_PATH || MANUAL_ORDER_READ_PATH.test(req.path))
+  );
 }
 
 /**

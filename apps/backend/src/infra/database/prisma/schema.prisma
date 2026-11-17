@@ -715,6 +715,11 @@ model Store {
   // 환불·취소 규정 (JSON). { rules: [{ daysBeforePickup, refundDescription }, ...] } (N=0이면 픽업 당일)
   refundCancellationPolicy Json @default("{\"rules\":[{\"daysBeforePickup\":0,\"refundDescription\":\"\"}]}") @map("refund_cancellation_policy")
 
+  // 다른 캘린더로 내보내기(기획 I-42): 아이폰·구글 캘린더가 구독하는 주소의 비밀 값. 처음 열 때 만들고, 새로 만들면 옛 주소는 끊긴다
+  calendarFeedToken        String? @unique @map("calendar_feed_token")
+  /// 내보낸 일정 이름에 손님 이름을 붙일지(기본 가림)
+  calendarFeedShowCustomer Boolean @default(false) @map("calendar_feed_show_customer")
+
   // 시스템 필드
   likeCount Int      @default(0) @map("like_count") // 좋아요 개수
   createdAt DateTime @default(now()) @map("created_at")
@@ -727,6 +732,7 @@ model Store {
   shop                    Shop?
   feeds                   StoreFeed[]
   orders                  Order[]
+  manualOrders            ManualOrder[]
   notificationPreferences UserNotificationPreference[]
   quoteRequestStores      QuoteRequestStore[]
   linkVisits              StoreLinkVisit[]
@@ -1157,6 +1163,36 @@ model Order {
   @@map("orders")
 }
 
+/// 사장님이 Picake 밖(카톡·인스타·전화 등)에서 받아 판매자 앱에 직접 적은 주문(기획 I-42).
+/// 사장님 장부라 Picake 주문(orders)·알림톡·수수료·정산·관리자 숫자와 섞지 않는다. 손님 연락처는 받지 않는다.
+model ManualOrder {
+  id           String            @id @default(cuid())
+  storeId      String            @map("store_id")
+  /// 픽업 날 YYYY-MM-DD(Asia/Seoul 달력)
+  pickupDate   String            @map("pickup_date") @db.VarChar(10)
+  /// 픽업 시각 HH:mm(Asia/Seoul). 모르면 null("미정")
+  pickupTime   String?           @map("pickup_time") @db.VarChar(5)
+  /// 케이크(크기·맛·디자인을 한 줄로)
+  cakeName     String            @map("cake_name") @db.VarChar(100)
+  lettering    String?           @db.VarChar(100)
+  /// 금액(원). 적은 주문만 매출로 센다
+  price        Int?
+  /// 입금: true 받음, false 아직, null 고르지 않음
+  paid         Boolean?
+  /// 손님(이름·닉네임·인스타 아이디 아무거나)
+  customerName String?           @map("customer_name") @db.VarChar(50)
+  source       ManualOrderSource
+  memo         String?           @db.VarChar(500)
+  photoUrls    String[]          @default([]) @map("photo_urls")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, pickupDate]) // 달력·기간 조회
+  @@map("manual_orders")
+}
+
 /// 계정 단위 알림 (USER_WEB: consumerId / SELLER_WEB: sellerId)
 model UserNotification {
   id             String                 @id @default(cuid())
@@ -1472,6 +1508,15 @@ enum OrderStatus {
 /// 손님이 예약에 들어온 길(기획 I-45)
 enum OrderEntrySource {
   STORE_LINK // 사장님이 보낸 가게·상품 링크
+}
+
+/// 직접 적은 주문을 받은 곳(기획 I-42)
+enum ManualOrderSource {
+  KAKAO // 카톡
+  INSTAGRAM // 인스타
+  PHONE // 전화
+  NAVER // 네이버
+  OTHER // 기타
 }
 
 /// 정산 계좌 은행 (API·DB 공통 코드값)

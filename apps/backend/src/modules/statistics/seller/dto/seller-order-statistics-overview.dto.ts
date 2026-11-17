@@ -2,6 +2,7 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty, IsString } from "class-validator";
 import { IsYmdDateString } from "@apps/backend/common/decorators/date-query.decorator";
 import { SWAGGER_EXAMPLES as STORE_SWAGGER_EXAMPLES } from "@apps/backend/modules/store/constants/store.constants";
+import { ManualOrderSource } from "@apps/backend/infra/database/prisma/generated/client";
 
 /**
  * GET /statistics/orders/overview 쿼리 (order-list.dto의 OrderListRequestDto와 같이 인바운드 요청 형태)
@@ -68,6 +69,48 @@ export class SellerOrderStatisticsHourlyDto {
   count: number;
 }
 
+/** 직접 적은 주문의 받은 곳 한 줄(기획 I-42) */
+export class SellerManualOrderSourceStatDto {
+  @ApiProperty({ enum: ManualOrderSource })
+  source: ManualOrderSource;
+
+  @ApiProperty({ description: "금액을 적은 주문의 매출 합(원)" })
+  sales: number;
+
+  @ApiProperty({ description: "주문 수" })
+  orders: number;
+}
+
+/**
+ * 직접 적은 주문(기획 I-42, 사장님이 Picake 밖에서 받아 적은 주문) 통계.
+ * Picake 주문과 달리 픽업 날이 기간 안이고 오늘까지 지난 주문을 센다(접수 시각이 없어서). 매출은 금액을 적은 주문만.
+ */
+export class SellerManualOrderStatisticsDto {
+  @ApiProperty({ description: "매출(원)" })
+  totalSales: number;
+
+  @ApiProperty({ description: "주문 수" })
+  totalOrders: number;
+
+  @ApiProperty({
+    type: [SellerManualOrderSourceStatDto],
+    description: "받은 곳별(주문이 있는 곳만)",
+  })
+  bySource: SellerManualOrderSourceStatDto[];
+
+  @ApiProperty({ type: [SellerOrderStatisticsWeekdayDto], description: "요일별 매출(픽업 날)" })
+  weekdayPickupSales: SellerOrderStatisticsWeekdayDto[];
+
+  @ApiProperty({ type: [SellerOrderStatisticsWeekdayDto], description: "요일별 주문 수(픽업 날)" })
+  weekdayPickupOrders: SellerOrderStatisticsWeekdayDto[];
+
+  @ApiProperty({
+    type: [SellerOrderStatisticsHourlyDto],
+    description: "시간대별 주문 수(픽업 시각, 시각을 적지 않은 주문은 뺌)",
+  })
+  hourlyPickupOrders: SellerOrderStatisticsHourlyDto[];
+}
+
 /**
  * GET /statistics/orders/overview 응답 본문
  */
@@ -128,4 +171,11 @@ export class SellerOrderStatisticsOverviewResponseDto {
     type: [SellerOrderStatisticsHourlyDto],
   })
   hourlyPickupOrders: SellerOrderStatisticsHourlyDto[];
+
+  @ApiProperty({
+    type: SellerManualOrderStatisticsDto,
+    description:
+      "직접 적은 주문(기획 I-42). 위 숫자(Picake 주문)에는 들어가지 않는다. 사장님 화면은 둘을 더해 보이고, 관리자 숫자에는 넣지 않는다",
+  })
+  manual: SellerManualOrderStatisticsDto;
 }

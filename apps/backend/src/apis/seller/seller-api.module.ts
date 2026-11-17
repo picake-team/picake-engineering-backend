@@ -32,6 +32,9 @@ import { SellerProductNaverController } from "@apps/backend/apis/seller/controll
 import { ProductNaverModule } from "@apps/backend/modules/product-naver/product-naver.module";
 import { FcmModule } from "@apps/backend/modules/fcm/fcm.module";
 import { SellerFcmTokenController } from "@apps/backend/apis/seller/controllers/fcm-token.controller";
+import { ManualOrderModule } from "@apps/backend/modules/manual-order/manual-order.module";
+import { SellerManualOrderController } from "@apps/backend/apis/seller/controllers/manual-order.controller";
+import { SellerCalendarFeedController } from "@apps/backend/apis/seller/controllers/calendar-feed.controller";
 
 /**
  * Seller API 모듈
@@ -56,6 +59,7 @@ import { SellerFcmTokenController } from "@apps/backend/apis/seller/controllers/
     ProductNaverModule,
     FcmModule,
     ChatModule,
+    ManualOrderModule,
   ],
   controllers: [
     SellerQuoteController,
@@ -75,6 +79,8 @@ import { SellerFcmTokenController } from "@apps/backend/apis/seller/controllers/
     SellerNaverPlaceController,
     SellerProductNaverController,
     SellerChatController,
+    SellerManualOrderController,
+    SellerCalendarFeedController,
   ],
 })
 export class SellerApiModule {}
