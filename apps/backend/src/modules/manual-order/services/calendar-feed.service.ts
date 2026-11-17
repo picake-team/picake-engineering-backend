@@ -44,6 +44,11 @@ const FEED_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.PICKUP_COMPLETED,
 ];
 
+const FEED_PENDING_LABEL: Partial<Record<OrderStatus, string>> = {
+  [OrderStatus.RESERVATION_REQUESTED]: "예약신청(아직 받지 않음)",
+  [OrderStatus.PAYMENT_PENDING]: "입금 전",
+};
+
 export const CALENDAR_FEED_PATH_PREFIX = `${API_PREFIX}/${AUDIENCE.SELLER}/calendar-feeds`;
 
 /** 주소의 비밀 값: 영문·숫자·-·_ 32자 */
@@ -60,13 +65,18 @@ export function newCalendarFeedToken(): string {
 export class CalendarFeedService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** 주소를 보여 준다. 처음이면 만든다 */
+  /** 주소를 보여 준다. 처음이면 만든다(같은 순간 두 번 불러도 주소는 하나 — 먼저 받은 주소가 끊기지 않게) */
   async get(sellerId: string, storeId: string): Promise<CalendarFeedDto> {
     const store = await this.findOwned(sellerId, storeId);
     if (store.calendarFeedToken) {
       return this.toDto(store.calendarFeedToken, store.calendarFeedShowCustomer);
     }
-    return this.reset(sellerId, storeId);
+    await this.prisma.store.updateMany({
+      where: { id: storeId, calendarFeedToken: null },
+      data: { calendarFeedToken: newCalendarFeedToken() },
+    });
+    const created = await this.findOwned(sellerId, storeId);
+    return this.toDto(created.calendarFeedToken!, created.calendarFeedShowCustomer);
   }
 
   /** 새 주소를 만든다(옛 주소는 끊김) */
@@ -97,7 +107,7 @@ export class CalendarFeedService {
     return this.toDto(updated.calendarFeedToken!, updated.calendarFeedShowCustomer);
   }
 
-  /** 구독 주소로 온 요청에 줄 ics. 없는 주소·탈퇴한 사장님이면 404 */
+  /** 구독 주소로 온 요청에 줄 ics. 없는 주소·탈퇴하거나 정지된 사장님이면 404 */
   async buildIcs(token: string, now: Date = new Date()): Promise<string> {
     if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) {
       throw new NotFoundException(CALENDAR_FEED_ERROR_MESSAGES.NOT_FOUND);
@@ -108,10 +118,11 @@ export class CalendarFeedService {
         id: true,
         name: true,
         calendarFeedShowCustomer: true,
-        seller: { select: { withdrawnAt: true } },
+        seller: { select: { withdrawnAt: true, isActive: true } },
       },
     });
-    if (!store || store.seller.withdrawnAt) {
+    // 정지된 사장님은 로그인을 못 해 "주소 새로 만들기"로 끊을 수도 없으니 닫는다(계정이 털려 정지한 경우)
+    if (!store || store.seller.withdrawnAt || !store.seller.isActive) {
       throw new NotFoundException(CALENDAR_FEED_ERROR_MESSAGES.NOT_FOUND);
     }
 
@@ -132,6 +143,7 @@ export class CalendarFeedService {
           pickupDate: true,
           productName: true,
           reservationContactName: true,
+          orderStatus: true,
           updatedAt: true,
         },
         orderBy: { pickupDate: "asc" },
@@ -155,7 +167,8 @@ export class CalendarFeedService {
           customerName: order.reservationContactName,
           showCustomerName,
         }),
-        description: null,
+        // 아직 받지 않은 예약신청·입금 전은 다른 캘린더에서도 확정과 나눠 보이게
+        description: FEED_PENDING_LABEL[order.orderStatus] ?? null,
         updatedAt: order.updatedAt,
       });
     }

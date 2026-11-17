@@ -10,6 +10,12 @@ describe("escapeIcsText", () => {
   it("역슬래시·세미콜론·쉼표·줄바꿈을 RFC 5545대로", () => {
     expect(escapeIcsText("a\\b;c,d\ne")).toBe("a\\\\b\\;c\\,d\\ne");
   });
+
+  it("홀로 있는 CR도 \\n으로, 다른 제어 문자는 뺀다(손님 이름으로 URL: 줄을 끼워 넣지 못하게)", () => {
+    expect(escapeIcsText("김\rURL:https://bit.ly/x")).toBe("김\\nURL:https://bit.ly/x");
+    expect(escapeIcsText("a\r\nb\u0000c\u001Bd\u007F")).toBe("a\\nbcd");
+    expect(escapeIcsText("탭\t유지")).toBe("탭\t유지");
+  });
 });
 
 describe("foldIcsLine", () => {

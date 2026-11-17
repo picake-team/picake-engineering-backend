@@ -16,13 +16,20 @@ export interface CalendarFeedEvent {
   updatedAt: Date;
 }
 
-/** ics 글 값 이스케이프(RFC 5545 3.3.11) */
+/**
+ * ics 글 값 이스케이프(RFC 5545 3.3.11). 줄바꿈(CRLF·CR·LF)은 \\n으로, 그 밖의 제어 문자는 뺀다
+ * (손님이 고른 예약자 이름에 CR을 넣어 `URL:` 같은 줄을 끼워 넣지 못하게, 엄격한 캘린더가 피드를 거부하지 않게)
+ */
 export function escapeIcsText(value: string): string {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/;/g, "\\;")
-    .replace(/,/g, "\\,")
-    .replace(/\r?\n/g, "\\n");
+  return (
+    value
+      .replace(/\\/g, "\\\\")
+      .replace(/;/g, "\\;")
+      .replace(/,/g, "\\,")
+      .replace(/\r\n|\r|\n/g, "\\n")
+      // 줄바꿈을 바꾼 뒤 남은 제어 문자(탭 빼고)
+      .replace(/[^\P{Cc}\t]/gu, "")
+  );
 }
 
 /** 한 줄이 75바이트를 넘으면 접는다(RFC 5545 3.1). 한글이 바이트 중간에서 잘리지 않게 글자 단위로 */
@@ -87,6 +94,16 @@ export function buildCalendarIcs(params: {
     "X-WR-TIMEZONE:Asia/Seoul",
     `REFRESH-INTERVAL;VALUE=DURATION:PT${CALENDAR_FEED.REFRESH_MINUTES}M`,
     `X-PUBLISHED-TTL:PT${CALENDAR_FEED.REFRESH_MINUTES}M`,
+    // 일정이 없어도 구성 요소가 하나는 있게(RFC 5545 3.6). 시각은 모두 UTC로 적어 이 정의에 기대지 않는다
+    "BEGIN:VTIMEZONE",
+    "TZID:Asia/Seoul",
+    "BEGIN:STANDARD",
+    "DTSTART:19700101T000000",
+    "TZOFFSETFROM:+0900",
+    "TZOFFSETTO:+0900",
+    "TZNAME:KST",
+    "END:STANDARD",
+    "END:VTIMEZONE",
   ];
   for (const event of params.events) {
     lines.push("BEGIN:VEVENT");

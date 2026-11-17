@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { ManualOrderSource } from "@apps/backend/infra/database/prisma/generated/client";
 import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
 import { ManualOrderService } from "@apps/backend/modules/manual-order/services/manual-order.service";
@@ -13,14 +13,15 @@ import {
   createTestSeller,
   createTestStore,
 } from "@apps/backend/test/integration/factories";
+import { testUploadUrl } from "@apps/backend/test/integration/upload-url";
 
 /**
  * 직접 적은 주문(기획 I-42)을 실제 Postgres로: 내 스토어만, 픽업 날·시각 순(시각 없으면 맨 뒤),
  * 통계(픽업 날 기준·오늘까지·금액 적은 주문만 매출), 다른 캘린더로 내보내기(주소·손님 이름·새 주소).
  */
 describe("직접 적은 주문 (integration)", () => {
-  // 업로드 API가 발급하는 주소(테스트 환경의 CLOUDFRONT_DOMAIN)
-  const cdn = (name: string) => `https://${process.env.CLOUDFRONT_DOMAIN ?? "cdn.test"}/${name}`;
+  // 업로드 API가 발급하는 꼴의 주소(로컬은 CloudFront, CI는 S3 꼴)
+  const cdn = testUploadUrl;
   const input = (overrides: Partial<Record<string, unknown>> = {}) => ({
     pickupDate: "2026-12-24",
     pickupTime: "12:00",
@@ -110,6 +111,55 @@ describe("직접 적은 주문 (integration)", () => {
     expect(await prisma.manualOrder.count({ where: { storeId: store.id } })).toBe(0);
   });
 
+  it("사진 칸을 보내지 않은 고치기는 사진을 그대로 두고 파일도 지우지 않는다", async () => {
+    const { seller, store, upload, service } = await setup();
+    const a = await service.create(
+      seller.id,
+      store.id,
+      input({ photoUrls: [cdn("keep.jpg")] }) as any,
+    );
+    const rest: Record<string, unknown> = input({ cakeName: "고친 케이크" });
+    delete rest.photoUrls;
+    const saved = await service.update(seller.id, store.id, a.id, rest as any);
+    expect(saved.photoUrls).toEqual([cdn("keep.jpg")]);
+    expect(saved.cakeName).toBe("고친 케이크");
+    expect(upload.deleteFilesByUrl).not.toHaveBeenCalled();
+  });
+
+  it("업로드 API가 준 꼴이 아닌 사진 주소(?·#·다른 곳)는 받지 않는다(지울 때 남의 파일이 지워지지 않게)", async () => {
+    const { seller, store, service } = await setup();
+    for (const bad of [
+      `${cdn("x.jpg")}?x`,
+      `${cdn("x.jpg")}#x`,
+      "https://evil.example/uploads/x.jpg",
+    ]) {
+      await expect(
+        service.create(seller.id, store.id, input({ photoUrls: [bad] }) as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    }
+  });
+
+  it("글자 수는 DB처럼 센다: ❤️(U+FE0F)가 많은 101글자 레터링은 400(500이 아니라)", async () => {
+    const { seller, store, service } = await setup();
+    // class-validator는 95자로 세지만 DB는 101자
+    const lettering = "가".repeat(89) + "❤️".repeat(6);
+    await expect(
+      service.create(seller.id, store.id, input({ lettering }) as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("사진 파일 지우기가 실패해도 지우기는 끝난다", async () => {
+    const { prisma, seller, store, upload, service } = await setup();
+    const row = await service.create(
+      seller.id,
+      store.id,
+      input({ photoUrls: [cdn("a.jpg")] }) as any,
+    );
+    upload.deleteFilesByUrl.mockRejectedValueOnce(new Error("db down"));
+    await service.remove(seller.id, store.id, row.id);
+    expect(await prisma.manualOrder.count({ where: { id: row.id } })).toBe(0);
+  });
+
   it("입금만 바꾸고, 지운다", async () => {
     const { seller, store, service } = await setup();
     const row = await service.create(seller.id, store.id, input({ paid: false }) as any);
@@ -178,6 +228,34 @@ describe("직접 적은 주문 (integration)", () => {
 
     const next = await feed.reset(seller.id, store.id);
     expect(next.path).not.toBe(first.path);
+    await expect(feed.buildIcs(token, now)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("내보내기: 처음 여는 요청이 동시에 두 번 와도 주소는 하나, 예약신청은 설명에 표시, 정지된 사장님은 404", async () => {
+    const { prisma, seller, store, service } = await setup();
+    const consumer = await createTestConsumer(prisma);
+    const product = await createTestProduct(prisma, store.id);
+    await createTestOrder(
+      prisma,
+      { consumerId: consumer.id, productId: product.id, storeId: store.id },
+      {
+        pickupDate: new Date("2026-12-24T02:00:00.000Z"),
+        orderStatus: OrderStatus.RESERVATION_REQUESTED,
+      },
+    );
+    await service.create(seller.id, store.id, input() as any);
+    const feed = new CalendarFeedService(prisma);
+    const now = new Date("2026-11-17T03:00:00.000Z");
+
+    const [a, b] = await Promise.all([
+      feed.get(seller.id, store.id),
+      feed.get(seller.id, store.id),
+    ]);
+    expect(a.path).toBe(b.path);
+    const token = a.path.split("/").pop()!.replace(".ics", "");
+    expect(await feed.buildIcs(token, now)).toContain("DESCRIPTION:예약신청(아직 받지 않음)");
+
+    await prisma.seller.update({ where: { id: seller.id }, data: { isActive: false } });
     await expect(feed.buildIcs(token, now)).rejects.toBeInstanceOf(NotFoundException);
   });
 });

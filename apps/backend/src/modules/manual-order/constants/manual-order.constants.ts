@@ -28,6 +28,7 @@ export const MANUAL_ORDER_ERROR_MESSAGES = {
   INVALID_PHOTO: "사진을 다시 올려 주세요.",
   INVALID_RANGE: "기간을 다시 골라 주세요.",
   TOO_MANY: "적어 둔 주문이 너무 많아요. 지난 주문을 지운 뒤 다시 적어 주세요.",
+  TOO_LONG: "글자 수가 너무 많아요. 줄여서 다시 적어 주세요.",
 } as const;
 
 /**
@@ -39,8 +40,6 @@ export const MANUAL_ORDER_READ_MODEL = "claude-haiku-5-5";
 export const MANUAL_ORDER_READ_LIMITS = {
   /** 붙여 넣은 대화 글(이보다 길면 앞부분이 아니라 뒷부분 — 최근 대화 — 을 읽는다) */
   TEXT_MAX_CHARS: 6_000,
-  /** 캡처는 웹이 1600px·품질 0.8로 줄여 보낸다. 풀었을 때 이보다 크면 받지 않는다 */
-  MAX_IMAGE_BYTES: Math.floor(2.5 * 1024 * 1024),
   /** 하루(한국 시간) 사장님마다 */
   DAILY_PER_SELLER: 60,
   /** 하루(한국 시간) 모든 사장님을 합쳐. 넘으면 키가 없을 때와 같은 503 */
@@ -50,9 +49,9 @@ export const MANUAL_ORDER_READ_LIMITS = {
   /** Claude 한 번을 기다리는 최대 시간(다시 시도하지 않음). 웹은 30초 기다린다 */
   CLAUDE_TIMEOUT_MS: 20_000,
   MAX_OUTPUT_TOKENS: 1024,
-  /** 캡처를 받는 이 경로만 JSON 본문 한도를 올린다 */
-  BODY_LIMIT: "4mb",
 } as const;
+// 캡처 크기(풀었을 때 2.5MB, JPG·PNG 첫 바이트 확인)와 이 경로의 JSON 본문 한도(4MB)는 견적 사진 읽기와 같은 값을 쓴다
+// (parseImageDataUrl·QUOTE_PHOTO_READ_LIMITS, common/config/body-limit.config.ts). 웹은 긴 변 2000px·품질 0.82로 줄여 보낸다
 
 export const MANUAL_ORDER_READ_ERROR_MESSAGES = {
   EMPTY: "붙여 넣을 대화가 없어요. 대화를 복사한 뒤 다시 눌러 주세요.",

@@ -7,7 +7,10 @@ import {
 } from "@apps/backend/modules/manual-order/constants/manual-order.constants";
 import { HH_MM } from "@apps/backend/modules/manual-order/dto/manual-order.dto";
 import { isRealYmdDateString } from "@apps/backend/common/decorators/date-query.decorator";
-import { ymdWeekday } from "@apps/backend/modules/manual-order/utils/manual-order-date.util";
+import {
+  ymdDayDiff,
+  ymdWeekday,
+} from "@apps/backend/modules/manual-order/utils/manual-order-date.util";
 
 /** 읽은 결과(주문 적기 칸을 채울 값). 사장님이 보고 고친 뒤 등록한다 */
 export interface ManualOrderReadResult {
@@ -115,14 +118,46 @@ function clean(value: unknown, max: number): string | null {
 
 const SOURCES = new Set<string>(Object.values(ManualOrderSource));
 
+/** 휴대폰·일반 전화번호(하이픈·점·띄어쓰기 있어도) */
+const PHONE_NUMBER = /(?<!\d)(?:01[016789]|0[2-6]\d?|070|050\d)[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)/g;
+/** 하이픈으로 나뉜 숫자 묶음(계좌번호 등). 숫자가 10개 이상일 때만(날짜 2026-11-28은 남김) */
+const HYPHENATED_NUMBER = /(?<!\d)\d{2,6}(?:-\d{1,8}){2,4}(?!\d)/g;
+/** 이어진 숫자 10개 이상(하이픈 없는 계좌·번호) */
+const LONG_NUMBER = /(?<!\d)\d{10,}(?!\d)/g;
+
+/**
+ * 전화번호·계좌번호처럼 보이는 숫자를 바꾼다. AI에 보내기 전 대화 글(`[번호]`)과 AI가 돌려준 칸(빈 글)에 쓴다.
+ * 손님 연락처·계좌는 받지 않기로 했고(기획 I-42), 프롬프트만으로는 모델이 어길 수 있다. 금액(52,000)·날짜는 남는다.
+ */
+export function maskContactNumbers(text: string, replacement = "[번호]"): string {
+  return text
+    .replace(PHONE_NUMBER, replacement)
+    .replace(HYPHENATED_NUMBER, (match) =>
+      match.replace(/\D/g, "").length >= 10 ? replacement : match,
+    )
+    .replace(LONG_NUMBER, replacement);
+}
+
+/** AI가 돌려준 글 칸: 번호를 빼고 다듬는다 */
+function cleanField(value: unknown, max: number): string | null {
+  return clean(typeof value === "string" ? maskContactNumbers(value, "") : value, max);
+}
+
+/** 읽은 픽업 날짜로 받아 줄 범위(오늘 기준 지난 7일 ~ 앞으로 1년). 작년·먼 미래로 읽으면 비운다 */
+const READ_DATE_PAST_DAYS = 7;
+const READ_DATE_FUTURE_DAYS = 366;
+
 /** 모델 응답(JSON)을 화면에 보낼 값으로. 형식이 틀린 칸은 null */
-export function toManualOrderReadResult(raw: unknown): ManualOrderReadResult {
+export function toManualOrderReadResult(raw: unknown, today?: string): ManualOrderReadResult {
   if (!raw || typeof raw !== "object") return EMPTY_READ_RESULT;
   const r = raw as Record<string, unknown>;
   if (r.found !== true) return EMPTY_READ_RESULT;
 
-  const date =
+  const realDate =
     typeof r.pickupDate === "string" && isRealYmdDateString(r.pickupDate) ? r.pickupDate : null;
+  const offset = realDate && today ? ymdDayDiff(today, realDate) : 0;
+  const date =
+    realDate && offset >= -READ_DATE_PAST_DAYS && offset <= READ_DATE_FUTURE_DAYS ? realDate : null;
   const time = typeof r.pickupTime === "string" && HH_MM.test(r.pickupTime) ? r.pickupTime : null;
   const price =
     typeof r.price === "number" &&
@@ -135,16 +170,16 @@ export function toManualOrderReadResult(raw: unknown): ManualOrderReadResult {
     found: true,
     pickupDate: date,
     pickupTime: time,
-    cakeName: clean(r.cakeName, MANUAL_ORDER_LIMITS.CAKE_NAME_MAX),
-    lettering: clean(r.lettering, MANUAL_ORDER_LIMITS.LETTERING_MAX),
+    cakeName: cleanField(r.cakeName, MANUAL_ORDER_LIMITS.CAKE_NAME_MAX),
+    lettering: cleanField(r.lettering, MANUAL_ORDER_LIMITS.LETTERING_MAX),
     price,
     paid: typeof r.paid === "boolean" ? r.paid : null,
-    customerName: clean(r.customerName, MANUAL_ORDER_LIMITS.CUSTOMER_NAME_MAX),
+    customerName: cleanField(r.customerName, MANUAL_ORDER_LIMITS.CUSTOMER_NAME_MAX),
     source:
       typeof r.source === "string" && SOURCES.has(r.source)
         ? (r.source as ManualOrderSource)
         : null,
-    memo: clean(r.memo, MANUAL_ORDER_LIMITS.MEMO_MAX),
+    memo: cleanField(r.memo, MANUAL_ORDER_LIMITS.MEMO_MAX),
   };
   // 읽은 칸이 하나도 없으면 못 읽은 것과 같다
   const anything =
@@ -156,9 +191,17 @@ export function toManualOrderReadResult(raw: unknown): ManualOrderReadResult {
   return anything ? result : EMPTY_READ_RESULT;
 }
 
-/** 대화 글이 길면 최근(뒤쪽)만 남긴다 */
+/**
+ * 대화 글이 길면 최근(뒤쪽)만 남기고, 전화번호·계좌번호는 AI에 보내기 전에 가린다.
+ * 대화 틀(`<대화>`) 글자는 빼서 손님 글이 틀을 닫지 못하게 한다.
+ */
 export function clipConversation(text: string): string {
-  const normalized = text.replace(/\r\n?/g, "\n").trim();
+  const max = MANUAL_ORDER_READ_LIMITS.TEXT_MAX_CHARS;
+  // 4MB 글 전체를 글자 배열로 만들지 않게 뒤쪽(글자 수의 두 배 UTF-16)만 먼저 자른다
+  const tail = text.length > max * 2 ? text.slice(text.length - max * 2) : text;
+  const normalized = maskContactNumbers(
+    tail.replace(/\r\n?/g, "\n").replace(/<\/?대화>/g, ""),
+  ).trim();
   const chars = Array.from(normalized);
   if (chars.length <= MANUAL_ORDER_READ_LIMITS.TEXT_MAX_CHARS) return normalized;
   return chars.slice(chars.length - MANUAL_ORDER_READ_LIMITS.TEXT_MAX_CHARS).join("");
@@ -223,7 +266,7 @@ export async function readOrderConversation(
       .map((block) => block.text)
       .join("");
     try {
-      result = toManualOrderReadResult(JSON.parse(text));
+      result = toManualOrderReadResult(JSON.parse(text), context.today);
     } catch {
       result = EMPTY_READ_RESULT;
     }

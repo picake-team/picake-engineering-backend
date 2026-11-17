@@ -134,8 +134,9 @@ export class ManualOrderReadService {
       );
     } catch (error: any) {
       const status: number | undefined = error?.status;
-      // Claude가 캡처를 받지 않음(깨진 사진 등 4xx, 한도 429 제외): 사장님 쪽 문제라 횟수를 세고 400으로
-      if (!deadline.signal.aborted && status && status >= 400 && status < 500 && status !== 429) {
+      // Claude가 캡처를 받지 않음(깨진 사진 등 400): 사장님 쪽 문제라 횟수를 세고 400으로.
+      // 대화 글의 4xx와 401·403·404(키·권한·모델)는 우리 쪽 문제라 아래에서 되돌리고 502로 알린다
+      if (!deadline.signal.aborted && source.kind === "image" && status === 400) {
         SentryUtil.captureExceptionThrottled(
           "manual-order-read:claude-4xx",
           CLAUDE_REJECTED_NOTICE_INTERVAL_MS,
@@ -144,11 +145,7 @@ export class ManualOrderReadService {
           { module: "manual-order", operation: "read" },
           { httpStatus: status, providerError: error?.error?.error?.type },
         );
-        throw new BadRequestException(
-          source.kind === "image"
-            ? MANUAL_ORDER_READ_ERROR_MESSAGES.INVALID_IMAGE
-            : MANUAL_ORDER_READ_ERROR_MESSAGES.FAILED,
-        );
+        throw new BadRequestException(MANUAL_ORDER_READ_ERROR_MESSAGES.INVALID_IMAGE);
       }
       this.quota.refund(key);
       this.totalQuota.refund("all");

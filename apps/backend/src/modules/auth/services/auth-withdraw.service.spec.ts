@@ -30,6 +30,9 @@ describe("AuthWithdrawService.withdraw", () => {
   const chatCleanupMock = {
     deleteAllForConsumer: vi.fn().mockResolvedValue({ messages: 0, photos: 0 }),
   };
+  const manualOrderMock = {
+    deleteAllForSeller: vi.fn().mockResolvedValue({ orders: 0, photos: 0 }),
+  };
 
   let service: AuthWithdrawService;
 
@@ -46,10 +49,7 @@ describe("AuthWithdrawService.withdraw", () => {
         { provide: AuthNaverOauthService, useValue: authNaverOauthServiceMock },
         { provide: QuoteRequestCleanupService, useValue: quoteCleanupMock },
         { provide: ChatCleanupService, useValue: chatCleanupMock },
-        {
-          provide: ManualOrderService,
-          useValue: { deleteAllForSeller: vi.fn().mockResolvedValue({ orders: 0, photos: 0 }) },
-        },
+        { provide: ManualOrderService, useValue: manualOrderMock },
       ],
     }).compile();
 
@@ -363,6 +363,26 @@ describe("AuthWithdrawService.withdraw", () => {
       expect(prismaMock.store.deleteMany).not.toHaveBeenCalled();
     });
 
+    it("직접 적은 주문(기획 I-42): 내보낸 캘린더 주소를 끊고 주문·사진을 지운다", async () => {
+      prismaMock.seller.findUnique.mockResolvedValue({ id: "seller-1", withdrawnAt: null } as any);
+
+      await service.withdraw(AUDIENCE.SELLER, "seller-1", "탈퇴 사유");
+
+      expect(prismaMock.store.updateMany).toHaveBeenCalledWith({
+        where: { sellerId: "seller-1" },
+        data: { calendarFeedToken: null },
+      });
+      expect(manualOrderMock.deleteAllForSeller).toHaveBeenCalledWith("seller-1");
+    });
+
+    it("진행 중인 주문으로 탈퇴가 막히면 직접 적은 주문은 지우지 않는다", async () => {
+      prismaMock.seller.findUnique.mockResolvedValue({ id: "seller-1", withdrawnAt: null } as any);
+      prismaMock.order.count.mockResolvedValue(1);
+
+      await expect(service.withdraw(AUDIENCE.SELLER, "seller-1", "탈퇴 사유")).rejects.toThrow();
+      expect(manualOrderMock.deleteAllForSeller).not.toHaveBeenCalled();
+    });
+
     it("판매자 앱 심사용 계정은 예시 주문이 진행 중이어도 탈퇴하고 심사용 가게를 지운다", async () => {
       prismaMock.seller.findUnique.mockResolvedValue({
         id: "review-seller",
@@ -377,6 +397,10 @@ describe("AuthWithdrawService.withdraw", () => {
       expect(prismaMock.store.deleteMany).toHaveBeenCalledWith({
         where: { sellerId: "review-seller", businessNo: REVIEW_STORE_BUSINESS_NO },
       });
+      // 가게를 지우면 직접 적은 주문 행이 같이 지워져 사진 파일이 남으므로 그 전에 지운다
+      expect(manualOrderMock.deleteAllForSeller.mock.invocationCallOrder[0]).toBeLessThan(
+        prismaMock.store.deleteMany.mock.invocationCallOrder[0],
+      );
       expect(prismaMock.seller.update).toHaveBeenCalledWith({
         where: { id: "review-seller" },
         data: expect.objectContaining({ isActive: false, phone: "withdrawn_review-seller" }),

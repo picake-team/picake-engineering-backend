@@ -6,7 +6,8 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { ManualOrder, Prisma } from "@apps/backend/infra/database/prisma/generated/client";
-import { isAllowedUploadUrl } from "@apps/backend/modules/upload/utils/upload-url.util";
+import { isCanonicalUploadUrl } from "@apps/backend/modules/upload/utils/upload-url.util";
+import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { UploadService } from "@apps/backend/modules/upload/upload.service";
 import {
   MANUAL_ORDER_ERROR_MESSAGES,
@@ -108,7 +109,8 @@ export class ManualOrderService {
     dto: ManualOrderInputDto,
   ): Promise<ManualOrderDto> {
     const before = await this.findOwned(sellerId, storeId, id);
-    const data = this.toData(dto);
+    // 사진 칸을 보내지 않은 요청(옛 화면 등)은 사진을 그대로 둔다(빈 목록으로 보고 파일을 지우지 않게)
+    const data = this.toData(dto, before.photoUrls);
     const row = await this.prisma.manualOrder.update({ where: { id }, data });
     // 뺀 사진 파일은 지운다(다른 곳이 쓰는 주소는 UploadService가 남김)
     await this.deletePhotos(before.photoUrls.filter((url) => !data.photoUrls.includes(url)));
@@ -146,10 +148,18 @@ export class ManualOrderService {
     return { orders: count, photos };
   }
 
-  /** 사진 파일 지우기. 실패해도 주문 일은 막지 않는다(UploadService가 기록) */
+  /** 사진 파일 지우기. 실패해도 주문 일(고치기·지우기·탈퇴)은 막지 않고 Sentry에 남긴다(채팅·견적 정리와 같음) */
   private async deletePhotos(urls: string[]): Promise<number> {
     if (urls.length === 0) return 0;
-    return await this.uploadService.deleteFilesByUrl(urls);
+    try {
+      return await this.uploadService.deleteFilesByUrl(urls);
+    } catch (e) {
+      SentryUtil.captureException(e, "warning", {
+        module: "manual-order",
+        operation: "delete-photos",
+      });
+      return 0;
+    }
   }
 
   private async findOwned(sellerId: string, storeId: string, id: string): Promise<ManualOrder> {
@@ -160,10 +170,23 @@ export class ManualOrderService {
     return row;
   }
 
-  private toData(dto: ManualOrderInputDto) {
-    const photoUrls = dto.photoUrls ?? [];
-    if (photoUrls.some((url) => !isAllowedUploadUrl(url))) {
-      // 업로드 API로 올린 사진만(다른 곳 주소가 저장되지 않게)
+  private toData(dto: ManualOrderInputDto, keepPhotoUrls: string[] = []) {
+    // 글자 수는 DB(VARCHAR)와 같이 글자(code point)로 다시 센다. class-validator는 이모지 뒤 U+FE0F를 세지 않아
+    // "❤️"가 많은 레터링이 검사를 지나 DB에서 500이 났다
+    const limits: Array<[string | null | undefined, number]> = [
+      [dto.cakeName, MANUAL_ORDER_LIMITS.CAKE_NAME_MAX],
+      [dto.lettering, MANUAL_ORDER_LIMITS.LETTERING_MAX],
+      [dto.customerName, MANUAL_ORDER_LIMITS.CUSTOMER_NAME_MAX],
+      [dto.memo, MANUAL_ORDER_LIMITS.MEMO_MAX],
+    ];
+    if (
+      limits.some(([value, max]) => typeof value === "string" && Array.from(value).length > max)
+    ) {
+      throw new BadRequestException(MANUAL_ORDER_ERROR_MESSAGES.TOO_LONG);
+    }
+    const photoUrls = dto.photoUrls === undefined ? keepPhotoUrls : (dto.photoUrls ?? []);
+    if (photoUrls.some((url) => !isCanonicalUploadUrl(url))) {
+      // 업로드 API가 발급한 꼴 그대로만(다른 곳 주소, `?x`를 붙인 남의 파일 주소가 저장되지 않게 — 지울 때 그 파일이 지워짐)
       throw new BadRequestException(MANUAL_ORDER_ERROR_MESSAGES.INVALID_PHOTO);
     }
     return {
