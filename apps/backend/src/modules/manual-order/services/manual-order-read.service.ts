@@ -65,12 +65,6 @@ export class ManualOrderReadService {
     storeId: string,
     input: { text?: string; image?: string; today?: string },
   ): Promise<ManualOrderReadResult> {
-    const store = await this.prisma.store.findFirst({
-      where: { id: storeId, sellerId },
-      select: { name: true },
-    });
-    if (!store) throw new ForbiddenException(MANUAL_ORDER_ERROR_MESSAGES.STORE_NOT_OWNED);
-
     // 글이 있으면 글, 없으면 캡처
     const text = typeof input.text === "string" ? clipConversation(input.text) : "";
     let source:
@@ -90,6 +84,13 @@ export class ManualOrderReadService {
       throw new ServiceUnavailableException(MANUAL_ORDER_READ_ERROR_MESSAGES.UNAVAILABLE);
     }
 
+    // 돈을 쓰기 전에 내 가게인지
+    const store = await this.prisma.store.findFirst({
+      where: { id: storeId, sellerId },
+      select: { name: true },
+    });
+    if (!store) throw new ForbiddenException(MANUAL_ORDER_ERROR_MESSAGES.STORE_NOT_OWNED);
+
     const key = `seller:${sellerId}`;
     if (!this.quota.tryConsume(key)) {
       throw new HttpException(
@@ -103,6 +104,7 @@ export class ManualOrderReadService {
     }
     if (!this.totalQuota.tryConsume("all")) {
       this.quota.refund(key);
+      LoggerUtil.log(`대화 읽기: 오늘 전체 한도(${MANUAL_ORDER_READ_LIMITS.DAILY_TOTAL}번)에 닿음`);
       SentryUtil.captureExceptionThrottled(
         "manual-order-read:daily-total",
         DAILY_TOTAL_NOTICE_INTERVAL_MS,

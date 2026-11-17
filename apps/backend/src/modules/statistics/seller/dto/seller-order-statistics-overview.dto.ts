@@ -83,7 +83,8 @@ export class SellerManualOrderSourceStatDto {
 
 /**
  * 직접 적은 주문(기획 I-42, 사장님이 Picake 밖에서 받아 적은 주문) 통계.
- * Picake 주문과 달리 픽업 날이 기간 안이고 오늘까지 지난 주문을 센다(접수 시각이 없어서). 매출은 금액을 적은 주문만.
+ * Picake 주문과 달리 픽업 날이 기간 안이고 픽업 시각이 지난 주문을 센다(접수 시각·완료 표시가 없어서 — 오늘은 시각이
+ * 지난 것만, 시각을 적지 않은 오늘 주문은 다음 날부터). 매출은 금액을 적은 주문만.
  */
 export class SellerManualOrderStatisticsDto {
   @ApiProperty({ description: "매출(원)" })

@@ -82,10 +82,7 @@ export const READ_OUTPUT_SCHEMA = {
     paid: { anyOf: [{ type: "boolean" }, { type: "null" }] },
     customerName: NULLABLE_STRING,
     source: {
-      anyOf: [
-        { type: "string", enum: ["KAKAO", "INSTAGRAM", "PHONE", "NAVER", "OTHER"] },
-        { type: "null" },
-      ],
+      anyOf: [{ type: "string", enum: Object.values(ManualOrderSource) }, { type: "null" }],
     },
     memo: NULLABLE_STRING,
   },
@@ -203,8 +200,8 @@ export function clipConversation(text: string): string {
     tail.replace(/\r\n?/g, "\n").replace(/<\/?(대화|정보)>/g, ""),
   ).trim();
   const chars = Array.from(normalized);
-  if (chars.length <= MANUAL_ORDER_READ_LIMITS.TEXT_MAX_CHARS) return normalized;
-  return chars.slice(chars.length - MANUAL_ORDER_READ_LIMITS.TEXT_MAX_CHARS).join("");
+  if (chars.length <= max) return normalized;
+  return chars.slice(chars.length - max).join("");
 }
 
 export type ManualOrderReadGeneration = {
@@ -214,10 +211,6 @@ export type ManualOrderReadGeneration = {
   usage: { inputTokens: number; outputTokens: number };
 };
 
-/**
- * 대화(글 또는 캡처)를 읽는다(저장하지 않음). effort low, 생각 끔, 출력 상한, JSON 스키마로 토큰을 아낀다.
- * 거절·출력 상한·형식이 틀린 응답은 못 읽음(found false).
- */
 /** 사용자 메시지 맨 앞에 넣는 오늘 날짜·가게 이름 */
 export function buildReadContextText(params: { today: string; storeName: string }): string {
   const weekday = WEEKDAYS[ymdWeekday(params.today)];
@@ -225,6 +218,10 @@ export function buildReadContextText(params: { today: string; storeName: string 
   return `<정보>\n오늘: ${params.today} (${weekday}요일, 한국 시간)\n가게 이름: ${storeName}\n</정보>`;
 }
 
+/**
+ * 대화(글 또는 캡처)를 읽는다(저장하지 않음). effort low, 생각 끔, 출력 상한, JSON 스키마로 토큰을 아낀다.
+ * 거절·출력 상한·형식이 틀린 응답은 못 읽음(found false).
+ */
 export async function readOrderConversation(
   client: Anthropic,
   model: string,

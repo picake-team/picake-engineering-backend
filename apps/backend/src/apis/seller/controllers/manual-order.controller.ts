@@ -22,6 +22,7 @@ import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-au
 import { ThrottleMessage } from "@apps/backend/common/decorators/throttle-message.decorator";
 import { createMessageObject } from "@apps/backend/common/utils/message.util";
 import {
+  MANUAL_ORDER_ERROR_MESSAGES,
   MANUAL_ORDER_READ_ERROR_MESSAGES,
   MANUAL_ORDER_READ_LIMITS,
 } from "@apps/backend/modules/manual-order/constants/manual-order.constants";
@@ -178,6 +179,8 @@ export class SellerManualOrderController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "(로그인 필요) 지우기" })
   @SwaggerAuthResponses()
+  @SwaggerResponse(200, { dataExample: { deleted: true } })
+  @SwaggerResponse(404, { dataExample: createMessageObject(MANUAL_ORDER_ERROR_MESSAGES.NOT_FOUND) })
   async remove(
     @Param("storeId") storeId: string,
     @Param("id") id: string,
