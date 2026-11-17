@@ -7,6 +7,7 @@ import {
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { ManualOrder, Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { isAllowedUploadUrl } from "@apps/backend/modules/upload/utils/upload-url.util";
+import { UploadService } from "@apps/backend/modules/upload/upload.service";
 import {
   MANUAL_ORDER_ERROR_MESSAGES,
   MANUAL_ORDER_LIMITS,
@@ -49,7 +50,10 @@ export function toManualOrderDto(row: ManualOrder): ManualOrderDto {
  */
 @Injectable()
 export class ManualOrderService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploadService: UploadService,
+  ) {}
 
   async assertStoreOwned(sellerId: string, storeId: string): Promise<void> {
     const store = await this.prisma.store.findFirst({
@@ -103,8 +107,11 @@ export class ManualOrderService {
     id: string,
     dto: ManualOrderInputDto,
   ): Promise<ManualOrderDto> {
-    await this.findOwned(sellerId, storeId, id);
-    const row = await this.prisma.manualOrder.update({ where: { id }, data: this.toData(dto) });
+    const before = await this.findOwned(sellerId, storeId, id);
+    const data = this.toData(dto);
+    const row = await this.prisma.manualOrder.update({ where: { id }, data });
+    // 뺀 사진 파일은 지운다(다른 곳이 쓰는 주소는 UploadService가 남김)
+    await this.deletePhotos(before.photoUrls.filter((url) => !data.photoUrls.includes(url)));
     return toManualOrderDto(row);
   }
 
@@ -120,8 +127,29 @@ export class ManualOrderService {
   }
 
   async remove(sellerId: string, storeId: string, id: string): Promise<void> {
-    await this.findOwned(sellerId, storeId, id);
+    const row = await this.findOwned(sellerId, storeId, id);
     await this.prisma.manualOrder.delete({ where: { id } });
+    await this.deletePhotos(row.photoUrls);
+  }
+
+  /**
+   * 사장님 탈퇴(기획 I-42): 직접 적은 주문은 Picake 거래가 아닌 사장님 장부라 남길 까닭이 없다.
+   * 손님 이름·사진이 있어 행과 사진 파일을 지운다. 행을 먼저 지워야 사진 참조를 세지 않는다
+   */
+  async deleteAllForSeller(sellerId: string): Promise<{ orders: number; photos: number }> {
+    const rows = await this.prisma.manualOrder.findMany({
+      where: { store: { sellerId } },
+      select: { photoUrls: true },
+    });
+    const { count } = await this.prisma.manualOrder.deleteMany({ where: { store: { sellerId } } });
+    const photos = await this.deletePhotos(rows.flatMap((r) => r.photoUrls));
+    return { orders: count, photos };
+  }
+
+  /** 사진 파일 지우기. 실패해도 주문 일은 막지 않는다(UploadService가 기록) */
+  private async deletePhotos(urls: string[]): Promise<number> {
+    if (urls.length === 0) return 0;
+    return await this.uploadService.deleteFilesByUrl(urls);
   }
 
   private async findOwned(sellerId: string, storeId: string, id: string): Promise<ManualOrder> {

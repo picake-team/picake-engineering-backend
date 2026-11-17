@@ -17,6 +17,7 @@ import { AuthNaverOauthService } from "@apps/backend/modules/auth/services/auth-
 import { AuthWithdrawService } from "./auth-withdraw.service";
 import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
 import { ChatCleanupService } from "@apps/backend/modules/chat/services/chat-cleanup.service";
+import { ManualOrderService } from "@apps/backend/modules/manual-order/services/manual-order.service";
 
 describe("AuthWithdrawService.withdraw", () => {
   const prismaMock = mockDeep<PrismaService>();
@@ -45,6 +46,10 @@ describe("AuthWithdrawService.withdraw", () => {
         { provide: AuthNaverOauthService, useValue: authNaverOauthServiceMock },
         { provide: QuoteRequestCleanupService, useValue: quoteCleanupMock },
         { provide: ChatCleanupService, useValue: chatCleanupMock },
+        {
+          provide: ManualOrderService,
+          useValue: { deleteAllForSeller: vi.fn().mockResolvedValue({ orders: 0, photos: 0 }) },
+        },
       ],
     }).compile();
 

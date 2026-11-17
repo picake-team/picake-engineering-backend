@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { ManualOrderSource } from "@apps/backend/infra/database/prisma/generated/client";
 import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
@@ -19,6 +19,8 @@ import {
  * 통계(픽업 날 기준·오늘까지·금액 적은 주문만 매출), 다른 캘린더로 내보내기(주소·손님 이름·새 주소).
  */
 describe("직접 적은 주문 (integration)", () => {
+  // 업로드 API가 발급하는 주소(테스트 환경의 CLOUDFRONT_DOMAIN)
+  const cdn = (name: string) => `https://${process.env.CLOUDFRONT_DOMAIN ?? "cdn.test"}/${name}`;
   const input = (overrides: Partial<Record<string, unknown>> = {}) => ({
     pickupDate: "2026-12-24",
     pickupTime: "12:00",
@@ -38,7 +40,15 @@ describe("직접 적은 주문 (integration)", () => {
     const seller = await createTestSeller(prisma);
     const store = await createTestStore(prisma, seller.id, { name: "보늬케이크" });
     const other = await createTestSeller(prisma);
-    return { prisma, seller, store, other, service: new ManualOrderService(prisma) };
+    const upload = { deleteFilesByUrl: vi.fn().mockResolvedValue(0) };
+    return {
+      prisma,
+      seller,
+      store,
+      other,
+      upload,
+      service: new ManualOrderService(prisma, upload as never),
+    };
   }
 
   it("적고 기간으로 불러온다: 날·시각 순, 시각 없는 주문은 그날 맨 뒤", async () => {
@@ -78,6 +88,26 @@ describe("직접 적은 주문 (integration)", () => {
     await expect(service.remove(other.id, store.id, row.id)).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it("뺀 사진·지운 주문의 사진 파일을 지우고, 탈퇴하면 모두 지운다", async () => {
+    const { prisma, seller, store, upload, service } = await setup();
+    const a = await service.create(
+      seller.id,
+      store.id,
+      input({ photoUrls: [cdn("a.jpg"), cdn("b.jpg")] }) as any,
+    );
+    await service.update(seller.id, store.id, a.id, input({ photoUrls: [cdn("a.jpg")] }) as any);
+    expect(upload.deleteFilesByUrl).toHaveBeenLastCalledWith([cdn("b.jpg")]);
+    await service.remove(seller.id, store.id, a.id);
+    expect(upload.deleteFilesByUrl).toHaveBeenLastCalledWith([cdn("a.jpg")]);
+
+    await service.create(seller.id, store.id, input({ photoUrls: [cdn("c.jpg")] }) as any);
+    await service.create(seller.id, store.id, input() as any);
+    const result = await service.deleteAllForSeller(seller.id);
+    expect(result.orders).toBe(2);
+    expect(upload.deleteFilesByUrl).toHaveBeenLastCalledWith([cdn("c.jpg")]);
+    expect(await prisma.manualOrder.count({ where: { storeId: store.id } })).toBe(0);
   });
 
   it("입금만 바꾸고, 지운다", async () => {

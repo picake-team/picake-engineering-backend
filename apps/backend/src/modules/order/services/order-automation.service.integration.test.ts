@@ -172,6 +172,7 @@ describe("확인하지 않은 예약신청 자동 취소 (integration)", () => {
       {
         deleteAllForConsumer: vi.fn().mockResolvedValue({ messages: 0, photos: 0 }),
       } as unknown as ChatCleanupService,
+      { deleteAllForSeller: vi.fn().mockResolvedValue({ orders: 0, photos: 0 }) } as any,
     );
 
     await expect(withdraw.withdraw(AUDIENCE.CONSUMER, consumer.id, "테스트")).rejects.toThrow();

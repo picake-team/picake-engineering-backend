@@ -33,7 +33,7 @@ export class UploadService {
   }
 
   /**
-   * 사진 주소를 담는 칸(12곳) 어디에도 남아 있지 않은 주소만 돌려준다.
+   * 사진 주소를 담는 칸(13곳) 어디에도 남아 있지 않은 주소만 돌려준다.
    * 주소만 보고 지우면 채팅·견적에 들어온 주소가 상품·가게·배너 같은 다른 곳 파일일 때 그 파일이 지워지고,
    * 견적 예약 주문은 견적 사진 주소를 그대로 쓰므로 손님이 탈퇴하면 사장님 주문 사진이 깨졌다(11-16 검토).
    * 지운(deletedAt) 행도 참조로 센다(지우지 않는 쪽이 안전). 사진 칸을 새로 만들면 여기에 더한다.
@@ -79,6 +79,10 @@ export class UploadService {
         .findMany({ where: { photoUrls: inArray }, select: { photoUrls: true } })
         .then((r) => r.flatMap((x) => x.photoUrls)),
       p.quote
+        .findMany({ where: { photoUrls: inArray }, select: { photoUrls: true } })
+        .then((r) => r.flatMap((x) => x.photoUrls)),
+      // 직접 적은 주문(기획 I-42)
+      p.manualOrder
         .findMany({ where: { photoUrls: inArray }, select: { photoUrls: true } })
         .then((r) => r.flatMap((x) => x.photoUrls)),
     ]);

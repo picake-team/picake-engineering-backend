@@ -38,6 +38,7 @@ import { AuthNaverOauthService } from "@apps/backend/modules/auth/services/auth-
  */
 import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
 import { ChatCleanupService } from "@apps/backend/modules/chat/services/chat-cleanup.service";
+import { ManualOrderService } from "@apps/backend/modules/manual-order/services/manual-order.service";
 @Injectable()
 export class AuthWithdrawService {
   constructor(
@@ -47,6 +48,7 @@ export class AuthWithdrawService {
     private readonly authNaverOauthService: AuthNaverOauthService,
     private readonly quoteRequestCleanup: QuoteRequestCleanupService,
     private readonly chatCleanup: ChatCleanupService,
+    private readonly manualOrderService: ManualOrderService,
   ) {}
 
   async withdraw(audience: AudienceConst, accountId: string, reason: string): Promise<void> {
@@ -150,9 +152,9 @@ export class AuthWithdrawService {
       });
       // 탈퇴한 판매자의 휴대폰으로 더 이상 푸시가 가지 않게 판매자 앱 토큰을 지움
       await this.prisma.sellerFcmToken.deleteMany({ where: { sellerId: accountId } });
-      // 직접 적은 주문(기획 I-42)은 Picake 거래가 아닌 사장님 장부라 남길 까닭이 없다. 손님 이름·사진이 있어 지우고,
-      // 다른 캘린더로 내보낸 주소도 끊는다
-      await this.prisma.manualOrder.deleteMany({ where: { store: { sellerId: accountId } } });
+      // 직접 적은 주문(기획 I-42)은 Picake 거래가 아닌 사장님 장부라 남길 까닭이 없다. 손님 이름·사진이 있어
+      // 행과 사진 파일을 지우고, 다른 캘린더로 내보낸 주소도 끊는다
+      await this.manualOrderService.deleteAllForSeller(accountId);
       await this.prisma.store.updateMany({
         where: { sellerId: accountId },
         data: { calendarFeedToken: null },

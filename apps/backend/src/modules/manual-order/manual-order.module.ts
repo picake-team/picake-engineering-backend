@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { UploadModule } from "@apps/backend/modules/upload/upload.module";
 import { ManualOrderService } from "@apps/backend/modules/manual-order/services/manual-order.service";
 import { ManualOrderReadService } from "@apps/backend/modules/manual-order/services/manual-order-read.service";
 import { CalendarFeedService } from "@apps/backend/modules/manual-order/services/calendar-feed.service";
@@ -8,6 +9,7 @@ import { CalendarFeedService } from "@apps/backend/modules/manual-order/services
  * HTTP 라우트는 `SellerApiModule`의 `SellerManualOrderController`·`SellerCalendarFeedController`에 둔다.
  */
 @Module({
+  imports: [UploadModule],
   providers: [ManualOrderService, ManualOrderReadService, CalendarFeedService],
   exports: [ManualOrderService, ManualOrderReadService, CalendarFeedService],
 })
