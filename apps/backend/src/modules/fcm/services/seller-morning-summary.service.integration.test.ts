@@ -94,6 +94,7 @@ describe("판매자 앱 아침 요약 (integration)", () => {
     const { prisma, service, sendToSeller } = buildService();
     const { seller, stores, order } = await sellerWithStore();
     await order(0, kst("14:00"), OrderStatus.CONFIRMED);
+    await order(0, kst("16:00"), OrderStatus.PAYMENT_PENDING); // Picake 입금대기도 입금 전
     const manual = (pickupTime: string | null, paid: boolean | null, pickupDate = "2026-11-11") =>
       prisma.manualOrder.create({
         data: {
@@ -113,8 +114,8 @@ describe("판매자 앱 아침 요약 (integration)", () => {
     const calls = sendToSeller.mock.calls.filter(([p]) => p.sellerId === seller.id);
     expect(calls).toHaveLength(1);
     expect(calls[0]![0]).toMatchObject({
-      title: "오늘 픽업 3건",
-      body: "첫 픽업 10:30 · 입금 전 1건",
+      title: "오늘 픽업 4건",
+      body: "첫 픽업 10:30 · 입금 전 2건",
     });
   });
 

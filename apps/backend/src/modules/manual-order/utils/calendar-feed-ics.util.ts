@@ -32,9 +32,11 @@ export function escapeIcsText(value: string): string {
   );
 }
 
+const encoder = new TextEncoder();
+
 /** 한 줄이 75바이트를 넘으면 접는다(RFC 5545 3.1). 한글이 바이트 중간에서 잘리지 않게 글자 단위로 */
 export function foldIcsLine(line: string): string {
-  const encoder = new TextEncoder();
+  if (encoder.encode(line).length <= 75) return line;
   const out: string[] = [];
   let current = "";
   let bytes = 0;

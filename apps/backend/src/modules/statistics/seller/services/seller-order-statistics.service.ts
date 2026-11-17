@@ -17,6 +17,7 @@ import { loadSellerOrderStatisticsTimeBuckets } from "@apps/backend/modules/stat
 import { kstYmdRangeToUtcBounds } from "@apps/backend/modules/statistics/common/utils/statistics-datetime.util";
 import { buildManualOrderStatistics } from "@apps/backend/modules/statistics/seller/utils/seller-manual-order-statistics.util";
 import { koreaCalendarYmd } from "@apps/backend/modules/order/utils/order-list-query.util";
+import { utcToKstHm } from "@apps/backend/modules/manual-order/utils/manual-order-date.util";
 
 /**
  * 스토어 단위 주문 통계.
@@ -57,8 +58,11 @@ export class SellerOrderStatisticsService {
       orderStatus: { in: SELLER_ORDER_STATISTICS_INCLUDED_STATUSES },
     };
 
-    // 직접 적은 주문(기획 I-42): 픽업 날이 기간 안이고 오늘까지 지난 주문
-    const today = koreaCalendarYmd(new Date());
+    // 직접 적은 주문(기획 I-42): 픽업 날이 기간 안이고 픽업 시각이 지난 주문(오늘은 시각이 지난 것만 — "픽업 완료"와 맞게,
+    // 시각을 적지 않은 오늘 주문은 내일부터)
+    const now = new Date();
+    const today = koreaCalendarYmd(now);
+    const nowHm = utcToKstHm(now);
     const manualEnd = endDate < today ? endDate : today;
 
     const [aggregate, productGroups, timeBuckets, manualRows] = await Promise.all([
@@ -130,7 +134,11 @@ export class SellerOrderStatisticsService {
       weekdayPickupSales,
       weekdayPickupOrders,
       hourlyPickupOrders,
-      manual: buildManualOrderStatistics(manualRows),
+      manual: buildManualOrderStatistics(
+        manualRows.filter(
+          (r) => r.pickupDate < today || (r.pickupTime !== null && r.pickupTime <= nowHm),
+        ),
+      ),
     };
   }
 }

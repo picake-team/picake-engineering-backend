@@ -7,13 +7,7 @@ import type { SellerManualOrderStatisticsDto } from "@apps/backend/modules/stati
 import { ymdWeekday } from "@apps/backend/modules/manual-order/utils/manual-order-date.util";
 
 /** 받은 곳 나열 순서(화면은 많은 순으로 다시 정렬) */
-const SOURCE_ORDER: ManualOrderSource[] = [
-  ManualOrderSource.KAKAO,
-  ManualOrderSource.INSTAGRAM,
-  ManualOrderSource.PHONE,
-  ManualOrderSource.NAVER,
-  ManualOrderSource.OTHER,
-];
+const SOURCE_ORDER = Object.values(ManualOrderSource);
 
 export interface ManualOrderStatRow {
   pickupDate: string;

@@ -59,7 +59,7 @@ export function formatKstTime(date: Date): string {
 
 /**
  * 아침 요약 문구: "오늘 픽업 2건" / "첫 픽업 11:00". 스토어가 여럿이면 제목 앞에 [스토어 이름] (기획 I-48).
- * 직접 적은 주문(기획 I-42)도 센다. 시각을 아는 주문이 없으면 "픽업 시간 미정", 입금 전인 직접 적은 주문이 있으면 " · 입금 전 n건"
+ * 직접 적은 주문(기획 I-42)도 센다. 시각을 아는 주문이 없으면 "픽업 시간 미정", 입금 전(Picake 입금대기·직접 적은 주문 "입금 전")이 있으면 " · 입금 전 n건"
  */
 export function buildMorningSummaryCopy(params: {
   pickupCount: number;
@@ -174,20 +174,21 @@ export class SellerMorningSummaryService implements OnModuleInit, OnModuleDestro
         });
         if (claimed.count !== 1) continue;
 
-        const orders = await this.prisma.order.findMany({
-          where: {
-            storeId: store.id,
-            pickupDate: { gte: dayStart, lte: dayEnd },
-            orderStatus: { in: MORNING_SUMMARY_ORDER_STATUSES },
-          },
-          select: { pickupDate: true },
-          orderBy: { pickupDate: "asc" },
-        });
         // 직접 적은 주문(기획 I-42)도 그날 픽업으로 센다
-        const manualOrders = await this.prisma.manualOrder.findMany({
-          where: { storeId: store.id, pickupDate: dateKey },
-          select: { pickupTime: true, paid: true },
-        });
+        const [orders, manualOrders] = await Promise.all([
+          this.prisma.order.findMany({
+            where: {
+              storeId: store.id,
+              pickupDate: { gte: dayStart, lte: dayEnd },
+              orderStatus: { in: MORNING_SUMMARY_ORDER_STATUSES },
+            },
+            select: { pickupDate: true, orderStatus: true },
+          }),
+          this.prisma.manualOrder.findMany({
+            where: { storeId: store.id, pickupDate: dateKey },
+            select: { pickupTime: true, paid: true },
+          }),
+        ]);
         const pickupCount = orders.length + manualOrders.length;
         if (pickupCount === 0) continue;
 
@@ -203,7 +204,10 @@ export class SellerMorningSummaryService implements OnModuleInit, OnModuleDestro
           firstPickupAt: pickupTimes[0] ?? null,
           storeName: store.name,
           sellerStoreCount: storeCountBySeller.get(store.sellerId) ?? 1,
-          unpaidCount: manualOrders.filter((row) => row.paid === false).length,
+          // 입금 전: Picake 입금대기 + 직접 적은 주문 중 "입금 전"
+          unpaidCount:
+            orders.filter((order) => order.orderStatus === OrderStatus.PAYMENT_PENDING).length +
+            manualOrders.filter((row) => row.paid === false).length,
         });
         await this.sellerFcmPushService.sendToSeller({
           sellerId: store.sellerId,

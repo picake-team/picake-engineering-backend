@@ -179,7 +179,23 @@ describe("직접 적은 주문 (integration)", () => {
     await service.create(
       seller.id,
       store.id,
-      input({ pickupDate: day(0), price: 20000, source: ManualOrderSource.INSTAGRAM }) as any,
+      input({
+        pickupDate: day(0),
+        pickupTime: "00:00",
+        price: 20000,
+        source: ManualOrderSource.INSTAGRAM,
+      }) as any,
+    );
+    // 오늘이지만 픽업 시각이 아직이거나(23:59) 시각을 적지 않은 주문은 세지 않는다("픽업 완료"와 맞게)
+    await service.create(
+      seller.id,
+      store.id,
+      input({ pickupDate: day(0), pickupTime: "23:59", price: 70000 }) as any,
+    );
+    await service.create(
+      seller.id,
+      store.id,
+      input({ pickupDate: day(0), pickupTime: null, price: 80000 }) as any,
     );
     await service.create(seller.id, store.id, input({ pickupDate: day(-1), price: null }) as any);
     // 아직 안 온 픽업은 세지 않는다

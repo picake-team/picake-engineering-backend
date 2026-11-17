@@ -9,7 +9,7 @@ import { CalendarFeedService } from "@apps/backend/modules/manual-order/services
 
 /**
  * 다른 캘린더로 내보내기(기획 I-42)의 구독 주소. 아이폰·구글 캘린더가 로그인 없이 주기적으로 읽는다.
- * 주소의 비밀 값이 곧 열쇠다(사장님이 "주소 새로 만들기"로 끊을 수 있다). 다른 응답과 달리 감싸지 않은 ics 글을 준다.
+ * 주소의 비밀 값이 곧 열쇠다(끊는 API `calendar-feed/reset`은 있지만 11-17부터 화면 버튼은 없다). 다른 응답과 달리 감싸지 않은 ics 글을 준다.
  */
 @ApiTags("[판매자] 직접 적은 주문")
 @Controller(`${AUDIENCE.SELLER}/calendar-feeds`)

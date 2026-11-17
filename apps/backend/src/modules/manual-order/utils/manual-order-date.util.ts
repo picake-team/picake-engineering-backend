@@ -25,3 +25,8 @@ export function kstDateTimeToUtc(ymd: string, hhmm: string): Date {
   const [hh, mm] = hhmm.split(":").map(Number);
   return new Date(Date.UTC(y, m - 1, d, hh - 9, mm));
 }
+
+/** UTC 시각 → 한국 시각 HH:mm(서버는 UTC) */
+export function utcToKstHm(date: Date): string {
+  return new Date(date.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(11, 16);
+}

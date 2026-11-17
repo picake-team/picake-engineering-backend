@@ -12,6 +12,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { MANUAL_ORDER_READ_MODEL } from "@apps/backend/modules/manual-order/constants/manual-order.constants";
 import {
   ManualOrderReadResult,
+  clipConversation,
   readOrderConversation,
 } from "@apps/backend/modules/manual-order/utils/manual-order-read.util";
 
@@ -116,12 +117,9 @@ async function main() {
     for (const c of CASES) {
       const started = Date.now();
       try {
-        const r = await readOrderConversation(
-          client,
-          model,
-          { kind: "text", text: c.text },
-          CONTEXT,
-        );
+        // 서버와 같이 clipConversation(번호 가림·틀 글자 빼기)을 거쳐 보낸다
+        const text = clipConversation(c.text);
+        const r = await readOrderConversation(client, model, { kind: "text", text }, CONTEXT);
         inTotal += r.usage.inputTokens;
         outTotal += r.usage.outputTokens;
         const problems = c.check(r.result).filter(Boolean);

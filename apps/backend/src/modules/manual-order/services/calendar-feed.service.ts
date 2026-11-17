@@ -12,7 +12,6 @@ import {
   koreaCalendarDayStartUtc,
   koreaCalendarYmd,
 } from "@apps/backend/modules/order/utils/order-list-query.util";
-import { formatKstTime } from "@apps/backend/modules/fcm/services/seller-morning-summary.service";
 import {
   CALENDAR_FEED,
   CALENDAR_FEED_ERROR_MESSAGES,
@@ -24,7 +23,10 @@ import {
   buildEventSummary,
   type CalendarFeedEvent,
 } from "@apps/backend/modules/manual-order/utils/calendar-feed-ics.util";
-import { addDaysToYmd } from "@apps/backend/modules/manual-order/utils/manual-order-date.util";
+import {
+  addDaysToYmd,
+  utcToKstHm,
+} from "@apps/backend/modules/manual-order/utils/manual-order-date.util";
 
 export const MANUAL_ORDER_SOURCE_LABEL: Record<ManualOrderSource, string> = {
   KAKAO: "카톡",
@@ -58,7 +60,7 @@ export function newCalendarFeedToken(): string {
 
 /**
  * 다른 캘린더로 내보내기(기획 I-42): 아이폰·구글 캘린더가 구독하는 ics 주소.
- * 주소의 비밀 값을 아는 사람은 로그인 없이 일정을 읽으므로 손님 이름은 기본으로 가리고, 새로 만들면 옛 주소는 끊긴다.
+ * 주소의 비밀 값을 아는 사람은 로그인 없이 일정을 읽으므로 손님 이름은 기본으로 가린다. 새로 만들면(reset) 옛 주소는 끊긴다 — 화면 버튼은 운영자가 뺐고(11-17) API만 남김.
  * Picake 예약(취소·노쇼 빼고)과 직접 적은 주문을 같이 내보낸다. 지난 60일부터 앞으로 1년.
  */
 @Injectable()
@@ -121,7 +123,7 @@ export class CalendarFeedService {
         seller: { select: { withdrawnAt: true, isActive: true } },
       },
     });
-    // 정지된 사장님은 로그인을 못 해 "주소 새로 만들기"로 끊을 수도 없으니 닫는다(계정이 털려 정지한 경우)
+    // 정지된 사장님은 로그인을 못 해 주소를 끊을 수도 없으니 닫는다(계정이 털려 정지한 경우)
     if (!store || store.seller.withdrawnAt || !store.seller.isActive) {
       throw new NotFoundException(CALENDAR_FEED_ERROR_MESSAGES.NOT_FOUND);
     }
@@ -146,11 +148,19 @@ export class CalendarFeedService {
           orderStatus: true,
           updatedAt: true,
         },
-        orderBy: { pickupDate: "asc" },
       }),
       this.prisma.manualOrder.findMany({
         where: { storeId: store.id, pickupDate: { gte: from, lte: to } },
-        orderBy: [{ pickupDate: "asc" }, { pickupTime: { sort: "asc", nulls: "last" } }],
+        select: {
+          id: true,
+          pickupDate: true,
+          pickupTime: true,
+          cakeName: true,
+          source: true,
+          customerName: true,
+          paid: true,
+          updatedAt: true,
+        },
       }),
     ]);
 
@@ -160,7 +170,7 @@ export class CalendarFeedService {
       events.push({
         uid: `order-${order.id}@picakes.com`,
         date: koreaCalendarYmd(order.pickupDate),
-        time: formatKstTime(order.pickupDate),
+        time: utcToKstHm(order.pickupDate),
         summary: buildEventSummary({
           title: order.productName ?? "견적 주문",
           sourceLabel: "Picake",

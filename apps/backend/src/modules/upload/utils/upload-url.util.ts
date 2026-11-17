@@ -10,19 +10,29 @@
  * 업로드 설정이 없는 환경(테스트 등)에서는 https URL이면 허용합니다.
  */
 export function getAllowedUploadUrlPrefixes(): string[] {
-  const region = process.env.AWS_REGION;
-  const bucket = process.env.S3_BUCKET;
-  const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN;
+  return uploadUrlPrefixes(uploadUrlOptionsFromEnv());
+}
 
+export type UploadUrlOptions = {
+  cloudfrontDomain?: string | null;
+  bucket?: string | null;
+  region?: string | null;
+};
+
+/** 이 서비스가 발급한(또는 예전에 발급한) 주소 앞부분: CloudFront, S3 가상 호스트, S3 경로 꼴 */
+function uploadUrlPrefixes(opts: UploadUrlOptions): string[] {
   const prefixes: string[] = [];
-  if (cloudfrontDomain) {
-    prefixes.push(`https://${cloudfrontDomain}/`);
-  }
-  if (bucket && region) {
-    prefixes.push(`https://${bucket}.s3.${region}.amazonaws.com/`);
-    prefixes.push(`https://s3.${region}.amazonaws.com/${bucket}/`);
+  if (opts.cloudfrontDomain) prefixes.push(`https://${opts.cloudfrontDomain}/`);
+  if (opts.bucket && opts.region) {
+    prefixes.push(`https://${opts.bucket}.s3.${opts.region}.amazonaws.com/`);
+    prefixes.push(`https://s3.${opts.region}.amazonaws.com/${opts.bucket}/`);
   }
   return prefixes;
+}
+
+/** 업로드 API가 지금 발급하는 꼴의 앞부분(CloudFront가 있으면 CloudFront, 없으면 S3). 설정이 없으면 null */
+export function canonicalUploadUrlPrefix(opts: UploadUrlOptions): string | null {
+  return uploadUrlPrefixes(opts)[0] ?? null;
 }
 
 export function isAllowedUploadUrl(url: string): boolean {
@@ -37,17 +47,8 @@ export function isAllowedUploadUrl(url: string): boolean {
  * 업로드 API가 발급한 파일 URL을 S3 키로 되돌린다(지우기용). 이 서비스가 올린 파일이 아니면 null.
  * URL은 경로 조각마다 인코딩되어 있으므로 조각마다 되돌린다.
  */
-export function uploadUrlToKey(
-  url: string,
-  opts: { cloudfrontDomain?: string | null; bucket?: string | null; region?: string | null },
-): string | null {
-  const prefixes: string[] = [];
-  if (opts.cloudfrontDomain) prefixes.push(`https://${opts.cloudfrontDomain}/`);
-  if (opts.bucket && opts.region) {
-    prefixes.push(`https://${opts.bucket}.s3.${opts.region}.amazonaws.com/`);
-    prefixes.push(`https://s3.${opts.region}.amazonaws.com/${opts.bucket}/`);
-  }
-  const prefix = prefixes.find((p) => url.startsWith(p));
+export function uploadUrlToKey(url: string, opts: UploadUrlOptions): string | null {
+  const prefix = uploadUrlPrefixes(opts).find((p) => url.startsWith(p));
   if (!prefix) return null;
   const rest = url.slice(prefix.length).split(/[?#]/)[0];
   if (!rest || rest.includes("..")) return null;
@@ -60,12 +61,6 @@ export function uploadUrlToKey(
     return null;
   }
 }
-
-type UploadUrlOptions = {
-  cloudfrontDomain?: string | null;
-  bucket?: string | null;
-  region?: string | null;
-};
 
 /** 서버 환경값의 업로드 주소 설정(UploadCreateService와 같은 값) */
 export function uploadUrlOptionsFromEnv(): UploadUrlOptions {
@@ -81,7 +76,8 @@ export function isUploadKey(key: string): boolean {
   return /^uploads\/[^/]+$/.test(key) && !key.includes("..");
 }
 
-function encodeKey(key: string): string {
+/** 키를 주소에 넣는 꼴로(조각마다 인코딩, UploadCreateService와 같음) */
+export function encodeUploadKey(key: string): string {
   return key
     .split("/")
     .map((segment) => encodeURIComponent(segment))
@@ -94,15 +90,9 @@ function encodeKey(key: string): string {
  * 남의 상품 사진 파일이 지워진다(2026-11-17 검토).
  */
 export function uploadUrlSpellings(key: string, opts: UploadUrlOptions): string[] {
-  const encoded = encodeKey(key);
+  const encoded = encodeUploadKey(key);
   const keys = encoded === key ? [key] : [encoded, key];
-  const prefixes: string[] = [];
-  if (opts.cloudfrontDomain) prefixes.push(`https://${opts.cloudfrontDomain}/`);
-  if (opts.bucket && opts.region) {
-    prefixes.push(`https://${opts.bucket}.s3.${opts.region}.amazonaws.com/`);
-    prefixes.push(`https://s3.${opts.region}.amazonaws.com/${opts.bucket}/`);
-  }
-  return prefixes.flatMap((prefix) => keys.map((k) => `${prefix}${k}`));
+  return uploadUrlPrefixes(opts).flatMap((prefix) => keys.map((k) => `${prefix}${k}`));
 }
 
 /**
@@ -113,11 +103,9 @@ export function isCanonicalUploadUrl(
   url: string,
   opts: UploadUrlOptions = uploadUrlOptionsFromEnv(),
 ): boolean {
-  if (!opts.cloudfrontDomain && !(opts.bucket && opts.region)) return url.startsWith("https://");
+  const prefix = canonicalUploadUrlPrefix(opts);
+  if (!prefix) return url.startsWith("https://");
   const key = uploadUrlToKey(url, opts);
   if (!key || !isUploadKey(key)) return false;
-  const prefix = opts.cloudfrontDomain
-    ? `https://${opts.cloudfrontDomain}/`
-    : `https://${opts.bucket}.s3.${opts.region}.amazonaws.com/`;
-  return url === `${prefix}${encodeKey(key)}`;
+  return url === `${prefix}${encodeUploadKey(key)}`;
 }
