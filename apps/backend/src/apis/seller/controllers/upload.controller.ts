@@ -11,6 +11,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiExtraModels } from "@nestjs/swagger";
 import { UploadService } from "@apps/backend/modules/upload/upload.service";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
@@ -31,6 +32,7 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 export class SellerUploadController {
   constructor(private readonly uploadService: UploadService) {}
 
+  @AllowActAs()
   @Post("file")
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(

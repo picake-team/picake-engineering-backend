@@ -1,6 +1,7 @@
 import { Controller, Get, HttpCode, HttpStatus, Param, Request } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiExtraModels } from "@nestjs/swagger";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -36,6 +37,7 @@ import {
 export class SellerHomeController {
   constructor(private readonly sellerHomeService: SellerHomeService) {}
 
+  @AllowActAs()
   @Get(":storeId/home")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

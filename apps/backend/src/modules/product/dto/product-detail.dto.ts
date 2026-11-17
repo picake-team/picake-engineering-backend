@@ -81,6 +81,13 @@ export class ProductResponseDto extends PickupAddressDto {
   visibilityStatus: EnableStatus;
 
   @ApiPropertyOptional({
+    description:
+      "운영자가 가게 대신 만든 상품이면 true(기획 I-41, 판매자 응답에만). 운영자가 만든 상품은 숨김으로 저장된다",
+    example: false,
+  })
+  enteredByOperator?: boolean;
+
+  @ApiPropertyOptional({
     description: "케이크 옵션 - 사이즈 목록",
     type: [CakeSizeOptionResponseDto],
     example: SWAGGER_EXAMPLES.PRODUCT_DATA.cakeSizeOptions,

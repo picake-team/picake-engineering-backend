@@ -12,6 +12,7 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiExtraModels } from "@nestjs/swagger";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -61,6 +62,7 @@ export class SellerNotificationController {
     return { data: items, meta };
   }
 
+  @AllowActAs()
   @Get("unread-count")
   @ApiOperation({ summary: "안 읽은 알림 개수 (스토어별)" })
   @SwaggerResponse(200, { dataDto: SellerNotificationUnreadCountResponseDto })

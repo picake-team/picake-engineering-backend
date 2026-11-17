@@ -35,6 +35,8 @@ import { SellerFcmTokenController } from "@apps/backend/apis/seller/controllers/
 import { ManualOrderModule } from "@apps/backend/modules/manual-order/manual-order.module";
 import { SellerManualOrderController } from "@apps/backend/apis/seller/controllers/manual-order.controller";
 import { SellerCalendarFeedController } from "@apps/backend/apis/seller/controllers/calendar-feed.controller";
+import { ActAsModule } from "@apps/backend/modules/act-as/act-as.module";
+import { SellerActAsController } from "@apps/backend/apis/seller/controllers/act-as.controller";
 
 /**
  * Seller API 모듈
@@ -60,6 +62,7 @@ import { SellerCalendarFeedController } from "@apps/backend/apis/seller/controll
     FcmModule,
     ChatModule,
     ManualOrderModule,
+    ActAsModule,
   ],
   controllers: [
     SellerQuoteController,
@@ -81,6 +84,7 @@ import { SellerCalendarFeedController } from "@apps/backend/apis/seller/controll
     SellerChatController,
     SellerManualOrderController,
     SellerCalendarFeedController,
+    SellerActAsController,
   ],
 })
 export class SellerApiModule {}

@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiOperation, ApiExtraModels } from "@nestjs/swagger";
 import { OrderService } from "@apps/backend/modules/order/order.service";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -55,6 +56,7 @@ export class SellerOrderController {
    * 판매자용 주문 목록 조회 API
    * 자신이 소유한 스토어의 주문만 조회합니다.
    */
+  @AllowActAs()
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -78,6 +80,7 @@ export class SellerOrderController {
    * 판매자용 주문 상세 조회 API
    * 자신이 소유한 스토어의 주문만 조회 가능합니다.
    */
+  @AllowActAs()
   @Get(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

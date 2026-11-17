@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { CreateProductRequestDto } from "@apps/backend/modules/product/dto/product-create.dto";
-import { PRODUCT_ERROR_MESSAGES } from "@apps/backend/modules/product/constants/product.constants";
+import {
+  EnableStatus,
+  PRODUCT_ERROR_MESSAGES,
+} from "@apps/backend/modules/product/constants/product.constants";
 import {
   deriveLegacyOptionFields,
   hasVisibleOption,
@@ -91,7 +94,9 @@ export class ProductCreateService {
             originalPrice: createProductDto.originalPrice,
             salePrice: createProductDto.salePrice,
             salesStatus: createProductDto.salesStatus,
-            visibilityStatus: createProductDto.visibilityStatus,
+            // 운영자가 대신 만든 상품(기획 I-41)은 숨김으로 저장한다. 공개는 사장님이 노출을 켠다(부탁하면 운영자가 켜도 됨)
+            visibilityStatus: user.actor ? EnableStatus.DISABLE : createProductDto.visibilityStatus,
+            ...(user.actor ? { createdByAdminId: user.actor.adminId } : {}),
             cakeSizeOptions: cakeSizeOptionsWithId as unknown as Prisma.InputJsonValue,
             customOptions: customOptions as unknown as Prisma.InputJsonValue,
             ...deriveLegacyOptionFields(customOptions),

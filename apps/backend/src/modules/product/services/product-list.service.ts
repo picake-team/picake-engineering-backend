@@ -575,7 +575,12 @@ export class ProductListService {
       const likedProductIds = await this.getLikedProductIds(user.sub, productIds);
 
       products = orderedProducts.map((product) =>
-        ProductMapperUtil.mapToProductResponse(product, likedProductIds.has(product.id), "list"),
+        ProductMapperUtil.mapToProductResponse(
+          product,
+          likedProductIds.has(product.id),
+          "list",
+          "seller",
+        ),
       );
     } else {
       switch (sortBy) {
@@ -613,7 +618,12 @@ export class ProductListService {
       const likedProductIds = await this.getLikedProductIds(user.sub, productIds);
 
       products = productsWithStore.map((product) =>
-        ProductMapperUtil.mapToProductResponse(product, likedProductIds.has(product.id), "list"),
+        ProductMapperUtil.mapToProductResponse(
+          product,
+          likedProductIds.has(product.id),
+          "list",
+          "seller",
+        ),
       );
     }
 

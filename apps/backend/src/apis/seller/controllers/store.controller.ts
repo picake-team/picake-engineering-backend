@@ -23,6 +23,7 @@ import {
 import { NAVER_PLACE_ERROR_MESSAGES } from "@apps/backend/modules/naver-place/constants/naver-place.constants";
 import { StoreService } from "@apps/backend/modules/store/store.service";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import {
@@ -155,6 +156,7 @@ export class SellerStoreController {
    * 내 스토어 목록 조회 API
    * 현재 로그인한 사용자가 등록한 모든 스토어 목록을 조회합니다. 검색, 정렬, 페이지네이션을 지원합니다.
    */
+  @AllowActAs()
   @Get("/list")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -176,6 +178,7 @@ export class SellerStoreController {
    * 자신이 소유한 스토어만 조회 가능합니다.
    * 로그인한 사용자의 경우 해당 스토어의 좋아요 여부(isLiked)도 함께 반환됩니다.
    */
+  @AllowActAs()
   @Get(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -214,6 +217,7 @@ export class SellerStoreController {
    * 스토어 영업 캘린더 수정 API
    * 정기 휴무·표준 영업 시간·날짜별 예외를 저장합니다.
    */
+  @AllowActAs()
   @Put(":id/business-calendar")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -243,6 +247,7 @@ export class SellerStoreController {
    * 스토어 수정 API
    * 판매자가 등록한 스토어를 수정합니다.
    */
+  @AllowActAs()
   @Put(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -265,6 +270,7 @@ export class SellerStoreController {
    * 네이버 플레이스 연결 API
    * 매장 정보 가져오기·갱신에 쓸 네이버 매장을 정해 둡니다. 스토어 정보는 바꾸지 않습니다.
    */
+  @AllowActAs()
   @Put(":id/naver-place")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -291,6 +297,7 @@ export class SellerStoreController {
   /**
    * 네이버 플레이스 연결 해제 API
    */
+  @AllowActAs()
   @Delete(":id/naver-place")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

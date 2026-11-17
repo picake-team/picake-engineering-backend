@@ -106,6 +106,6 @@ export class ProductDetailService {
       isLiked = null;
     }
 
-    return ProductMapperUtil.mapToProductResponse(productWithReviews, isLiked);
+    return ProductMapperUtil.mapToProductResponse(productWithReviews, isLiked, "full", "seller");
   }
 }

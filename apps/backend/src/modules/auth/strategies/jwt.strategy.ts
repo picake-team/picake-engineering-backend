@@ -88,6 +88,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         return await this.validateAdminTotpSetupPending(payload);
       }
 
+      if (payload.type === TOKEN_TYPES.ACT_AS) {
+        if (payload.aud !== AUDIENCE.SELLER) {
+          LoggerUtil.log(`JWT 검증 실패: act_as 는 seller 전용 - aud: ${payload.aud}`);
+          throw new UnauthorizedException(AUTH_ERROR_MESSAGES.ACCESS_TOKEN_WRONG_TYPE);
+        }
+        return await this.validateSellerActAs(payload);
+      }
+
       if (payload.type !== TOKEN_TYPES.ACCESS) {
         LoggerUtil.log(`JWT 검증 실패: 잘못된 토큰 타입 - type: ${payload.type}`);
         throw new UnauthorizedException(AUTH_ERROR_MESSAGES.ACCESS_TOKEN_WRONG_TYPE);
@@ -227,6 +235,53 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       aud: AUDIENCE.ADMIN,
       id: admin.id,
       username: admin.username,
+    };
+  }
+
+  /**
+   * 운영자가 가게 대신 입력하는 출입증(`type: act_as`, 기획 I-41).
+   * 서명·만료(최대 60분)에 더해 **매 요청마다** 세션 행을 본다: 끝나지 않았고, 시간이 남았고, 같은 판매자이고,
+   * 들어간 관리자가 아직 켜져 있어야 한다. 하나라도 어긋나면 바로 401이라 끝내기를 누른 순간 무효가 된다.
+   * 판매자 확인은 사장님 출입증과 같고(`validateSeller`), `actor`만 더해 운영자 표시·계좌 지킴·지우기 범위가 쓰게 한다.
+   */
+  private async validateSellerActAs(payload: JwtVerifiedPayload): Promise<AuthenticatedUser> {
+    const session = payload.sid
+      ? await this.prisma.adminActAsSession.findUnique({
+          where: { id: payload.sid },
+          select: {
+            id: true,
+            adminId: true,
+            sellerId: true,
+            storeId: true,
+            expiresAt: true,
+            endedAt: true,
+          },
+        })
+      : null;
+    const now = new Date();
+    if (
+      !session ||
+      session.endedAt ||
+      session.expiresAt.getTime() <= now.getTime() ||
+      session.sellerId !== payload.sub
+    ) {
+      LoggerUtil.log(`JWT 검증 실패: 대리 입력 세션 끝남·없음 - sid: ${payload.sid ?? "-"}`);
+      throw new UnauthorizedException(AUTH_ERROR_MESSAGES.ACT_AS_SESSION_ENDED);
+    }
+    const admin = await this.prisma.admin.findUnique({
+      where: { id: session.adminId },
+      select: { isActive: true, approvalStatus: true },
+    });
+    if (!admin || !admin.isActive || admin.approvalStatus !== "APPROVED") {
+      LoggerUtil.log(`JWT 검증 실패: 대리 입력 관리자 꺼짐 - sid: ${session.id}`);
+      throw new UnauthorizedException(AUTH_ERROR_MESSAGES.ACT_AS_SESSION_ENDED);
+    }
+
+    const seller = await this.validateSeller(payload);
+    return {
+      ...seller,
+      type: TOKEN_TYPES.ACT_AS,
+      actor: { adminId: session.adminId, sessionId: session.id, storeId: session.storeId },
     };
   }
 

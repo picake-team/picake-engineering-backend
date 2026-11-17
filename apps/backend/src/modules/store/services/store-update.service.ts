@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { UpdateStoreRequestDto } from "@apps/backend/modules/store/dto/store-update.dto";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -7,6 +7,7 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { StoreBankName } from "@apps/backend/modules/store/constants/store.constants";
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
 import { sanitizeRefundCancellationPolicyForDb } from "@apps/backend/modules/store/utils/store-refund-cancellation-policy.util";
+import { ACT_AS_ERROR_MESSAGES } from "@apps/backend/modules/act-as/constants/act-as.constants";
 
 /**
  * 스토어 수정 서비스
@@ -31,6 +32,12 @@ export class StoreUpdateService {
   ) {
     // 스토어 소유권 확인
     await StoreOwnershipUtil.verifyStoreOwnership(this.prisma, storeId, user.sub);
+
+    // 운영자 대신 입력 중(기획 I-41)에는 정산 계좌를 바꿀 수 없다 — 손님 입금이 다른 곳으로 가는 가장 큰 위험.
+    // 판매자 폼은 계좌 칸을 늘 같이 보내므로 지금 값과 같으면 통과한다
+    if (user.actor) {
+      await this.assertBankAccountUnchanged(storeId, updateStoreDto);
+    }
 
     // 업데이트할 데이터 준비
     const updateData: {
@@ -99,6 +106,25 @@ export class StoreUpdateService {
         `스토어 수정 실패: 트랜잭션 에러 - userId: ${user.sub}, storeId: ${storeId}, error: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
+    }
+  }
+
+  private async assertBankAccountUnchanged(
+    storeId: string,
+    dto: Pick<UpdateStoreRequestDto, "bankName" | "bankAccountNumber" | "accountHolderName">,
+  ): Promise<void> {
+    const current = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      select: { bankName: true, bankAccountNumber: true, accountHolderName: true },
+    });
+    const same =
+      !!current &&
+      (current.bankName ?? null) === (dto.bankName ?? null) &&
+      (current.bankAccountNumber ?? "").trim() === dto.bankAccountNumber.trim() &&
+      (current.accountHolderName ?? "").trim() === dto.accountHolderName.trim();
+    if (!same) {
+      LoggerUtil.log(`대리 입력 막음: 정산 계좌 바꾸기 - storeId: ${storeId}`);
+      throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.BANK_ACCOUNT_LOCKED);
     }
   }
 }
