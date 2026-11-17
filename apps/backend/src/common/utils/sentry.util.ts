@@ -150,12 +150,16 @@ export class SentryUtil {
    * (예: Prisma 입력 오류 메시지에는 넣으려던 값이 그대로 들어간다)
    */
   static scrubText(text: string): string {
-    return text
-      .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/g, "Bearer ****")
-      .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, (email) =>
-        SensitiveDataUtil.maskEmail(email),
-      )
-      .replace(/\b(01[016789])-?\d{3,4}-?(\d{4})\b/g, "$1-****-$2");
+    return (
+      text
+        .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/g, "Bearer ****")
+        .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, (email) =>
+          SensitiveDataUtil.maskEmail(email),
+        )
+        .replace(/\b(01[016789])-?\d{3,4}-?(\d{4})\b/g, "$1-****-$2")
+        // 다른 캘린더로 내보낸 구독 주소의 비밀 값(기획 I-42)
+        .replace(/(calendar-feeds\/)[A-Za-z0-9_-]+/g, "$1****")
+    );
   }
 
   /** 객체·배열 안의 모든 문자열에 scrubText를 적용한다 */
@@ -196,6 +200,17 @@ export class SentryUtil {
     for (const breadcrumb of event.breadcrumbs ?? []) {
       if (breadcrumb.message) {
         breadcrumb.message = this.scrubText(breadcrumb.message);
+      }
+    }
+    if (event.request) {
+      // 요청 본문(주문서의 이름·번호, 붙여 넣은 대화 등)은 보내지 않는다. SDK(@sentry/nestjs 10)는
+      // sendDefaultPii: false여도 들어온 요청 본문을 10KB까지 붙인다(2026-11-17 SDK 코드로 확인)
+      delete event.request.data;
+      if (event.request.url) {
+        event.request.url = this.scrubText(event.request.url);
+      }
+      if (typeof event.request.query_string === "string") {
+        event.request.query_string = this.scrubText(event.request.query_string);
       }
     }
     return event;

@@ -90,6 +90,35 @@ describe("판매자 앱 아침 요약 (integration)", () => {
     expect(sendToSeller.mock.calls.filter(([p]) => p.sellerId === seller.id)).toHaveLength(1);
   });
 
+  it("직접 적은 주문(I-42)도 세고, 더 이른 시각·입금 전을 알린다", async () => {
+    const { prisma, service, sendToSeller } = buildService();
+    const { seller, stores, order } = await sellerWithStore();
+    await order(0, kst("14:00"), OrderStatus.CONFIRMED);
+    await order(0, kst("16:00"), OrderStatus.PAYMENT_PENDING); // Picake 입금대기도 입금 전
+    const manual = (pickupTime: string | null, paid: boolean | null, pickupDate = "2026-11-11") =>
+      prisma.manualOrder.create({
+        data: {
+          storeId: stores[0]!.id,
+          pickupDate,
+          pickupTime,
+          cakeName: "2호 초코 리스",
+          source: "KAKAO",
+          paid,
+        },
+      });
+    await manual("10:30", false);
+    await manual(null, null);
+    await manual("09:00", false, "2026-11-12"); // 다른 날
+
+    await service.runOnce(NOW);
+    const calls = sendToSeller.mock.calls.filter(([p]) => p.sellerId === seller.id);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![0]).toMatchObject({
+      title: "오늘 픽업 4건",
+      body: "첫 픽업 10:30 · 입금 전 2건",
+    });
+  });
+
   it("8시 전, 11시 이후에는 보내지 않는다", async () => {
     const { service, sendToSeller } = buildService();
     const { seller, order } = await sellerWithStore();

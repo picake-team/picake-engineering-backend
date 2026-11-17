@@ -58,6 +58,23 @@ describe("SentryUtil.scrubEvent", () => {
     });
     expect(scrubbed.breadcrumbs?.[0]?.message).toBe("Bearer ****");
   });
+
+  it("요청 본문은 빼고, 주소의 캘린더 구독 비밀 값·번호는 가린다(SDK가 본문을 붙임, 11-17)", () => {
+    const event = {
+      request: {
+        method: "POST",
+        url: "https://api.picakes.com/v1/seller/calendar-feeds/AbC_12-xyzAbC_12-xyzAbC_12-xyz12.ics",
+        query_string: "phone=01012345678",
+        data: '{"text":"손님 010-1234-5678 국민 000000-00-000000"}',
+      },
+    } as unknown as ErrorEvent;
+
+    const scrubbed = SentryUtil.scrubEvent(event);
+
+    expect(scrubbed.request?.data).toBeUndefined();
+    expect(scrubbed.request?.url).toBe("https://api.picakes.com/v1/seller/calendar-feeds/****.ics");
+    expect(scrubbed.request?.query_string).toBe("phone=010-****-5678");
+  });
 });
 
 describe("SentryUtil.captureExceptionThrottled", () => {

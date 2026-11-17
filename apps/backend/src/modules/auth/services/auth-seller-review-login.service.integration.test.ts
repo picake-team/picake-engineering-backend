@@ -295,6 +295,7 @@ describe("AuthSellerReviewLoginService (integration)", () => {
         deleteAllForConsumer: vi.fn(),
       } as any,
       { deleteAllForConsumer: vi.fn() } as any,
+      { deleteAllForSeller: vi.fn().mockResolvedValue({ orders: 0, photos: 0 }) } as any,
     );
     await withdrawService.withdraw(AUDIENCE.SELLER, before.seller!.id, "심사 확인");
 

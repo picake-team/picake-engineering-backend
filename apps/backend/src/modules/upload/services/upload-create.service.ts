@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { uploadUrlToKey } from "@apps/backend/modules/upload/utils/upload-url.util";
+import {
+  encodeUploadKey,
+  uploadUrlToKey,
+} from "@apps/backend/modules/upload/utils/upload-url.util";
 import { FileValidator } from "../utils/file-validator.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
@@ -79,8 +82,7 @@ export class UploadCreateService {
       // 최종 파일 URL 생성 (특수문자 URL 인코딩)
       // CloudFront가 설정되어 있으면 CloudFront URL 사용, 없으면 S3 URL 사용
       // S3 URL은 슬래시(/)를 경로 구분자로 사용하므로 각 경로 세그먼트를 개별 인코딩
-      const pathSegments = uniqueFilename.split("/").map((segment) => encodeURIComponent(segment));
-      const encodedKey = pathSegments.join("/");
+      const encodedKey = encodeUploadKey(uniqueFilename);
 
       // CloudFront 도메인이 설정되어 있으면 CloudFront URL 사용
       const fileUrl = this.cloudfrontDomain
