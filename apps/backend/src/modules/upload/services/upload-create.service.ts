@@ -35,23 +35,27 @@ export class UploadCreateService {
     const accessKeyId = this.configService.get<string>("AWS_ACCESS_KEY_ID");
     const secretAccessKey = this.configService.get<string>("AWS_SECRET_ACCESS_KEY");
 
-    if (!accessKeyId || !secretAccessKey) {
-      LoggerUtil.log("AWS_ACCESS_KEY_ID 또는 AWS_SECRET_ACCESS_KEY가 설정되어 있지 않습니다.");
-      throw new Error("AWS_ACCESS_KEY_ID 또는 AWS_SECRET_ACCESS_KEY가 설정되어 있지 않습니다.");
+    // staging·production 서버는 키 없이 EC2 인스턴스 역할로 올린다(2026-11-18, 루트 접근 키 없애기).
+    // 키는 로컬 개발·테스트(.env.development·.env.test)에서만 넣는다. 하나만 있으면 설정 실수라 멈춘다.
+    if (Boolean(accessKeyId) !== Boolean(secretAccessKey)) {
+      LoggerUtil.log(
+        "AWS_ACCESS_KEY_ID와 AWS_SECRET_ACCESS_KEY는 둘 다 넣거나 둘 다 비워야 합니다.",
+      );
+      throw new Error(
+        "AWS_ACCESS_KEY_ID와 AWS_SECRET_ACCESS_KEY는 둘 다 넣거나 둘 다 비워야 합니다.",
+      );
     }
 
     this.s3Client = new S3Client({
       region: this.region,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
+      // 키가 없으면 SDK 기본 자격 증명 체인(서버에서는 EC2 인스턴스 역할)을 쓴다
+      ...(accessKeyId && secretAccessKey ? { credentials: { accessKeyId, secretAccessKey } } : {}),
     });
 
     LoggerUtil.log(
       `S3 Client 초기화 완료: ${this.region}, Bucket: ${this.bucket}, CloudFront: ${
         this.cloudfrontDomain ? "enabled" : "disabled"
-      }`,
+      }, 자격 증명: ${accessKeyId ? "환경 변수 키" : "기본 체인(EC2 역할)"}`,
     );
   }
 
