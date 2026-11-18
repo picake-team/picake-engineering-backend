@@ -13,6 +13,7 @@ import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { DailyQuota } from "@apps/backend/common/utils/daily-quota.util";
 import { ExternalApiErrorUtil } from "@apps/backend/common/utils/external-api-error.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
+import { isClaudeImageRejection } from "@apps/backend/common/utils/claude-image-rejection.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { koreaCalendarYmd } from "@apps/backend/modules/order/utils/order-list-query.util";
 import { parseImageDataUrl } from "@apps/backend/modules/quote-request/utils/quote-photo-read.util";
@@ -138,7 +139,8 @@ export class ManualOrderReadService {
       const status: number | undefined = error?.status;
       // Claude가 캡처를 받지 않음(깨진 사진 등 400): 사장님 쪽 문제라 횟수를 세고 400으로.
       // 대화 글의 4xx와 401·403·404(키·권한·모델)는 우리 쪽 문제라 아래에서 되돌리고 502로 알린다
-      if (!deadline.signal.aborted && source.kind === "image" && status === 400) {
+      // 크레딧 부족도 400으로 와서 글로 가른다(11-18 검토)
+      if (!deadline.signal.aborted && source.kind === "image" && isClaudeImageRejection(error)) {
         SentryUtil.captureExceptionThrottled(
           "manual-order-read:claude-4xx",
           CLAUDE_REJECTED_NOTICE_INTERVAL_MS,

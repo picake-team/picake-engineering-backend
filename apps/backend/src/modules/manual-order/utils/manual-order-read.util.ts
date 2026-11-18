@@ -121,6 +121,11 @@ const PHONE_NUMBER = /(?<!\d)(?:01[016789]|0[2-6]\d?|070|050\d)[-. ]?\d{3,4}[-. 
 const HYPHENATED_NUMBER = /(?<!\d)\d{2,6}(?:-\d{1,8}){2,4}(?!\d)/g;
 /** 이어진 숫자 10개 이상(하이픈 없는 계좌·번호) */
 const LONG_NUMBER = /(?<!\d)\d{10,}(?!\d)/g;
+/**
+ * 띄어쓰기·하이픈·점으로 나뉜 숫자 묶음("3333 01 1234567", "+82 10 1234 5678", "010 - 1234 - 5678").
+ * 숫자가 10개 이상일 때만, 연도로 시작하면(2026. 11. 28 14 00) 남긴다. 금액(52,000)은 쉼표라 걸리지 않는다(11-18 검토)
+ */
+const SEPARATED_NUMBER = /(?<![\d,.])\+?\d{1,6}(?:[ .-]{1,3}\d{1,8}){2,5}(?![\d,])/g;
 
 /**
  * 전화번호·계좌번호처럼 보이는 숫자를 바꾼다. AI에 보내기 전 대화 글(`[번호]`)과 AI가 돌려준 칸(빈 글)에 쓴다.
@@ -132,7 +137,12 @@ export function maskContactNumbers(text: string, replacement = "[번호]"): stri
     .replace(HYPHENATED_NUMBER, (match) =>
       match.replace(/\D/g, "").length >= 10 ? replacement : match,
     )
-    .replace(LONG_NUMBER, replacement);
+    .replace(LONG_NUMBER, replacement)
+    .replace(SEPARATED_NUMBER, (match) =>
+      match.replace(/\D/g, "").length >= 10 && !/^(?:19|20)\d{2}\D/.test(match)
+        ? replacement
+        : match,
+    );
 }
 
 /** AI가 돌려준 글 칸: 번호를 빼고 다듬는다 */

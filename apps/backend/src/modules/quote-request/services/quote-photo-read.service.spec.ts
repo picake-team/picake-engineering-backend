@@ -230,6 +230,25 @@ describe("QuotePhotoReadService(견적 요청서 사진 읽기)", () => {
     expect(create).toHaveBeenCalledTimes(21);
   });
 
+  it("키 회수·권한·모델 이름(401·403·404)과 크레딧 부족(400 billing)은 우리 쪽 문제라 502이고 되돌린다(11-18 검토)", async () => {
+    quiet();
+    const service = build();
+    for (const err of [
+      { status: 401, message: "invalid x-api-key" },
+      { status: 403, message: "permission" },
+      { status: 404, message: "model not found" },
+      { status: 400, message: "Your credit balance is too low to access the Anthropic API." },
+    ]) {
+      create.mockRejectedValueOnce(Object.assign(new Error(err.message), { status: err.status }));
+      await expect(service.read(IMAGE, { ip: "8.8.4.4" })).rejects.toBeInstanceOf(
+        BadGatewayException,
+      );
+    }
+    // 네 번 모두 되돌려 이 주소는 아직 20번을 다 쓸 수 있다
+    for (let i = 0; i < 20; i += 1) await service.read(IMAGE, { ip: "8.8.4.4" });
+    expect(create).toHaveBeenCalledTimes(24);
+  });
+
   it("Claude를 다시 시도하지 않고 20초 안에 끊는다(웹은 30초 기다림)", () => {
     build();
     expect(clientOptions).toHaveLength(1);
