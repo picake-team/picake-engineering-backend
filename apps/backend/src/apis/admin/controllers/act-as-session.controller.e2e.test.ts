@@ -202,4 +202,18 @@ describe("가게 대신 입력 세션 (e2e)", () => {
     await prisma.seller.update({ where: { id: seller.id }, data: { isActive: false } });
     expect((await me(sellerOff.auth)).status).toBe(401);
   });
+
+  // 5번 틀리면 막히는 것은 단위 테스트(act-as-otp-guard.util.spec)에서 — 여기서는 접속 주소 분당 10번 한도가 먼저 걸린다
+  it("같은 OTP로 두 번 들어가지 못한다(11-18 검토)", async () => {
+    const app = getTestApp();
+    const { adminAuth, otp, store } = await setupActAs(app);
+    const code = otp();
+
+    expect((await start(adminAuth, store.id, { reason: "첫 상품", totpCode: code })).status).toBe(
+      201,
+    );
+    const reused = await start(adminAuth, store.id, { reason: "다시", totpCode: code });
+    expect(reused.status).toBe(400);
+    expect(reused.body.data.message).toBe(ACT_AS_ERROR_MESSAGES.OTP_REUSED);
+  });
 });

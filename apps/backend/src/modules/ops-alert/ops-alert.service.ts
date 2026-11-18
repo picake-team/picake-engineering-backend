@@ -4,7 +4,9 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { isProduction } from "@apps/backend/common/utils/environment.util";
 import {
+  buildActAsOtpLockedMessage,
   buildActAsStartedMessage,
+  type ActAsOtpLockedAlert,
   type ActAsStartedAlert,
   buildChatReportMessage,
   buildQuoteOpsMessage,
@@ -47,6 +49,10 @@ export class OpsAlertService {
   }
 
   /** 운영자가 가게 대신 입력을 시작함(기획 I-41) */
+  notifyActAsOtpLocked(alert: ActAsOtpLockedAlert): Promise<void> {
+    return this.send("act-as-otp-locked", (ctx) => buildActAsOtpLockedMessage(alert, ctx));
+  }
+
   notifyActAsStarted(alert: ActAsStartedAlert): Promise<void> {
     return this.send("act-as-started", (ctx) => buildActAsStartedMessage(alert, ctx));
   }

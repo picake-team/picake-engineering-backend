@@ -31,7 +31,13 @@ export class ActAsAuditService {
       LoggerUtil.log(
         `[ActAs] 기록 실패 - sid: ${sessionId}, error: ${e instanceof Error ? e.message : String(e)}`,
       );
-      SentryUtil.captureException(e, "warning", { module: "act-as", operation: "record" });
+      // 쓰기(GET이 아닌 요청)의 기록이 빠지면 "한 일은 모두 남는다"(기획 P-93)가 깨진다 — 보기보다 높게 올린다
+      const isWrite = !["GET", "HEAD"].includes((req.method ?? "GET").toUpperCase());
+      SentryUtil.captureException(e, isWrite ? "error" : "warning", {
+        module: "act-as",
+        operation: "record",
+        write: String(isWrite),
+      });
     }
   }
 }
