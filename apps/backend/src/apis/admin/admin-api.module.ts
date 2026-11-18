@@ -32,6 +32,8 @@ import { AdminStoreEntryRequestManagementController } from "@apps/backend/apis/a
 import { AdminSellerSegmentManagementController } from "@apps/backend/apis/admin/controllers/seller-segment-management.controller";
 import { QuoteRequestModule } from "@apps/backend/modules/quote-request/quote-request.module";
 import { AdminQuoteRequestManagementController } from "@apps/backend/apis/admin/controllers/quote-request-management.controller";
+import { ActAsModule } from "@apps/backend/modules/act-as/act-as.module";
+import { AdminActAsSessionController } from "@apps/backend/apis/admin/controllers/act-as-session.controller";
 
 /**
  * Admin API 모듈
@@ -56,6 +58,7 @@ import { AdminQuoteRequestManagementController } from "@apps/backend/apis/admin/
     QuoteRequestModule,
     ChatModule,
     SellerSegmentModule,
+    ActAsModule,
   ],
   controllers: [
     AdminUploadController,
@@ -75,6 +78,7 @@ import { AdminQuoteRequestManagementController } from "@apps/backend/apis/admin/
     AdminQuoteRequestManagementController,
     AdminChatController,
     AdminSellerSegmentManagementController,
+    AdminActAsSessionController,
   ],
 })
 export class AdminApiModule {}

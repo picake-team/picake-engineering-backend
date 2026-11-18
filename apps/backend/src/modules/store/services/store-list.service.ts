@@ -197,7 +197,12 @@ export class StoreListService {
    * 내 스토어 목록 조회 (판매자용)
    * 검색(스토어명), 정렬, 페이지네이션, 상품 필터(sizes, minPrice, maxPrice, productCategoryTypes)를 지원합니다.
    */
-  async getStoresByUserIdForSeller(userId: string, query: GetSellerStoresRequestDto) {
+  /** @param onlyStoreId 운영자 대신 입력 중(기획 I-41)이면 들어간 가게 하나만 */
+  async getStoresByUserIdForSeller(
+    userId: string,
+    query: GetSellerStoresRequestDto,
+    onlyStoreId?: string,
+  ) {
     const {
       search,
       page,
@@ -219,7 +224,10 @@ export class StoreListService {
       throw new BadRequestException(STORE_ERROR_MESSAGES.PICKUP_FILTER_DATE_PERIOD_PAIR);
     }
 
-    const baseWhere = this.buildStoreWhereForSeller(userId, search);
+    const baseWhere: Prisma.StoreWhereInput = {
+      ...this.buildStoreWhereForSeller(userId, search),
+      ...(onlyStoreId ? { id: onlyStoreId } : {}),
+    };
     const productFilterWhere = await this.buildStoreWhereProductFilter({
       sizes,
       minPrice,

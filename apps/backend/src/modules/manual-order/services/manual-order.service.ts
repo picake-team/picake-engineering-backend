@@ -18,6 +18,7 @@ import {
   ManualOrderInputDto,
 } from "@apps/backend/modules/manual-order/dto/manual-order.dto";
 import { ymdDayDiff } from "@apps/backend/modules/manual-order/utils/manual-order-date.util";
+import { ACT_AS_ERROR_MESSAGES } from "@apps/backend/modules/act-as/constants/act-as.constants";
 
 /** 픽업 날·시각 순, 시각을 적지 않은 주문은 그날 맨 뒤 */
 export const MANUAL_ORDER_ORDER_BY: Prisma.ManualOrderOrderByWithRelationInput[] = [
@@ -40,6 +41,8 @@ export function toManualOrderDto(row: ManualOrder): ManualOrderDto {
     source: row.source,
     memo: row.memo,
     photoUrls: row.photoUrls,
+    // 운영자가 가게 대신 적은 주문이면 true(기획 I-41). 관리자 id는 내보내지 않는다
+    enteredByOperator: row.createdByAdminId != null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -86,10 +89,12 @@ export class ManualOrderService {
     return toManualOrderDto(await this.findOwned(sellerId, storeId, id));
   }
 
+  /** @param createdByAdminId 운영자가 가게 대신 적으면(기획 I-41) 그 관리자 id — "운영자 입력" 표시 */
   async create(
     sellerId: string,
     storeId: string,
     dto: ManualOrderInputDto,
+    createdByAdminId?: string,
   ): Promise<ManualOrderDto> {
     await this.assertStoreOwned(sellerId, storeId);
     const count = await this.prisma.manualOrder.count({ where: { storeId } });
@@ -97,18 +102,23 @@ export class ManualOrderService {
       throw new BadRequestException(MANUAL_ORDER_ERROR_MESSAGES.TOO_MANY);
     }
     const row = await this.prisma.manualOrder.create({
-      data: { storeId, ...this.toData(dto) },
+      data: { storeId, ...this.toData(dto), ...(createdByAdminId ? { createdByAdminId } : {}) },
     });
     return toManualOrderDto(row);
   }
 
+  /** @param actingAsOperator 운영자 대신 입력 중(기획 I-41)이면 운영자가 적은 주문만 고친다(사진·내용을 되살릴 수 없어서) */
   async update(
     sellerId: string,
     storeId: string,
     id: string,
     dto: ManualOrderInputDto,
+    actingAsOperator = false,
   ): Promise<ManualOrderDto> {
     const before = await this.findOwned(sellerId, storeId, id);
+    if (actingAsOperator && !before.createdByAdminId) {
+      throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.EDIT_OPERATOR_ONLY);
+    }
     // 사진 칸을 보내지 않은 요청(옛 화면 등)은 사진을 그대로 둔다(빈 목록으로 보고 파일을 지우지 않게)
     const data = this.toData(dto, before.photoUrls);
     const row = await this.prisma.manualOrder.update({ where: { id }, data });
@@ -122,14 +132,27 @@ export class ManualOrderService {
     storeId: string,
     id: string,
     paid: boolean | null,
+    actingAsOperator = false,
   ): Promise<ManualOrderDto> {
-    await this.findOwned(sellerId, storeId, id);
-    const row = await this.prisma.manualOrder.update({ where: { id }, data: { paid } });
-    return toManualOrderDto(row);
+    const row = await this.findOwned(sellerId, storeId, id);
+    if (actingAsOperator && !row.createdByAdminId) {
+      throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.EDIT_OPERATOR_ONLY);
+    }
+    const updated = await this.prisma.manualOrder.update({ where: { id }, data: { paid } });
+    return toManualOrderDto(updated);
   }
 
-  async remove(sellerId: string, storeId: string, id: string): Promise<void> {
+  /** @param actingAsOperator 운영자 대신 입력 중(기획 I-41)이면 운영자가 적은 주문만 지운다 */
+  async remove(
+    sellerId: string,
+    storeId: string,
+    id: string,
+    actingAsOperator = false,
+  ): Promise<void> {
     const row = await this.findOwned(sellerId, storeId, id);
+    if (actingAsOperator && !row.createdByAdminId) {
+      throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.DELETE_OPERATOR_ONLY);
+    }
     await this.prisma.manualOrder.delete({ where: { id } });
     await this.deletePhotos(row.photoUrls);
   }

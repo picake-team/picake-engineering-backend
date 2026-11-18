@@ -12,6 +12,7 @@ import {
 import { ApiExtraModels, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -64,6 +65,7 @@ export class SellerChatController {
     return this.chatService.listForStore(req.user.sub, storeId, query);
   }
 
+  @AllowActAs()
   @Get("unread")
   @Throttle(POLL_THROTTLE)
   @ApiOperation({

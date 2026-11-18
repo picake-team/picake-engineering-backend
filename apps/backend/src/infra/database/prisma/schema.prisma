@@ -562,6 +562,9 @@ model Product {
   naverBizItemId String?   @map("naver_biz_item_id") // 네이버 예약 상품 ID
   naverLinkedAt  DateTime? @map("naver_linked_at") // 네이버 상품을 연결한 시각
 
+  // 운영자가 가게 대신 만든 상품(기획 I-41)이면 그 관리자 id. 판매자 응답에는 enteredByOperator(참·거짓)만 내보내고 손님 응답에는 넣지 않는다
+  createdByAdminId String? @map("created_by_admin_id")
+
   // 비즈니스 필드 - 케이크 옵션
   cakeSizeOptions    Json?        @map("cake_size_options") // 케이크 사이즈 옵션
   // 추가 옵션(선택형·다중선택형·직접입력형·사진첨부형) 목록. 배열 순서가 구매자 화면 노출 순서
@@ -993,6 +996,53 @@ model ChatAccessLog {
   @@map("chat_access_logs")
 }
 
+/// 운영자가 가게 대신 입력하는 짧은 접속(기획 I-41). 관리자가 OTP를 다시 넣고 사유를 적으면 60분 동안 그 가게 판매자 화면을 쓴다.
+/// 매 요청마다 이 행을 확인한다(끝났거나 시간이 지나면 바로 무효). 관리자·스토어가 지워져도 기록은 남게 FK 없이 값만 둔다.
+model AdminActAsSession {
+  id            String    @id @default(cuid())
+  adminId       String    @map("admin_id")
+  /// 시작할 때 관리자 아이디(기록 화면용, 계정이 지워져도 남김)
+  adminUsername String    @map("admin_username") @db.VarChar(40)
+  sellerId      String    @map("seller_id")
+  storeId       String    @map("store_id")
+  /// 들어간 까닭(필수). 예: 카톡 채널 요청 — 첫 상품 3개
+  reason        String    @db.VarChar(200)
+  /// 판매자 화면으로 넘기는 한 번만 쓰는 코드의 SHA-256. 바꾸면 null
+  codeHash      String?   @unique @map("code_hash")
+  codeExpiresAt DateTime? @map("code_expires_at")
+  startedAt     DateTime  @map("started_at")
+  expiresAt     DateTime  @map("expires_at")
+  endedAt       DateTime? @map("ended_at")
+  /// 누가 끝냈나: "self"(띠의 끝내기) | "admin:<관리자 id>"
+  endedBy       String?   @map("ended_by") @db.VarChar(40)
+
+  actions AdminActAsAction[]
+
+  @@index([storeId, startedAt(sort: Desc)])
+  @@index([adminId, startedAt(sort: Desc)])
+  @@map("admin_act_as_sessions")
+}
+
+/// 대리 입력 중 요청 하나(막힌 요청 포함). 보낸 값(캡처·손님 이름·계좌)은 남기지 않고 경로·대상 id·보낸 칸 이름·결과만
+model AdminActAsAction {
+  id        String   @id @default(cuid())
+  sessionId String   @map("session_id")
+  method    String   @db.VarChar(8)
+  /// 경로 틀(예: "/seller/products/:id")
+  route     String   @db.VarChar(160)
+  /// 상품·주문·스토어 id
+  targetId  String?  @map("target_id") @db.VarChar(64)
+  /// 보낸 칸 이름(값 없음)
+  fields    String[] @default([])
+  status    Int
+  createdAt DateTime @map("created_at")
+
+  session AdminActAsSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("admin_act_as_actions")
+}
+
 // Store feed model for store feed posts
 model StoreFeed {
   // Primary Key
@@ -1166,26 +1216,28 @@ model Order {
 /// 사장님이 Picake 밖(카톡·인스타·전화 등)에서 받아 판매자 앱에 직접 적은 주문(기획 I-42).
 /// 사장님 장부라 Picake 주문(orders)·알림톡·수수료·정산·관리자 숫자와 섞지 않는다. 손님 연락처는 받지 않는다.
 model ManualOrder {
-  id           String            @id @default(cuid())
-  storeId      String            @map("store_id")
+  id               String            @id @default(cuid())
+  storeId          String            @map("store_id")
   /// 픽업 날 YYYY-MM-DD(Asia/Seoul 달력)
-  pickupDate   String            @map("pickup_date") @db.VarChar(10)
+  pickupDate       String            @map("pickup_date") @db.VarChar(10)
   /// 픽업 시각 HH:mm(Asia/Seoul). 모르면 null("미정")
-  pickupTime   String?           @map("pickup_time") @db.VarChar(5)
+  pickupTime       String?           @map("pickup_time") @db.VarChar(5)
   /// 케이크(크기·맛·디자인을 한 줄로)
-  cakeName     String            @map("cake_name") @db.VarChar(100)
-  lettering    String?           @db.VarChar(100)
+  cakeName         String            @map("cake_name") @db.VarChar(100)
+  lettering        String?           @db.VarChar(100)
   /// 금액(원). 적은 주문만 매출로 센다
-  price        Int?
+  price            Int?
   /// 입금: true 받음, false 아직, null 고르지 않음
-  paid         Boolean?
+  paid             Boolean?
   /// 손님(이름·닉네임·인스타 아이디 아무거나)
-  customerName String?           @map("customer_name") @db.VarChar(50)
-  source       ManualOrderSource
-  memo         String?           @db.VarChar(500)
-  photoUrls    String[]          @default([]) @map("photo_urls")
-  createdAt    DateTime          @default(now()) @map("created_at")
-  updatedAt    DateTime          @updatedAt @map("updated_at")
+  customerName     String?           @map("customer_name") @db.VarChar(50)
+  source           ManualOrderSource
+  memo             String?           @db.VarChar(500)
+  photoUrls        String[]          @default([]) @map("photo_urls")
+  /// 운영자가 가게 대신 적은 주문(기획 I-41)이면 그 관리자 id. 판매자 응답에는 enteredByOperator만
+  createdByAdminId String?           @map("created_by_admin_id")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 

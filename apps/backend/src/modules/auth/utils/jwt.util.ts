@@ -86,6 +86,25 @@ export class JwtUtil {
   }
 
   /**
+   * 운영자가 가게 대신 입력하는 출입증(기획 I-41). 세션이 끝나는 시각까지만 산다(최대 60분, 연장 없음).
+   * 서명이 살아 있어도 JWT 전략이 매 요청 세션 행을 확인하므로 끝내기를 누르면 바로 무효다.
+   */
+  async generateActAsToken(
+    payload: { sellerId: string; sessionId: string },
+    expiresInSeconds: number,
+  ): Promise<string> {
+    return await this.jwtService.signAsync(
+      {
+        sub: payload.sellerId,
+        aud: "seller",
+        type: TOKEN_TYPES.ACT_AS,
+        sid: payload.sessionId,
+      },
+      { expiresIn: Math.max(1, Math.floor(expiresInSeconds)) },
+    );
+  }
+
+  /**
    * 소셜 회원가입 가입표(30분)를 만듭니다.
    * 로그인 때 서버가 소셜 서비스에 직접 확인한 ID·이메일만 담는다. 가입 API는 이 가입표로만 가입시킨다(화면은 소셜 ID를 보내지 않음).
    * `type=register`라 로그인 출입증으로는 쓸 수 없다(JWT 전략·실시간 알림 연결이 type=access만 받음).

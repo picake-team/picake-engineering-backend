@@ -15,6 +15,7 @@ import {
 import { ApiExtraModels, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
@@ -61,6 +62,7 @@ export class SellerManualOrderController {
     private readonly calendarFeedService: CalendarFeedService,
   ) {}
 
+  @AllowActAs()
   @Get("manual-orders")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -85,6 +87,7 @@ export class SellerManualOrderController {
     };
   }
 
+  @AllowActAs()
   @Post("manual-orders")
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 30, ttl: 60000 } })
@@ -96,9 +99,15 @@ export class SellerManualOrderController {
     @Body() dto: ManualOrderInputDto,
     @Request() req: { user: JwtVerifiedPayload },
   ) {
-    return await this.manualOrderService.create(req.user.sub, storeId, dto);
+    return await this.manualOrderService.create(
+      req.user.sub,
+      storeId,
+      dto,
+      req.user.actor?.adminId,
+    );
   }
 
+  @AllowActAs()
   @Post("manual-orders/read")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: MANUAL_ORDER_READ_LIMITS.PER_MINUTE, ttl: 60000 } })
@@ -134,6 +143,7 @@ export class SellerManualOrderController {
     return await this.readService.read(req.user.sub, storeId, dto);
   }
 
+  @AllowActAs()
   @Get("manual-orders/:id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "(로그인 필요) 직접 적은 주문 하나" })
@@ -147,6 +157,7 @@ export class SellerManualOrderController {
     return await this.manualOrderService.get(req.user.sub, storeId, id);
   }
 
+  @AllowActAs()
   @Put("manual-orders/:id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "(로그인 필요) 고치기(모든 칸을 보낸다)" })
@@ -158,9 +169,16 @@ export class SellerManualOrderController {
     @Body() dto: ManualOrderInputDto,
     @Request() req: { user: JwtVerifiedPayload },
   ) {
-    return await this.manualOrderService.update(req.user.sub, storeId, id, dto);
+    return await this.manualOrderService.update(
+      req.user.sub,
+      storeId,
+      id,
+      dto,
+      Boolean(req.user.actor),
+    );
   }
 
+  @AllowActAs()
   @Patch("manual-orders/:id/paid")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "(로그인 필요) 입금 전·받음만 바로 바꾸기" })
@@ -172,9 +190,16 @@ export class SellerManualOrderController {
     @Body() dto: ManualOrderPaidInputDto,
     @Request() req: { user: JwtVerifiedPayload },
   ) {
-    return await this.manualOrderService.setPaid(req.user.sub, storeId, id, dto.paid);
+    return await this.manualOrderService.setPaid(
+      req.user.sub,
+      storeId,
+      id,
+      dto.paid,
+      Boolean(req.user.actor),
+    );
   }
 
+  @AllowActAs()
   @Delete("manual-orders/:id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "(로그인 필요) 지우기" })
@@ -186,7 +211,7 @@ export class SellerManualOrderController {
     @Param("id") id: string,
     @Request() req: { user: JwtVerifiedPayload },
   ) {
-    await this.manualOrderService.remove(req.user.sub, storeId, id);
+    await this.manualOrderService.remove(req.user.sub, storeId, id, Boolean(req.user.actor));
     return { deleted: true };
   }
 

@@ -20,6 +20,20 @@ export interface JwtVerifiedPayload extends JwtPayload {
   type?: string;
   iat?: number;
   exp?: number;
+  /** 운영자 대신 입력 출입증(`type: act_as`)의 세션 id(기획 I-41) */
+  sid?: string;
+  /**
+   * 운영자 대신 입력 중이면 누가 어느 세션으로 들어왔는지(기획 I-41). JWT 전략이 세션 행을 확인한 뒤 붙인다.
+   * `sub`는 그대로 판매자 id라 판매자 서비스는 지금처럼 돌고, 운영자 표시·계좌 지킴·지우기 범위만 이 값을 본다.
+   */
+  actor?: ActAsActor;
+}
+
+/** 운영자 대신 입력(기획 I-41) 중인 관리자·세션·가게 */
+export interface ActAsActor {
+  adminId: string;
+  sessionId: string;
+  storeId: string;
 }
 
 /** 소셜 로그인 종류 */

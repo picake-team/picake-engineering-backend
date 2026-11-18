@@ -218,3 +218,42 @@ export function buildQuoteOpsMessage(alert: QuoteOpsAlert, ctx: OpsAlertContext)
     at: alert.at,
   });
 }
+
+export interface ActAsStartedAlert {
+  storeId: string;
+  storeName: string;
+  adminUsername: string;
+  reason: string;
+  startedAt: Date;
+  expiresAt: Date;
+}
+
+/** 한국 시각 HH:mm */
+function kstClock(at: Date): string {
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(at);
+}
+
+/**
+ * 운영자가 가게 대신 입력을 시작함(기획 I-41). 누가·어느 가게·사유·끝나는 시각만.
+ * 다른 관리자가 몰래 들어가도 바로 보이게 하려는 알림이다. 기록은 관리자 스토어 상세에 있다.
+ */
+export function buildActAsStartedMessage(alert: ActAsStartedAlert, ctx: OpsAlertContext) {
+  return embed(ctx, {
+    title: "운영자가 가게 대신 입력을 시작했어요",
+    hint: `${kstClock(alert.expiresAt)}에 저절로 끝나요.`,
+    path: "/seller/stores",
+    fields: [
+      { name: "스토어", value: plainText(alert.storeName) },
+      // 관리자 아이디(영문·숫자·_)는 코드 칸으로 보여 _가 기울임이 되지 않게 한다
+      { name: "관리자", value: `\`${alert.adminUsername.replace(/[^A-Za-z0-9_]/g, "")}\`` },
+      { name: "사유", value: plainText(alert.reason), inline: false },
+    ],
+    footer: `스토어 ${alert.storeId}`,
+    at: alert.startedAt,
+  });
+}

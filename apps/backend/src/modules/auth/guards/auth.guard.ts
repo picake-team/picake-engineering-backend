@@ -4,6 +4,7 @@ import {
   CanActivate,
   UnauthorizedException,
   ForbiddenException,
+  Optional,
 } from "@nestjs/common";
 import { Observable } from "rxjs";
 import { Reflector } from "@nestjs/core";
@@ -15,6 +16,9 @@ import {
 } from "@apps/backend/modules/auth/constants/auth.constants";
 import { ADMIN_API_KEY_HEADER } from "@apps/backend/modules/admin-api-key/constants/admin-api-key.constants";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
+import { ALLOW_ACT_AS_METADATA_KEY } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
+import type { AuthenticatedUser } from "@apps/backend/modules/auth/types/auth.types";
+import { ActAsAuditService } from "@apps/backend/modules/act-as/services/act-as-audit.service";
 
 export const AUTH_METADATA_KEY = "auth";
 
@@ -31,7 +35,11 @@ export interface AuthMetadata {
  */
 @Injectable()
 export class AuthGuard extends BaseAuthGuard(["jwt", "admin-api-key"]) implements CanActivate {
-  constructor(private reflector: Reflector) {
+  constructor(
+    private reflector: Reflector,
+    /** 운영자 대신 입력(기획 I-41) 중 막힌 요청 기록 — 전역 `ActAsAuditModule`. 단위 테스트처럼 없으면 남기지 않는다 */
+    @Optional() private readonly actAsAudit?: ActAsAuditService,
+  ) {
     super();
   }
 
@@ -134,13 +142,24 @@ export class AuthGuard extends BaseAuthGuard(["jwt", "admin-api-key"]) implement
         LoggerUtil.log(
           `인증 실패: aud 불일치 - userAud: ${user.aud}, required: ${authMetadata.audiences.join(",")}`,
         );
+        // 대리 출입증으로 관리자·손님 경로를 부른 것도 기록에 남긴다(기획 I-41)
+        if (user.type === TOKEN_TYPES.ACT_AS) {
+          this.recordActAsBlocked(user as AuthenticatedUser, context.switchToHttp().getRequest());
+        }
         throw new ForbiddenException(AUTH_ERROR_MESSAGES.AUDIENCE_NOT_AUTHORIZED);
       }
     }
 
+    // 운영자 대신 입력 출입증(기획 I-41): 허용 목록에 넣은 경로·들어간 가게만. 기본은 막는다
+    const isActAs = user.type === TOKEN_TYPES.ACT_AS;
+    if (isActAs) {
+      this.assertActAsAllowed(user as AuthenticatedUser, context);
+    }
+
     if (authMetadata && !authMetadata.isPublic && !authMetadata.isOptionalPublic && user) {
       const allowed = authMetadata.jwtTypes ?? [TOKEN_TYPES.ACCESS];
-      const t = user.type;
+      // 허용 목록을 지난 대리 출입증은 경로가 따로 정하지 않았으면 사장님 출입증(access)처럼 본다
+      const t = isActAs && !authMetadata.jwtTypes ? TOKEN_TYPES.ACCESS : user.type;
       if (!t || !allowed.includes(t)) {
         LoggerUtil.log(
           `인증 실패: JWT type 불허 - type: ${String(t)}, allowed: ${allowed.join(",")}`,
@@ -153,6 +172,44 @@ export class AuthGuard extends BaseAuthGuard(["jwt", "admin-api-key"]) implement
   }
 
   /**
+   * 대리 출입증이 이 경로를 쓸 수 있나(기획 I-41).
+   * 1) 경로(메서드)에 `@AllowActAs()`가 있어야 한다 — 클래스 표시는 보지 않는다(새 경로가 저절로 열리지 않게).
+   * 2) 주소·쿼리·본문에 스토어 id가 있으면 들어간 가게여야 한다(사장님이 스토어를 여럿 가진 경우).
+   * 막으면 기록을 남기고 403.
+   */
+  private assertActAsAllowed(user: AuthenticatedUser, context: ExecutionContext): void {
+    const request = context.switchToHttp().getRequest();
+    const allowed =
+      this.reflector.get<boolean | undefined>(ALLOW_ACT_AS_METADATA_KEY, context.getHandler()) ===
+      true;
+    if (!allowed) {
+      this.recordActAsBlocked(user, request);
+      LoggerUtil.log(
+        `대리 입력 막음: 허용 목록 밖 - ${request.method} ${request.route?.path ?? ""}`,
+      );
+      throw new ForbiddenException(AUTH_ERROR_MESSAGES.ACT_AS_ROUTE_BLOCKED);
+    }
+    const storeId = user.actor?.storeId;
+    if (!storeId || actAsStoreIdsInRequest(request).some((id) => id !== storeId)) {
+      this.recordActAsBlocked(user, request);
+      LoggerUtil.log(
+        `대리 입력 막음: 다른 스토어 - ${request.method} ${request.route?.path ?? ""}`,
+      );
+      throw new ForbiddenException(AUTH_ERROR_MESSAGES.ACT_AS_OTHER_STORE);
+    }
+  }
+
+  private recordActAsBlocked(user: AuthenticatedUser, request: unknown): void {
+    const sessionId = user.actor?.sessionId;
+    if (!sessionId || !this.actAsAudit) return;
+    void this.actAsAudit.record(
+      sessionId,
+      request as Parameters<ActAsAuditService["record"]>[1],
+      403,
+    );
+  }
+
+  /**
    * 인증 메타데이터를 가져오는 헬퍼 메서드
    * 중복 코드를 제거하고 성능을 최적화합니다.
    */
@@ -162,4 +219,24 @@ export class AuthGuard extends BaseAuthGuard(["jwt", "admin-api-key"]) implement
       context.getClass(),
     ]);
   }
+}
+
+/**
+ * 요청이 가리키는 스토어 id들(기획 I-41 대리 입력 가게 확인용).
+ * 판매자 경로는 스토어를 `:storeId`(주소)·`storeId`(쿼리·본문)로 받고, 스토어 컨트롤러만 `/seller/store/:id`로 받는다.
+ */
+export function actAsStoreIdsInRequest(request: {
+  params?: Record<string, unknown>;
+  query?: Record<string, unknown>;
+  body?: unknown;
+  route?: { path?: string };
+}): string[] {
+  const ids: unknown[] = [request.params?.storeId, request.query?.storeId];
+  if (request.body && typeof request.body === "object" && !Array.isArray(request.body)) {
+    ids.push((request.body as Record<string, unknown>).storeId);
+  }
+  if (/\/seller\/store\/:id(\/|$)/.test(request.route?.path ?? "")) {
+    ids.push(request.params?.id);
+  }
+  return ids.filter((v): v is string => typeof v === "string" && v.length > 0);
 }
