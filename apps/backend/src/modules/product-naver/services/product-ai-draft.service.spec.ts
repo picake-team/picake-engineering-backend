@@ -44,6 +44,27 @@ describe("ProductAiDraftService 하루 한도(상품 상세설명 AI 초안)", (
     vi.restoreAllMocks();
   });
 
+  it("Claude에 마감(신호)을 넘기고, 마감이 지나면 끊어 502 — 그 번은 세지 않는다(11-18 검토: 웹 10초·서버 120초였음)", async () => {
+    vi.useFakeTimers();
+    const service = build();
+    let signal: AbortSignal | undefined;
+    generate.mockImplementationOnce(
+      (_c: unknown, _m: unknown, _r: unknown, opts: { signal?: AbortSignal }) =>
+        new Promise((_, reject) => {
+          signal = opts?.signal;
+          opts?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+    );
+    const pending = service.createDraftForSeller("store-t", REQUEST, seller("seller-t"));
+    const settled = expect(pending).rejects.toBeInstanceOf(BadGatewayException);
+    await vi.advanceTimersByTimeAsync(40_000);
+    await settled;
+    expect(signal?.aborted).toBe(true);
+    // 되돌려서 이 판매자는 아직 30번을 다 쓸 수 있다
+    for (let i = 0; i < 30; i += 1)
+      await service.createDraftForSeller("store-t", REQUEST, seller("seller-t"));
+  });
+
   it("판매자마다 하루 30번, 31번째는 429", async () => {
     const service = build();
     for (let i = 0; i < 30; i += 1) await service.createDraftForSeller("s1", REQUEST, seller("a"));

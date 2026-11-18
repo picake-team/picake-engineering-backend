@@ -16,6 +16,7 @@ import { validateProductPrices } from "@apps/backend/modules/product/utils/produ
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { ACT_AS_ERROR_MESSAGES } from "@apps/backend/modules/act-as/constants/act-as.constants";
 import { assertActAsStore } from "@apps/backend/modules/act-as/utils/act-as-scope.util";
+import { SELLER_CHECK_PATTERN } from "@apps/backend/modules/product-naver/utils/product-ai-draft.util";
 
 @Injectable()
 export class ProductUpdateService {
@@ -174,6 +175,10 @@ export class ProductUpdateService {
       updateData.productCategoryTypes = updateProductDto.productCategoryTypes;
     }
     if (updateProductDto.detailDescription !== undefined) {
+      // 화면에서만 막던 것을 서버에서도(옛 앱·API 직접 호출, 11-18 검토)
+      if (SELLER_CHECK_PATTERN.test(updateProductDto.detailDescription)) {
+        throw new BadRequestException(PRODUCT_ERROR_MESSAGES.SELLER_CHECK_LEFT);
+      }
       updateData.detailDescription = updateProductDto.detailDescription;
     }
     if (updateProductDto.searchTags !== undefined) {

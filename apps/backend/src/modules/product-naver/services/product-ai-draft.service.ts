@@ -49,7 +49,9 @@ export class ProductAiDraftService {
     configService: ConfigService,
   ) {
     const apiKey = configService.get<string>("ANTHROPIC_API_KEY");
-    this.client = apiKey ? new Anthropic({ apiKey, maxRetries: 1, timeout: 60_000 }) : null;
+    this.client = apiKey
+      ? new Anthropic({ apiKey, maxRetries: 0, timeout: PRODUCT_AI_DRAFT_LIMITS.CLAUDE_TIMEOUT_MS })
+      : null;
     this.model = configService.get<string>("ANTHROPIC_DRAFT_MODEL") || PRODUCT_AI_DRAFT_MODEL;
   }
 
@@ -72,8 +74,13 @@ export class ProductAiDraftService {
     this.consumeDailyQuota(user.sub);
 
     let result;
+    // SDK의 timeout은 응답 머리까지만 잰다. 다 받을 때까지 같은 마감을 건다(사진 읽기와 같게)
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(), PRODUCT_AI_DRAFT_LIMITS.CLAUDE_TIMEOUT_MS);
     try {
-      result = await generateDescriptionDraft(this.client, this.model, request);
+      result = await generateDescriptionDraft(this.client, this.model, request, {
+        signal: deadline.signal,
+      });
     } catch (error: any) {
       const status: number | undefined = error?.status;
       // 우리 쪽(연결·시간 초과·Claude 한도 429·서버 오류 5xx) 문제로 못 만들었으면 두 한도 모두 되돌린다.
@@ -94,6 +101,8 @@ export class ProductAiDraftService {
         error,
       );
       throw new BadGatewayException(PRODUCT_AI_DRAFT_ERROR_MESSAGES.FAILED);
+    } finally {
+      clearTimeout(timer);
     }
 
     // 사용량을 남겨 비용을 볼 수 있게 한다 (글 내용은 남기지 않음)

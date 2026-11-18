@@ -18,6 +18,9 @@ export const PRODUCT_ERROR_MESSAGES = {
   DISTANCE_SORT_REQUIRES_COORDINATES:
     "거리순 정렬에는 latitude와 longitude 쿼리 파라미터가 필요합니다.",
   SIZE_OPTION_REQUIRED: "노출 중인 사이즈 옵션이 1개 이상 필요합니다.",
+  /** AI 초안의 "[판매자 확인 필요]" 표시가 상세설명에 남음(기획 P-62 "남아 있으면 저장되지 않는다", 화면과 같은 기준) */
+  SELLER_CHECK_LEFT:
+    "상세설명에 [판매자 확인 필요] 표시가 남아 있어요. 내용을 확인해 고친 뒤 저장해 주세요.",
   CUSTOM_OPTION_INVALID: "추가 옵션 설정이 올바르지 않아요.",
   /** 상품을 지우면 주문도 함께 지워지므로(orders.product_id ON DELETE CASCADE) 주문이 있으면 막는다 */
   HAS_ORDERS: "주문이 있는 상품은 지울 수 없어요. 판매중지로 바꾸거나 숨겨 주세요.",

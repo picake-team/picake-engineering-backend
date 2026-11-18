@@ -12,6 +12,7 @@ import { ipQuotaKey } from "@apps/backend/common/utils/client-ip.util";
 import { DailyQuota } from "@apps/backend/common/utils/daily-quota.util";
 import { ExternalApiErrorUtil } from "@apps/backend/common/utils/external-api-error.util";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
+import { isClaudeImageRejection } from "@apps/backend/common/utils/claude-image-rejection.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import {
   QUOTE_PHOTO_READ_ERROR_MESSAGES,
@@ -107,9 +108,10 @@ export class QuotePhotoReadService {
       });
     } catch (error: any) {
       const status: number | undefined = error?.status;
-      // Claude가 사진을 받지 않음(깨진 사진 등 4xx, 한도 429 제외): 손님 사진 문제라 횟수를 세고 400으로 답한다.
-      // 로그인 없이 부를 수 있어 되돌리면 같은 사진으로 끝없이 부를 수 있고, Sentry도 몇 번만 알린다
-      if (!deadline.signal.aborted && status && status >= 400 && status < 500 && status !== 429) {
+      // Claude가 사진을 받지 않음(깨진 사진 400·너무 큼 413): 손님 사진 문제라 횟수를 세고 400으로 답한다.
+      // 로그인 없이 부를 수 있어 되돌리면 같은 사진으로 끝없이 부를 수 있고, Sentry도 몇 번만 알린다.
+      // 401·403·404·크레딧 부족은 우리 쪽이라 아래에서 되돌린다(11-18 검토)
+      if (!deadline.signal.aborted && isClaudeImageRejection(error)) {
         SentryUtil.captureExceptionThrottled(
           "quote-photo-read:claude-4xx",
           CLAUDE_REJECTED_NOTICE_INTERVAL_MS,
