@@ -14,9 +14,14 @@ import { ACT_AS_ERROR_MESSAGES } from "@apps/backend/modules/act-as/constants/ac
  *
  * 스토어 수정 로직을 담당하는 서비스입니다.
  */
+import { SellerStoreNoticeService } from "@apps/backend/modules/notification/services/seller-store-notice.service";
+
 @Injectable()
 export class StoreUpdateService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storeNotice: SellerStoreNoticeService,
+  ) {}
 
   /**
    * 스토어 수정 (판매자용)
@@ -38,6 +43,11 @@ export class StoreUpdateService {
     if (user.actor) {
       await this.assertBankAccountUnchanged(storeId, updateStoreDto);
     }
+    // 정산 계좌가 바뀌면 사장님에게 알린다(운영자 11-18) — 저장 전 값과 비교
+    const before = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      select: { bankName: true, bankAccountNumber: true, accountHolderName: true },
+    });
 
     // 업데이트할 데이터 준비
     const updateData: {
@@ -104,6 +114,24 @@ export class StoreUpdateService {
         },
         data: updateData,
       });
+
+      const accountChanged =
+        !user.actor &&
+        !!before &&
+        ((before.bankName ?? null) !== (updatedStore.bankName ?? null) ||
+          (before.bankAccountNumber ?? "").trim() !==
+            (updatedStore.bankAccountNumber ?? "").trim() ||
+          (before.accountHolderName ?? "").trim() !==
+            (updatedStore.accountHolderName ?? "").trim());
+      if (accountChanged && updatedStore.bankAccountNumber) {
+        void this.storeNotice.bankAccountChanged({
+          sellerId: updatedStore.sellerId,
+          storeId: updatedStore.id,
+          storeName: updatedStore.name,
+          bankName: updatedStore.bankName,
+          bankAccountNumber: updatedStore.bankAccountNumber,
+        });
+      }
 
       return {
         id: updatedStore.id,

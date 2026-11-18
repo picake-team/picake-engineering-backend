@@ -14,9 +14,21 @@ import { SolapiModule } from "@apps/backend/modules/solapi/solapi.module";
  * - NotificationOrderDispatchService: 주문 상태 전환 → Socket.IO + FCM + 카카오 알림톡 발송
  * - NotificationGateway: Socket.IO `/notifications` (판매자·구매자)
  */
+import { SellerStoreNoticeService } from "@apps/backend/modules/notification/services/seller-store-notice.service";
+
 @Module({
   imports: [DatabaseModule, JwtModule, ConfigModule, FcmModule, SolapiModule],
-  providers: [NotificationService, NotificationGateway, NotificationOrderDispatchService],
-  exports: [NotificationService, NotificationOrderDispatchService, NotificationGateway],
+  providers: [
+    NotificationService,
+    NotificationGateway,
+    NotificationOrderDispatchService,
+    SellerStoreNoticeService,
+  ],
+  exports: [
+    NotificationService,
+    NotificationOrderDispatchService,
+    NotificationGateway,
+    SellerStoreNoticeService,
+  ],
 })
 export class NotificationModule {}

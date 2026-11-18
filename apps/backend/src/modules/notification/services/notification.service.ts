@@ -18,7 +18,10 @@ export interface SellerNotificationItemDto {
   body: string;
   read: boolean;
   storeId: string;
-  orderId: string;
+  /** ORDER 알림만. STORE 알림(정산 계좌가 바뀜 등)은 null */
+  orderId: string | null;
+  /** ORDER: 주문 알림 / STORE: 스토어 안내(누르면 스토어 정보, 2026-11-18) */
+  category: "ORDER" | "STORE";
 }
 
 /** 사용자 웹 알림 목록·소켓 응답에 쓰는 DTO */
@@ -76,7 +79,7 @@ export class NotificationService {
 
   /**
    * DB 행을 판매자 알림 응답 DTO로 변환합니다.
-   * 현재 SELLER_WEB 주문 알림만 다루므로 storeId/orderId는 필수로 간주합니다.
+   * 주문 알림은 storeId·orderId가, 스토어 안내(STORE)는 storeId가 있어야 합니다.
    */
   private toItemDto(row: {
     id: string;
@@ -84,11 +87,13 @@ export class NotificationService {
     title: string;
     body: string;
     readAt: Date | null;
+    category: NotificationCategory;
     storeId: string | null;
     orderId: string | null;
   }): SellerNotificationItemDto {
-    if (!row.storeId || !row.orderId) {
-      throw new Error("ORDER 알림에는 storeId·orderId가 필요합니다.");
+    const isStore = row.category === NotificationCategory.STORE;
+    if (!row.storeId || (!isStore && !row.orderId)) {
+      throw new Error("판매자 알림에는 storeId(주문 알림은 orderId도)가 필요합니다.");
     }
     return {
       id: row.id,
@@ -98,7 +103,18 @@ export class NotificationService {
       body: row.body,
       read: row.readAt != null,
       storeId: row.storeId,
-      orderId: row.orderId,
+      orderId: isStore ? null : row.orderId,
+      category: isStore ? "STORE" : "ORDER",
+    };
+  }
+
+  /** 판매자 알림 목록·읽음·안 읽은 수에 들어가는 알림(주문 알림 + 스토어 안내) */
+  private sellerVisibleWhere(): Prisma.UserNotificationWhereInput {
+    return {
+      OR: [
+        { category: NotificationCategory.ORDER, orderId: { not: null } },
+        { category: NotificationCategory.STORE },
+      ],
     };
   }
 
@@ -190,9 +206,8 @@ export class NotificationService {
     const where: Prisma.UserNotificationWhereInput = {
       sellerId: params.userId,
       appSurface: NotificationAppSurface.SELLER_WEB,
-      category: NotificationCategory.ORDER,
       storeId: params.storeId,
-      orderId: { not: null },
+      ...this.sellerVisibleWhere(),
       ...(params.unreadOnly ? { readAt: null } : {}),
     };
     const [rows, total] = await Promise.all([
@@ -227,8 +242,7 @@ export class NotificationService {
         id: params.notificationId,
         sellerId: params.userId,
         appSurface: NotificationAppSurface.SELLER_WEB,
-        category: NotificationCategory.ORDER,
-        orderId: { not: null },
+        ...this.sellerVisibleWhere(),
       },
     });
     if (!row) {
@@ -249,9 +263,8 @@ export class NotificationService {
       where: {
         sellerId: params.userId,
         appSurface: NotificationAppSurface.SELLER_WEB,
-        category: NotificationCategory.ORDER,
         storeId: params.storeId,
-        orderId: { not: null },
+        ...this.sellerVisibleWhere(),
         readAt: null,
       },
       data: { readAt: new Date() },
@@ -350,6 +363,26 @@ export class NotificationService {
         body: params.body,
         storeId: params.storeId,
         orderId: params.orderId,
+      },
+    });
+    return this.toItemDto(row);
+  }
+
+  /** 판매자 스토어 안내(정산 계좌가 바뀜 등) 한 건을 저장합니다. 주문 알림 설정과 관계없이 남깁니다 */
+  async createSellerWebStoreNotification(params: {
+    recipientUserId: string;
+    title: string;
+    body: string;
+    storeId: string;
+  }): Promise<SellerNotificationItemDto> {
+    const row = await this.prisma.userNotification.create({
+      data: {
+        sellerId: params.recipientUserId,
+        appSurface: NotificationAppSurface.SELLER_WEB,
+        category: NotificationCategory.STORE,
+        title: params.title,
+        body: params.body,
+        storeId: params.storeId,
       },
     });
     return this.toItemDto(row);
@@ -532,9 +565,8 @@ export class NotificationService {
       where: {
         sellerId: userId,
         appSurface: NotificationAppSurface.SELLER_WEB,
-        category: NotificationCategory.ORDER,
         storeId,
-        orderId: { not: null },
+        ...this.sellerVisibleWhere(),
         readAt: null,
       },
     });

@@ -1102,11 +1102,14 @@ model Order {
   pickupLongitude     Float?    @map("pickup_longitude") // 픽업 장소 경도
 
   // 주문 시 선택 입력한 예약자명
-  reservationContactName String?           @map("reservation_contact_name")
+  reservationContactName   String?           @map("reservation_contact_name")
   // 주문 시 선택 입력한 예약 연락처(휴대폰, 숫자만 저장)
-  reservationPhone       String?           @map("reservation_phone")
+  reservationPhone         String?           @map("reservation_phone")
   // 손님이 들어온 길. 사장님이 보낸 가게·상품 링크로 들어와 예약하면 STORE_LINK(기획 I-45). 그 밖은 null
-  entrySource            OrderEntrySource? @map("entry_source")
+  entrySource              OrderEntrySource? @map("entry_source")
+  /// 예약할 때의 가게 환불·취소 규정(가게 refund_cancellation_policy를 그대로 복사). 예약 뒤 가게가 규정을 바꿔도
+  /// 이 예약의 주문 상세·취소·환불 화면은 이 규정을 쓴다(2026-11-18). 비어 있으면(이 칸이 생기기 전 예약) 가게의 지금 규정
+  refundCancellationPolicy Json?             @map("refund_cancellation_policy")
 
   // 비즈니스 필드 - 주문 상태
   orderStatus                     OrderStatus    @default(RESERVATION_REQUESTED) @map("order_status") // 주문 상태
@@ -1542,6 +1545,7 @@ enum NotificationAppSurface {
 enum NotificationCategory {
   ORDER
   QUOTE
+  STORE // 판매자 스토어 안내(정산 계좌가 바뀜 등, 2026-11-18). orderId 없음
 }
 
 enum OrderStatus {
