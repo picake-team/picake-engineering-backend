@@ -29,7 +29,8 @@ export class SellerQuoteController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "(로그인 필요) 손님 견적 요청서",
-    description: "요청서(손님 이름·연락처 없이, 지역은 동네까지), 이 가게 쪽 상태, 보낸 견적.",
+    description:
+      "요청서(손님 이름·휴대폰은 손님이 연락처 함께 보내기를 켰고 볼 수 있는 기간일 때만, 지역은 동네까지), 이 가게 쪽 상태, 보낸 견적.",
   })
   @SwaggerResponse(200, { dataDto: QuoteRequestForShopDto })
   @SwaggerAuthResponses()

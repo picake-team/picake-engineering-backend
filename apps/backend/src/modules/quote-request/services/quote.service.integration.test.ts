@@ -19,6 +19,7 @@ import { QuoteJobsService } from "@apps/backend/modules/quote-request/services/q
 import type { QuoteNotifyService } from "@apps/backend/modules/quote-request/services/quote-notify.service";
 import { QUOTE_ERROR_MESSAGES } from "@apps/backend/modules/quote-request/constants/quote.constants";
 import { getTestPrisma } from "@apps/backend/test/integration/db";
+import { testUploadUrl } from "@apps/backend/test/integration/upload-url";
 import {
   createTestConsumer,
   createTestSeller,
@@ -593,5 +594,65 @@ describe("견적 ② (integration)", () => {
       .mockRejectedValueOnce(new Error("connection reset"));
     await expect(quotes.sendNewRequestToApps("no-such-request")).resolves.toBeUndefined();
     spy.mockRestore();
+  });
+
+  it("11-18 검토: 운영자가 사진 칸 없이 대신 고치면 가게가 붙인 사진은 그대로", async () => {
+    const t = await build();
+    const requestId = await t.createRequest();
+    await t.quotes.sendNewRequestToApps(requestId);
+    const photo = testUploadUrl("quote/q1.jpg");
+    await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, {
+      ...quoteInput(50000),
+      photoUrls: [photo],
+    });
+    const target = await t.prisma.quoteRequestStore.findFirstOrThrow({
+      where: { quoteRequestId: requestId },
+      select: { id: true },
+    });
+    const edited = await t.quotes.adminSubmit(requestId, target.id, {
+      unitPrice: 55000,
+      similarity: "EXACT",
+    });
+    expect(edited.total).toBe(55000);
+    expect(edited.photoUrls).toEqual([photo]);
+    // 사진 칸이 있는 화면이 빈 목록을 보내면 지운다
+    const cleared = await t.quotes.sellerSubmit(t.seller.id, t.store.id, requestId, {
+      ...quoteInput(55000),
+      photoUrls: [],
+    });
+    expect(cleared.photoUrls).toEqual([]);
+  });
+
+  it("11-18 검토: 처음 보내기가 빠진 입점 가게에는 5분 일이 요청서 카드를 다시 보낸다(한 번만, 막 만든 것·끝난 것은 빼고)", async () => {
+    const t = await build();
+    const requestId = await t.createRequest(); // 처음 보내기를 부르지 않음(배포로 끊긴 것처럼)
+    // 막 만든 대상은 처음 보내기에 맡긴다
+    expect(await t.quotes.resendUnsentToApps()).toBe(0);
+    await t.prisma.quoteRequestStore.updateMany({
+      where: { quoteRequestId: requestId },
+      data: { createdAt: new Date(Date.now() - 3 * 60 * 1000) },
+    });
+    const closedId = await t.createRequest();
+    await t.prisma.quoteRequestStore.updateMany({
+      where: { quoteRequestId: closedId },
+      data: { createdAt: new Date(Date.now() - 3 * 60 * 1000) },
+    });
+    await t.prisma.quoteRequest.update({
+      where: { id: closedId },
+      data: { status: QuoteRequestStatus.CLOSED },
+    });
+
+    await t.jobs.runOnce();
+    const sent = await t.prisma.quoteRequestStore.findMany({
+      where: { quoteRequestId: { in: [requestId, closedId] } },
+      select: { quoteRequestId: true, sentToAppAt: true },
+    });
+    expect(sent.find((x) => x.quoteRequestId === requestId)?.sentToAppAt).not.toBeNull();
+    expect(sent.find((x) => x.quoteRequestId === closedId)?.sentToAppAt).toBeNull();
+    expect(await t.quotes.resendUnsentToApps()).toBe(0);
+    const cards = await t.prisma.chatMessage.count({
+      where: { refQuoteRequestId: requestId, kind: "QUOTE_REQUEST" },
+    });
+    expect(cards).toBe(1);
   });
 });

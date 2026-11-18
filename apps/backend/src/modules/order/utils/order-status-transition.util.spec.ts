@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { OrderStatus } from "@apps/backend/modules/order/constants/order.constants";
 
 import {
+  USER_CANCEL_REFUND_REQUEST_SOURCE_STATUSES,
   withCanceledAt,
   isAdminRevertToRefundPendingAllowed,
   isSellerSettableOrderStatus,
@@ -155,5 +156,14 @@ describe("withCanceledAt (취소 일시, 11-16)", () => {
     expect(withCanceledAt(OrderStatus.CANCEL_REFUND_PENDING, accountOnly, now)).toEqual({
       refundBankName: "X",
     });
+  });
+});
+
+describe("USER_CANCEL_REFUND_REQUEST_SOURCE_STATUSES", () => {
+  it("손님 취소·환불 요청은 입금완료·예약확정에서만 — 픽업대기(픽업 시각 지남)는 손님 화면처럼 막는다(P-21)", () => {
+    expect(USER_CANCEL_REFUND_REQUEST_SOURCE_STATUSES.has(OrderStatus.PAYMENT_COMPLETED)).toBe(true);
+    expect(USER_CANCEL_REFUND_REQUEST_SOURCE_STATUSES.has(OrderStatus.CONFIRMED)).toBe(true);
+    expect(USER_CANCEL_REFUND_REQUEST_SOURCE_STATUSES.has(OrderStatus.PICKUP_PENDING)).toBe(false);
+    expect(USER_CANCEL_REFUND_REQUEST_SOURCE_STATUSES.size).toBe(2);
   });
 });

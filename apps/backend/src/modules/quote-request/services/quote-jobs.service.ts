@@ -68,6 +68,7 @@ export class QuoteJobsService implements OnModuleInit, OnModuleDestroy {
   async runOnce(now: Date = new Date()): Promise<void> {
     for (const [name, job] of [
       ["expire", () => this.expire(now)],
+      ["resend-to-app", () => this.quotes.resendUnsentToApps(now)],
       ["reminder", () => this.reminders(now)],
       ["unentered-no-reply", () => this.unenteredNoReply(now)],
       ["chosen-no-reply", () => this.chosenNoReply(now)],

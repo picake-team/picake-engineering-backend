@@ -35,8 +35,13 @@ export const USER_ORDER_ALIMTALK_TEMPLATE_IDS = {
   CANCEL_COMPLETED_PAYMENT_EXPIRED: "KA01TP260709151109731V2jPPrbpFSy",
   /** 템플릿7 취소완료: 판매자(스토어) 취소 */
   CANCEL_COMPLETED_BY_SELLER: "KA01TP260709151146942Qy7LHpaqUCO",
-  /** 템플릿8 취소환불대기: 판매자 환불 진행 안내 */
-  CANCEL_REFUND_PENDING_BY_SELLER: "KA01TP260709152017983qyEZLcjRAe4",
+  /**
+   * 템플릿8 취소환불대기: 판매자 환불 진행 안내.
+   * 2026-11-18 카카오 승인 새 판 — 옛 판(KA01TP260709152017983qyEZLcjRAe4)과 같은 글·변수·버튼에
+   * "환불받으실 계좌를 아직 알려 주지 않으셨다면 아래 버튼에서 입력해 주세요." 한 줄만 더함(기획 I-37 M-08,
+   * scripts/alimtalk-templates/templates.json의 CANCEL_REFUND_PENDING_BY_SELLER_V2)
+   */
+  CANCEL_REFUND_PENDING_BY_SELLER: "KA01TP261116004948963xxOA6TPVmo2",
   /**
    * 템플릿8-1 취소환불대기: 운영자가 취소된 주문의 입금을 확인해 되돌림(관리자 환불 누락 관리, F-46).
    * 템플릿8은 "스토어 사정으로 취소"라 이 경우와 맞지 않아 따로 둔다(기획 I-37, 2026-11-11).

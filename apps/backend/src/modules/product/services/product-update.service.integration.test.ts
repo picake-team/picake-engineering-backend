@@ -50,4 +50,22 @@ describe("상품 수정 — 옵션 버전", () => {
     const after = await prisma.product.findUniqueOrThrow({ where: { id: product.id } });
     expect(after.optionsVersion).toBe(before);
   });
+
+  it("AI 초안의 [판매자 확인 필요] 표시가 남은 상세설명은 서버에서도 저장하지 않는다(P-62, 11-18 검토)", async () => {
+    const { prisma, product, service, user } = await setup();
+    await expect(
+      service.updateProductForSeller(
+        product.id,
+        { detailDescription: "<p>소비기한은 [판매자 확인 필요: 소비기한]이에요</p>" } as never,
+        user,
+      ),
+    ).rejects.toThrow("[판매자 확인 필요] 표시가 남아 있어요");
+    await service.updateProductForSeller(
+      product.id,
+      { detailDescription: "<p>소비기한은 만든 날부터 2일이에요</p>" } as never,
+      user,
+    );
+    const after = await prisma.product.findUniqueOrThrow({ where: { id: product.id } });
+    expect(after.detailDescription).toContain("2일");
+  });
 });

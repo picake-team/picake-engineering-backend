@@ -296,7 +296,7 @@ export class ConsumerOrderController {
   @ApiOperation({
     summary: "(로그인 필요) 취소·환불 요청",
     description:
-      "입금완료·예약확정·픽업대기 상태에서 취소·환불을 요청하면 취소환불대기(CANCEL_REFUND_PENDING)로 변경됩니다. 요청 시 취소 사유와 환불받을 계좌(은행·계좌번호·예금주)를 함께 보냅니다. 이후 판매자가 취소환불완료(CANCEL_REFUND_COMPLETED)로 처리합니다.",
+      "입금완료·예약확정 상태에서 취소·환불을 요청하면(픽업 시각이 지나 픽업대기가 되면 요청할 수 없음) 취소환불대기(CANCEL_REFUND_PENDING)로 변경됩니다. 요청 시 취소 사유와 환불받을 계좌(은행·계좌번호·예금주)를 함께 보냅니다. 이후 판매자가 취소환불완료(CANCEL_REFUND_COMPLETED)로 처리합니다.",
   })
   @SwaggerResponse(200, { dataDto: UpdateOrderStatusResponseDto })
   @SwaggerAuthResponses()

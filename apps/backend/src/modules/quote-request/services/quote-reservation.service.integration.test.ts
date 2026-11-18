@@ -92,6 +92,7 @@ describe("견적으로 예약하기 (integration)", () => {
       prisma,
       chat,
       quotes,
+      orderCreate,
       reservation,
       hooks,
       notify,
@@ -258,5 +259,97 @@ describe("견적으로 예약하기 (integration)", () => {
     await expect(
       t.reservation.reserve(t.consumer.id, t.requestId, { pickupDate: t.pickupAt.toISOString() }),
     ).rejects.toThrow(QUOTE_ERROR_MESSAGES.RESERVE_UNENTERED);
+  });
+
+  it("11-18 검토: 계좌는 입금대기 때만, 손님 참고 사진은 픽업 24시간 뒤 주문 그림·가게 쪽 예약 카드에서 빠지고, 잠근 뒤 금액이 다르면 예약하지 않는다", async () => {
+    const t = await build();
+    const photo = "https://cdn.picakes.test/uploads/quote/ref.jpg";
+    await t.prisma.quoteRequest.update({
+      where: { id: t.requestId },
+      data: { photoUrls: [photo] },
+    });
+    await t.prisma.store.update({
+      where: { id: t.store.id },
+      data: {
+        bankName: "KB_KOOKMIN",
+        bankAccountNumber: "1234567890",
+        accountHolderName: "김사장",
+      },
+    });
+    // 사장님 견적 사진 없이 보냄 → 주문 그림은 손님 참고 사진
+    await t.quotes.sellerSubmit(t.seller.id, t.store.id, t.requestId, t.input(25_000));
+    const picked = (await t.quotes.consumerSection(t.consumer.id, t.requestId)).quotes[0];
+    await t.quotes.choose(t.consumer.id, t.requestId, picked.id);
+
+    // 손님이 본 금액(잠그기 전에 읽은 값)과 잠근 뒤 금액이 다르면 만들지 않는다
+    await expect(
+      t.orderCreate.createOrderFromQuote({
+        consumerId: t.consumer.id,
+        storeId: t.store.id,
+        quoteId: picked.id,
+        productName: "견적 1호 케이크",
+        productImages: [],
+        totalQuantity: 2,
+        totalPrice: 48_000,
+        expectedUnitPrice: 24_000,
+        pickupAt: t.pickupAt,
+        reservationContactName: null,
+        reservationPhone: null,
+        activeStatuses: ["RESERVATION_REQUESTED"],
+      }),
+    ).rejects.toThrow("사장님이 견적을 고쳤어요");
+
+    const { orderId } = await t.reservation.reserve(t.consumer.id, t.requestId, {
+      pickupDate: t.pickupAt.toISOString(),
+      expectedTotal: 50_000,
+    });
+    const load = () =>
+      t.prisma.order.findUniqueOrThrow({
+        where: { id: orderId },
+        include: OrderMapperUtil.ORDER_ITEMS_INCLUDE,
+      });
+
+    // 예약신청(사장님 확인 전): 계좌 없음
+    const requested = OrderMapperUtil.mapToOrderResponse(await load());
+    expect(requested.productImages).toEqual([photo]);
+    expect(requested).toMatchObject({
+      storeBankName: null,
+      storeBankAccountNumber: null,
+      storeAccountHolderName: null,
+    });
+    // 입금대기: 계좌를 준다
+    await t.prisma.order.update({
+      where: { id: orderId },
+      data: { orderStatus: OrderStatus.PAYMENT_PENDING },
+    });
+    expect(OrderMapperUtil.mapToOrderResponse(await load())).toMatchObject({
+      storeBankName: "KB_KOOKMIN",
+      storeBankAccountNumber: "1234567890",
+      storeAccountHolderName: "김사장",
+    });
+
+    // 가게 쪽 채팅 예약 카드에는 그림을 보내지 않는다(손님 쪽은 그대로)
+    const room = await t.prisma.chatThread.findFirstOrThrow({
+      where: { consumerId: t.consumer.id },
+      select: { id: true },
+    });
+    const shopSide = await t.chat.messagesForStore(t.seller.id, t.store.id, room.id, {});
+    const consumerSide = await t.chat.messagesForConsumer(t.consumer.id, room.id, {});
+    const card = (r: typeof shopSide) => r.messages.find((m) => m.card?.type === "ORDER")?.card;
+    expect(card(shopSide)?.imageUrl).toBeNull();
+    expect(card(consumerSide)?.imageUrl).toBe(photo);
+
+    // 픽업 24시간 뒤: 요청서 사진처럼 주문 그림에서도 빠진다
+    await t.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        orderStatus: OrderStatus.PICKUP_COMPLETED,
+        pickupDate: new Date(Date.now() - 25 * H),
+      },
+    });
+    const after = OrderMapperUtil.mapToOrderResponse(await load());
+    expect(after.quote?.contentHidden).toBe(true);
+    expect(after.productImages).toEqual([]);
+    expect(after.storeBankAccountNumber).toBeNull();
   });
 });

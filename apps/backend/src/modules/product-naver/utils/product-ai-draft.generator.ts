@@ -34,19 +34,23 @@ export async function generateDescriptionDraft(
   client: Anthropic,
   model: string,
   request: ProductDescriptionDraftRequestDto,
+  options: { signal?: AbortSignal } = {},
 ): Promise<DescriptionDraftGeneration> {
   const thinking = thinkingFor(model);
-  const response = await client.messages.create({
-    model,
-    max_tokens: PRODUCT_AI_DRAFT_LIMITS.MAX_OUTPUT_TOKENS,
-    system: DESCRIPTION_DRAFT_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: buildDescriptionDraftPrompt(request) }],
-    ...(thinking ? { thinking } : {}),
-    output_config: {
-      effort: "low",
-      format: { type: "json_schema", schema: DESCRIPTION_DRAFT_OUTPUT_SCHEMA },
+  const response = await client.messages.create(
+    {
+      model,
+      max_tokens: PRODUCT_AI_DRAFT_LIMITS.MAX_OUTPUT_TOKENS,
+      system: DESCRIPTION_DRAFT_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: buildDescriptionDraftPrompt(request) }],
+      ...(thinking ? { thinking } : {}),
+      output_config: {
+        effort: "low",
+        format: { type: "json_schema", schema: DESCRIPTION_DRAFT_OUTPUT_SCHEMA },
+      },
     },
-  });
+    { signal: options.signal },
+  );
 
   const text = response.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")

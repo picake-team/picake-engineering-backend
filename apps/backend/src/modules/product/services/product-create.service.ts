@@ -20,6 +20,7 @@ import {
   koreaCalendarDayStartUtc,
   koreaCalendarYmd,
 } from "@apps/backend/modules/order/utils/order-list-query.util";
+import { SELLER_CHECK_SAVE_PATTERN } from "@apps/backend/modules/product-naver/utils/product-ai-draft.util";
 
 @Injectable()
 export class ProductCreateService {
@@ -61,6 +62,10 @@ export class ProductCreateService {
 
     if (!hasVisibleOption(createProductDto.cakeSizeOptions)) {
       throw new BadRequestException(PRODUCT_ERROR_MESSAGES.SIZE_OPTION_REQUIRED);
+    }
+    // 화면에서만 막던 것을 서버에서도(옛 앱·API 직접 호출, 11-18 검토)
+    if (SELLER_CHECK_SAVE_PATTERN.test(createProductDto.detailDescription ?? "")) {
+      throw new BadRequestException(PRODUCT_ERROR_MESSAGES.SELLER_CHECK_LEFT);
     }
     const customOptions = normalizeCustomOptionsForSave(createProductDto.customOptions ?? [], []);
 

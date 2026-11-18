@@ -84,6 +84,7 @@ export class QuoteReservationService {
       productImages: (quote.photoUrls.length ? quote.photoUrls : r.photoUrls).slice(0, 3),
       totalQuantity: r.quantity,
       totalPrice: total,
+      expectedUnitPrice: quote.unitPrice,
       pickupAt: new Date(dto.pickupDate),
       reservationContactName: contactName,
       reservationPhone: contactPhone,

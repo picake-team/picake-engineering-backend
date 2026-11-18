@@ -40,7 +40,9 @@ export function actAsTargetId(
   }
   for (const key of TARGET_PARAM_ORDER) {
     const v = params?.[key];
-    if (typeof v === "string" && v.length > 0) return v.slice(0, 64);
+    // 경로 값도 %00 같은 글자가 섞이면 기록이 빠지므로 id에 쓰는 글자만 남긴다
+    if (typeof v === "string" && v.length > 0)
+      return v.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) || null;
   }
   return null;
 }
@@ -49,9 +51,11 @@ export function actAsTargetId(
 export function actAsFieldNames(method: string, body: unknown): string[] {
   if (method === "GET" || method === "DELETE") return [];
   if (!body || typeof body !== "object" || Array.isArray(body)) return [];
+  // 칸 이름은 보낸 사람이 정한다 — NUL·짝 없는 이모지 반쪽은 Postgres·Prisma가 거절해 기록이 통째로 빠졌다(11-18 검토).
+  // 영문·숫자·_.-[]만 남기고(나머지는 ?), 남은 글자는 모두 한 칸짜리라 잘라도 깨지지 않는다
   return Object.keys(body)
     .slice(0, ACT_AS_LIMITS.FIELDS_MAX)
-    .map((k) => k.slice(0, ACT_AS_LIMITS.FIELD_NAME_MAX));
+    .map((k) => k.replace(/[^A-Za-z0-9_.\-[\]]/g, "?").slice(0, ACT_AS_LIMITS.FIELD_NAME_MAX));
 }
 
 export function buildActAsActionRecord(
@@ -76,7 +80,8 @@ export function actAsActionArea(action: {
   status: number;
 }): ActAsActionArea {
   if (action.status === 403) return "blocked";
-  if (action.method === "GET") return "view";
+  // Express는 GET 길로 HEAD도 받는다 — 보기로 센다(쓰기로 잡혔음)
+  if (action.method === "GET" || action.method === "HEAD") return "view";
   const r = action.route;
   // 캡처 읽기는 AI가 읽기만 하고 저장하지 않는다
   if (r.endsWith("/manual-orders/read")) return "view";

@@ -51,7 +51,7 @@ export class ConsumerQuoteLinkController {
   @ApiOperation({
     summary: "견적 링크 열기",
     description:
-      "손님 요청서(이름·연락처 없이, 지역은 동네까지)와 이 가게 쪽 상태(받는 중·보냄·어려워요·골랐어요·마감), 보낸 견적, 대화 상태. 처음 열면 운영자 화면에 '열어 봄'이 남습니다.",
+      "손님 요청서(이름·휴대폰은 손님이 함께 보내기를 켰고 볼 수 있는 기간일 때만, 지역은 동네까지)와 이 가게 쪽 상태(받는 중·보냄·어려워요·골랐어요·마감), 보낸 견적, 대화 상태. 처음 열면 운영자 화면에 '열어 봄'이 남습니다.",
   })
   @SwaggerResponse(200, { dataDto: QuoteLinkViewDto })
   async view(@Param("token") token: string) {

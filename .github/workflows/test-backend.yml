@@ -111,6 +111,15 @@ jobs:
         if: steps.changes.outputs.backend == 'true'
         run: yarn workspace @picake/backend test:integration
 
+      # 직접 쓴 SQL의 날짜·시간 계산은 DB 세션 시간대에 따라 달라질 수 있다(11-17 통계가 9시간 어긋남 —
+      # 로컬 테스트 DB 세션은 서울, CI는 UTC라 한쪽에서만 보고 있었다). 세션을 서울로 바꿔 통합 테스트를
+      # 한 번 더 돌린다(검토 자동 검사, 11-18). 서비스 컨테이너 안의 psql을 쓴다(러너에 psql이 없어도 됨).
+      - name: Run backend DB integration tests again (DB session Asia/Seoul)
+        if: steps.changes.outputs.backend == 'true'
+        run: |
+          docker exec ${{ job.services.postgres.id }} psql -U postgres -d picake_backend_test -c "ALTER DATABASE picake_backend_test SET timezone TO 'Asia/Seoul'"
+          yarn workspace @picake/backend test:integration
+
       - name: Run backend API E2E tests
         if: steps.changes.outputs.backend == 'true'
         run: yarn workspace @picake/backend test:e2e

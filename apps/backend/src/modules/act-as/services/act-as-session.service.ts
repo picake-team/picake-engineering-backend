@@ -44,8 +44,13 @@ function sha256(value: string): string {
  * 세션(60분)과 한 번만 쓰는 코드(60초)를 만들고 판매자 화면 주소를 돌려준다. 디스코드 【PICAKE】운영에 알린다.
  * 바꾸기(판매자 화면): 코드를 한 번만 대리 출입증으로 바꾼다 — 출입증을 주소창·관리자 화면에 싣지 않으려는 장치다.
  */
+import { ActAsOtpGuard } from "@apps/backend/modules/act-as/utils/act-as-otp-guard.util";
+
 @Injectable()
 export class ActAsSessionService {
+  /** 들어가기 OTP 틀림·다시 쓰기 막기(관리자마다, 메모리) */
+  private readonly otpGuard = new ActAsOtpGuard();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
@@ -85,6 +90,11 @@ export class ActAsSessionService {
     if (!allowed.includes(row.username)) {
       throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.ADMIN_NOT_ALLOWED);
     }
+    // 세션 칸(VARCHAR 40)에 잘려 들어가면 매 요청 허용 목록 비교가 어긋나 401이 난다 — 시작부터 막는다
+    if (row.username.length > ACT_AS_LIMITS.ADMIN_USERNAME_MAX) {
+      throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.ADMIN_NOT_ALLOWED);
+    }
+    this.otpGuard.assertNotLocked(row.id);
     // 관리자 출입증은 30일 산다 — 새어도 가게 대리 접속까지 열리지 않게 들어갈 때마다 OTP를 다시 받는다
     const otpOk =
       row.isTotpEnabled &&
@@ -95,7 +105,18 @@ export class ActAsSessionService {
         token: dto.totpCode,
         window: 1,
       });
-    if (!otpOk) throw new BadRequestException(AUTH_ERROR_MESSAGES.OTP_CODE_INVALID);
+    if (!otpOk) {
+      const locked = this.otpGuard.recordFailure(row.id);
+      if (locked) {
+        void this.opsAlert.notifyActAsOtpLocked({
+          storeId,
+          adminUsername: row.username,
+          failures: locked.failures,
+          lockedUntil: locked.until,
+        });
+      }
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.OTP_CODE_INVALID);
+    }
 
     const store = await this.prisma.store.findUnique({
       where: { id: storeId },
@@ -115,12 +136,15 @@ export class ActAsSessionService {
       throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.SELLER_INACTIVE);
     }
 
+    // 같은 코드로 두 번 들어가지 않게(코드는 앞뒤 30초까지 맞아 90초쯤 다시 쓸 수 있었음). 세션을 실제로 여는 때만 쓴 것으로 센다
+    this.otpGuard.consume(row.id, dto.totpCode);
+
     const now = new Date();
     const code = randomBytes(32).toString("base64url");
     const session = await this.prisma.adminActAsSession.create({
       data: {
         adminId: row.id,
-        adminUsername: row.username.slice(0, 40),
+        adminUsername: row.username,
         sellerId: store.sellerId,
         storeId: store.id,
         reason: dto.reason,
@@ -284,9 +308,10 @@ export class ActAsSessionService {
     });
     if (!session) throw new NotFoundException(ACT_AS_ERROR_MESSAGES.SESSION_NOT_FOUND);
     // 화면을 여는 GET은 많아서(알림·배지) 쓰기가 묻힌다 — 목록에는 쓰기와 실패만, 본 화면 수는 세션 요약에 있다
-    return await this.prisma.adminActAsAction.findMany({
-      where: { sessionId, OR: [{ method: { not: "GET" } }, { status: { gte: 400 } }] },
-      orderBy: { createdAt: "asc" },
+    const rows = await this.prisma.adminActAsAction.findMany({
+      where: { sessionId, OR: [{ method: { notIn: ["GET", "HEAD"] } }, { status: { gte: 400 } }] },
+      // 많으면 최근 것부터 자른다(실패 요청을 먼저 잔뜩 만들면 뒤의 실제 쓰기가 목록에서 빠졌음, 11-18 검토)
+      orderBy: { createdAt: "desc" },
       take: ACT_AS_LIMITS.ACTIONS_MAX,
       select: {
         id: true,
@@ -298,5 +323,7 @@ export class ActAsSessionService {
         createdAt: true,
       },
     });
+    // 화면은 지금처럼 오래된 것부터
+    return rows.reverse();
   }
 }

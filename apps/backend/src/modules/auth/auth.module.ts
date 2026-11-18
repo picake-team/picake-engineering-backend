@@ -34,6 +34,7 @@ import { TokenEncryptionUtil } from "@apps/backend/common/utils/token-encryption
 import { QuoteRequestModule } from "@apps/backend/modules/quote-request/quote-request.module";
 import { ManualOrderModule } from "@apps/backend/modules/manual-order/manual-order.module";
 import { ChatModule } from "@apps/backend/modules/chat/chat.module";
+import { UploadModule } from "@apps/backend/modules/upload/upload.module";
 @Module({
   imports: [
     OpsAlertModule,
@@ -44,6 +45,7 @@ import { ChatModule } from "@apps/backend/modules/chat/chat.module";
     QuoteRequestModule,
     ChatModule,
     ManualOrderModule,
+    UploadModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService) => ({
