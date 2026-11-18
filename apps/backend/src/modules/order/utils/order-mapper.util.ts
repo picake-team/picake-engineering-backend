@@ -164,21 +164,30 @@ export class OrderMapperUtil {
     order: OrderWithItems,
     options: { includeAdminNotes?: boolean } = {},
   ): OrderResponseDto {
+    const quote = this.quoteInfo(order);
+    // 정산 계좌·예금주는 입금할 때(입금대기)만 준다. 손님 화면도 그때만 보여 준다 — 사장님이 확인하기 전 예약신청·취소한 주문으로도
+    // 계좌와 대표 실명을 얻을 수 있었다(기획 P-07, 11-18 검토). 사장님·관리자 화면은 이 칸을 쓰지 않는다
+    const showAccount = order.orderStatus === OrderStatus.PAYMENT_PENDING;
     return {
       id: order.id,
       userId: order.consumerId,
       productId: order.productId,
-      quote: this.quoteInfo(order),
+      quote,
       productName: order.productName ?? "",
-      productImages: order.productImages ?? [],
+      // 견적 예약은 사장님 견적 사진이 없으면 손님 참고 사진을 주문 그림으로 쓴다 — 요청서 사진처럼 픽업 24시간 뒤에는 뺀다(P-75, 11-18 검토)
+      productImages: quote?.contentHidden
+        ? (order.productImages ?? []).filter(
+            (u) => !order.quote?.quoteRequest.photoUrls.includes(u),
+          )
+        : (order.productImages ?? []),
       storeId: order.storeId,
       storeName: order.storeName ?? "",
       storePhoneNumber: order.store.phoneNumber ?? null,
       storeKakaoChannelId: order.store.kakaoChannelId ?? null,
       storeInstagramId: order.store.instagramId ?? null,
-      storeBankName: order.store.bankName ?? null,
-      storeBankAccountNumber: order.store.bankAccountNumber ?? null,
-      storeAccountHolderName: order.store.accountHolderName ?? null,
+      storeBankName: showAccount ? (order.store.bankName ?? null) : null,
+      storeBankAccountNumber: showAccount ? (order.store.bankAccountNumber ?? null) : null,
+      storeAccountHolderName: showAccount ? (order.store.accountHolderName ?? null) : null,
       storeRefundCancellationPolicy: refundCancellationPolicyFromDb(
         order.store.refundCancellationPolicy,
       ),

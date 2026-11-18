@@ -415,7 +415,7 @@ export class ChatService {
       orderIds.length
         ? this.prisma.order.findMany({
             where: { id: { in: orderIds } },
-            select: { id: true, orderStatus: true },
+            select: { id: true, orderStatus: true, quoteId: true },
           })
         : [],
       productIds.length
@@ -428,6 +428,7 @@ export class ChatService {
     return {
       quoteState,
       orderStatus: new Map(orders.map((o) => [o.id, o.orderStatus as string])),
+      quoteOrderIds: new Set(orders.filter((o) => o.quoteId).map((o) => o.id)),
       productAvailable: new Map(
         products.map((p) => [
           p.id,
@@ -450,7 +451,11 @@ export class ChatService {
         refId: m.refOrderId,
         title: snap?.title ?? "주문",
         subtitle: snap?.subtitle ?? null,
-        imageUrl: snap?.imageUrl ?? null,
+        // 견적 예약 카드 그림은 손님 요청서 사진일 수 있다 — 견적 카드처럼 가게 쪽에는 보내지 않는다(P-75, 11-18 검토)
+        imageUrl:
+          viewer === "SHOP" && live.quoteOrderIds.has(m.refOrderId)
+            ? null
+            : (snap?.imageUrl ?? null),
         orderStatus: live.orderStatus.get(m.refOrderId) ?? null,
       };
     } else if (m.kind === "PRODUCT" && m.refProductId) {

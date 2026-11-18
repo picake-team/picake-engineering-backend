@@ -335,7 +335,8 @@ export class QuoteService {
         r.chosenTargetId ? QUOTE_ERROR_MESSAGES.ALREADY_CHOSEN : QUOTE_ERROR_MESSAGES.NOT_ACCEPTING,
       );
     }
-    const photoUrls = dto.photoUrls ?? [];
+    // 사진 칸이 없는 화면(운영자 대신 고치기)이 고치면 가게가 붙인 사진을 그대로 둔다(연락할 곳과 같게, 11-18 검토)
+    const photoUrls = dto.photoUrls ?? t.quote?.photoUrls ?? [];
     if (
       photoUrls.length > QUOTE_LIMITS.MAX_PHOTOS ||
       photoUrls.some((u) => !isAllowedUploadUrl(u))
@@ -358,10 +359,20 @@ export class QuoteService {
     // 바로 앞에 고친(또는 보낸) 때. 연달아 고치면 손님 알림을 한 번만 보낸다
     const previousAt = t.quote ? (t.quote.editedAt ?? t.quote.createdAt) : null;
     if (t.quote) {
-      t.quote = await this.prisma.quote.update({
-        where: { id: t.quote.id },
-        data: { ...data, editedAt: now, senderSellerId },
-        select: QUOTE_SELECT,
+      const quoteId = t.quote.id;
+      // 예약 만들기와 같은 견적 줄을 잠그고 살아 있는 예약이 없을 때만 고친다 — 읽은 뒤 고치면 그사이 들어온 예약의 금액과
+      // 견적 금액이 달라졌다(기획 P-88 "예약한 뒤에는 고칠 수 없다", 11-18 검토)
+      t.quote = await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM quotes WHERE id = ${quoteId} FOR UPDATE`;
+        const reserved = await tx.order.count({
+          where: { quoteId, orderStatus: { in: [...QUOTE_RESERVATION_ACTIVE_STATUSES] } },
+        });
+        if (reserved > 0) throw new BadRequestException(QUOTE_ERROR_MESSAGES.ALREADY_CHOSEN);
+        return tx.quote.update({
+          where: { id: quoteId },
+          data: { ...data, editedAt: now, senderSellerId },
+          select: QUOTE_SELECT,
+        });
       });
       edited = true;
     } else {
@@ -617,6 +628,38 @@ export class QuoteService {
     }
   }
 
+  /**
+   * 5분마다: 입점 가게에 아직 못 간 요청서 카드를 다시 보낸다(받는 중인 요청만). 요청을 만들 때 한 번만 보내서,
+   * 그때 배포로 다시 켜지거나 채팅 저장이 실패하면 가게는 끝까지 몰랐다(11-18 검토). 막 만든 것(2분 안)은 처음 보내기에 맡긴다.
+   * 카드는 요청마다 clientId가 같아 두 번 들어가지 않는다.
+   */
+  async resendUnsentToApps(now: Date = new Date()): Promise<number> {
+    const targets = await this.prisma.quoteRequestStore.findMany({
+      where: {
+        storeId: { not: null },
+        sentToAppAt: null,
+        createdAt: { lte: new Date(now.getTime() - 2 * 60 * 1000) },
+        quoteRequest: { status: QuoteRequestStatus.OPEN, deadlineAt: { gt: now } },
+      },
+      select: { ...TARGET_SELECT, quoteRequest: { select: REQUEST_SELECT } },
+      orderBy: { createdAt: "asc" },
+      take: 100,
+    });
+    let sent = 0;
+    for (const t of targets) {
+      try {
+        await this.sendToApp(t);
+        sent++;
+      } catch (e) {
+        LoggerUtil.log(
+          `[Quote] 판매자 앱 다시 보내기 실패 target=${t.id}: ${e instanceof Error ? e.message : e}`,
+        );
+        SentryUtil.captureException(e, "warning", { module: "quote", operation: "resend-to-app" });
+      }
+    }
+    return sent;
+  }
+
   // ───────────────────────── 손님 ─────────────────────────
 
   private async chosenStalled(r: RequestRow, targets: TargetRow[], now: Date): Promise<boolean> {
@@ -759,24 +802,38 @@ export class QuoteService {
 
     const storeName = this.storeName(target);
     const total = quoteTotal(target.quote!.unitPrice, r.quantity);
-    const shopId = await this.ensureShop(target);
-    const otherShopIds = r.stores
-      .filter((t) => t.id !== target.id && t.shopId)
-      .map((t) => t.shopId as string);
-    const threadId = await this.chat.postChosenCards({
-      consumerId,
-      requestId: r.id,
-      chosenShopId: shopId,
-      otherShopIds,
-      snapshot: {
-        title: "이 견적을 골랐어요",
-        subtitle: `${storeName} · ${total.toLocaleString("ko-KR")}원`,
-        imageUrl: r.photoUrls[0] ?? null,
-      },
-    });
+    // 고르기는 위에서 이미 저장됐다. 채팅 카드가 실패해도 "고르지 못했어요"가 뜨지 않게 하고,
+    // 운영 알림·요청서 카드 정리는 그대로 한다(11-18 검토: 실패하면 손님은 실패로 보고 알림도 빠졌다)
+    let threadId: string | null = null;
+    try {
+      const shopId = await this.ensureShop(target);
+      const otherShopIds = r.stores
+        .filter((t) => t.id !== target.id && t.shopId)
+        .map((t) => t.shopId as string);
+      threadId = await this.chat.postChosenCards({
+        consumerId,
+        requestId: r.id,
+        chosenShopId: shopId,
+        otherShopIds,
+        snapshot: {
+          title: "이 견적을 골랐어요",
+          subtitle: `${storeName} · ${total.toLocaleString("ko-KR")}원`,
+          imageUrl: r.photoUrls[0] ?? null,
+        },
+      });
+    } catch (e) {
+      LoggerUtil.log(
+        `[Quote] 고름 카드 실패 request=${r.id}: ${e instanceof Error ? e.message : e}`,
+      );
+      SentryUtil.captureException(e, "warning", { module: "quote", operation: "chosen-card" });
+    }
     if (!target.storeId) void this.notify.ops("CHOSEN_UNENTERED", r.id, storeName);
     // 답하지 않은 다른 가게의 요청서 카드는 "답할 것"에서 뺀다
-    await this.retireRequestCards(r.id);
+    try {
+      await this.retireRequestCards(r.id);
+    } catch (e) {
+      SentryUtil.captureException(e, "warning", { module: "quote", operation: "retire-cards" });
+    }
     return { requestId: r.id, targetId: target.id, threadId };
   }
 

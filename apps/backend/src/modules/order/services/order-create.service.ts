@@ -323,6 +323,8 @@ export class OrderCreateService {
     productImages: string[];
     totalQuantity: number;
     totalPrice: number;
+    /** 손님이 본 견적 1개 금액. 잠근 뒤 다시 읽어 다르면 막는다(그사이 사장님이 고침) */
+    expectedUnitPrice: number;
     pickupAt: Date;
     reservationContactName: string | null;
     reservationPhone: string | null;
@@ -384,6 +386,14 @@ export class OrderCreateService {
           async (tx) => {
             // 두 번 눌러도 예약은 하나만(견적 줄을 잠그고 살아 있는 예약이 있는지 본다)
             await tx.$queryRaw`SELECT id FROM quotes WHERE id = ${input.quoteId} FOR UPDATE`;
+            // 잠그기 전에 읽은 금액으로 만들면, 그 사이 사장님이 고친 금액과 주문 금액이 달라졌다(11-18 검토)
+            const locked = await tx.quote.findUnique({
+              where: { id: input.quoteId },
+              select: { unitPrice: true },
+            });
+            if (!locked || locked.unitPrice !== input.expectedUnitPrice) {
+              throw new BadRequestException(ORDER_ERROR_MESSAGES.QUOTE_PRICE_CHANGED);
+            }
             const existing = await tx.order.count({
               where: { quoteId: input.quoteId, orderStatus: { in: [...input.activeStatuses] } },
             });
