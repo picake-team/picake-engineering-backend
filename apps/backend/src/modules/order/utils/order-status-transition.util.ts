@@ -50,11 +50,15 @@ export const SELLER_CANCEL_REFUND_PENDING_ALLOWED_FROM_STATUSES: ReadonlySet<Ord
 export const SELLER_CANCEL_REFUND_COMPLETED_ALLOWED_FROM_STATUSES: ReadonlySet<OrderStatus> =
   new Set([OrderStatus.CANCEL_REFUND_PENDING]);
 
-/** 사용자가 취소환불대기(취소·환불 요청)로 갈 수 있는 상태 (입금 완료 이후) */
+/**
+ * 사용자가 취소환불대기(취소·환불 요청)로 갈 수 있는 상태 (입금 완료 이후, 픽업 시각 전).
+ * 픽업대기(픽업 시각이 지남)는 넣지 않는다 — 손님 화면도 입금완료·예약확정에서만 "예약취소"를 보이고,
+ * 픽업 시각이 지난 뒤 요청을 받으면 노쇼 처리 전에 손님이 환불 요청으로 바꿀 수 있다.
+ * 그때는 손님이 가게에 연락하고 사장님이 취소환불대기로 바꾼다(기획 P-21, 11-18).
+ */
 export const USER_CANCEL_REFUND_REQUEST_SOURCE_STATUSES: ReadonlySet<OrderStatus> = new Set([
   OrderStatus.PAYMENT_COMPLETED,
   OrderStatus.CONFIRMED,
-  OrderStatus.PICKUP_PENDING,
 ]);
 
 /**
