@@ -242,6 +242,8 @@ export class OrderCreateService {
                 reservationContactName: reservationContactName ?? null,
                 reservationPhone: reservationPhone ?? null,
                 entrySource: entrySource ?? null,
+                // 예약할 때의 환불·취소 규정(예약 뒤 가게가 바꿔도 이 예약은 그대로, 2026-11-18)
+                refundCancellationPolicy: store.refundCancellationPolicy as Prisma.InputJsonValue,
                 orderStatus,
                 orderItems: {
                   create: normalizedItems,
@@ -344,6 +346,7 @@ export class OrderCreateService {
         standardOpenTime: true,
         standardCloseTime: true,
         businessCalendarOverrides: true,
+        refundCancellationPolicy: true,
         seller: { select: { isActive: true } },
       },
     });
@@ -377,6 +380,8 @@ export class OrderCreateService {
       pickupLongitude: store.longitude,
       reservationContactName: input.reservationContactName,
       reservationPhone: input.reservationPhone,
+      // 예약할 때의 환불·취소 규정(상품 예약과 같게)
+      refundCancellationPolicy: store.refundCancellationPolicy as Prisma.InputJsonValue,
       orderStatus: OrderStatus.RESERVATION_REQUESTED,
     };
 

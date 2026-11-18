@@ -188,8 +188,9 @@ export class OrderMapperUtil {
       storeBankName: showAccount ? (order.store.bankName ?? null) : null,
       storeBankAccountNumber: showAccount ? (order.store.bankAccountNumber ?? null) : null,
       storeAccountHolderName: showAccount ? (order.store.accountHolderName ?? null) : null,
+      // 예약할 때 남긴 규정을 먼저(예약 뒤 가게가 규정을 바꿔도 이 예약은 그대로). 칸이 생기기 전 예약만 가게의 지금 규정
       storeRefundCancellationPolicy: refundCancellationPolicyFromDb(
-        order.store.refundCancellationPolicy,
+        order.refundCancellationPolicy ?? order.store.refundCancellationPolicy,
       ),
       orderNumber: order.orderNumber,
       totalQuantity: order.totalQuantity,

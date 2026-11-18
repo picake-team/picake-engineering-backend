@@ -309,6 +309,21 @@ describe("견적으로 예약하기 (integration)", () => {
         include: OrderMapperUtil.ORDER_ITEMS_INCLUDE,
       });
 
+    // 예약할 때의 환불·취소 규정을 남긴다 — 예약 뒤 가게가 바꿔도 그대로(2026-11-18)
+    const policyAtReserve = (await load()).refundCancellationPolicy;
+    expect(policyAtReserve).not.toBeNull();
+    await t.prisma.store.update({
+      where: { id: t.store.id },
+      data: {
+        refundCancellationPolicy: {
+          rules: [{ daysBeforePickup: 0, refundDescription: "바뀐 규정" }],
+        },
+      },
+    });
+    expect(OrderMapperUtil.mapToOrderResponse(await load()).storeRefundCancellationPolicy).toEqual(
+      policyAtReserve,
+    );
+
     // 예약신청(사장님 확인 전): 계좌 없음
     const requested = OrderMapperUtil.mapToOrderResponse(await load());
     expect(requested.productImages).toEqual([photo]);

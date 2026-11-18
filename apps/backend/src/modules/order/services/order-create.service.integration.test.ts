@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
+
 import { ORDER_ERROR_MESSAGES } from "@apps/backend/modules/order/constants/order.constants";
 import { CreateOrderRequestDto } from "@apps/backend/modules/order/dto/order-create.dto";
 import { OrderCreateService } from "@apps/backend/modules/order/services/order-create.service";
+import { OrderMapperUtil } from "@apps/backend/modules/order/utils/order-mapper.util";
 import type { OrderLifecycleHookService } from "@apps/backend/modules/order/services/order-lifecycle-hook.service";
 import { getTestPrisma } from "@apps/backend/test/integration/db";
 import {
@@ -137,5 +140,44 @@ describe("OrderCreateService (integration)", () => {
       ORDER_ERROR_MESSAGES.STORE_NOT_ORDERABLE,
     );
     expect(await prisma.order.count({ where: { storeId: product.storeId } })).toBe(0);
+  });
+
+  it("예약할 때의 환불·취소 규정을 주문에 남겨, 예약 뒤 가게가 규정을 바꿔도 그 예약에는 예약 때 규정이 보인다(2026-11-18)", async () => {
+    const { prisma, product, consumer } = await setupProduct();
+    const before = {
+      rules: [
+        { daysBeforePickup: 7, refundDescription: "100% 환불" },
+        { daysBeforePickup: 0, refundDescription: "환불 불가" },
+      ],
+    };
+    await prisma.store.update({
+      where: { id: product.storeId },
+      data: { refundCancellationPolicy: before },
+    });
+
+    const { id } = await buildService(prisma).createOrderForUser(consumer.id, buildDto(product.id));
+    await prisma.store.update({
+      where: { id: product.storeId },
+      data: {
+        refundCancellationPolicy: {
+          rules: [{ daysBeforePickup: 0, refundDescription: "환불 불가" }],
+        },
+      },
+    });
+
+    const load = () =>
+      prisma.order.findUniqueOrThrow({
+        where: { id },
+        include: OrderMapperUtil.ORDER_ITEMS_INCLUDE,
+      });
+    expect(OrderMapperUtil.mapToOrderResponse(await load()).storeRefundCancellationPolicy).toEqual(
+      before,
+    );
+
+    // 이 칸이 생기기 전 예약(비어 있음)은 가게의 지금 규정
+    await prisma.order.update({ where: { id }, data: { refundCancellationPolicy: Prisma.DbNull } });
+    expect(
+      OrderMapperUtil.mapToOrderResponse(await load()).storeRefundCancellationPolicy.rules,
+    ).toEqual([{ daysBeforePickup: 0, refundDescription: "환불 불가" }]);
   });
 });
