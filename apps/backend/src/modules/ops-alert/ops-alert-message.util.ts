@@ -219,6 +219,30 @@ export function buildQuoteOpsMessage(alert: QuoteOpsAlert, ctx: OpsAlertContext)
   });
 }
 
+export interface ActAsOtpLockedAlert {
+  storeId: string;
+  adminUsername: string;
+  failures: number;
+  lockedUntil: Date;
+}
+
+/**
+ * 가게 대신 입력 들어가기 OTP를 여러 번 틀려 막음(기획 I-41, 11-18 검토). 관리자 출입증이 새어 누가 코드를 맞히려는 것일 수 있다.
+ */
+export function buildActAsOtpLockedMessage(alert: ActAsOtpLockedAlert, ctx: OpsAlertContext) {
+  return embed(ctx, {
+    title: "가게 대신 입력 인증 코드를 여러 번 틀려 막았어요",
+    hint: `${kstClock(alert.lockedUntil)}까지 막혀요. 내가 한 게 아니면 관리자 비밀번호를 바꾸고 OTP를 다시 등록해 주세요.`,
+    path: "/seller/stores",
+    fields: [
+      { name: "관리자", value: `\`${alert.adminUsername.replace(/[^A-Za-z0-9_]/g, "")}\`` },
+      { name: "틀린 횟수", value: String(alert.failures) },
+    ],
+    footer: `스토어 ${alert.storeId}`,
+    at: new Date(),
+  });
+}
+
 export interface ActAsStartedAlert {
   storeId: string;
   storeName: string;

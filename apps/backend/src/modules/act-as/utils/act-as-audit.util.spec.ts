@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  actAsActionArea,
+  actAsFieldNames,
   actAsRouteTemplate,
   buildActAsActionRecord,
   summarizeActAsActions,
@@ -99,5 +101,19 @@ describe("운영자 대신 입력 기록 한 줄(기획 I-41)", () => {
         { method: "POST", route: "/seller/stores/:storeId/manual-orders/read", status: 200 },
       ]),
     ).toEqual({ product: 0, manualOrder: 0, calendar: 0, store: 0, view: 1, blocked: 0 });
+  });
+
+  it("보낸 칸 이름의 NUL·이모지 반쪽 같은 글자는 ?로 바꿔 기록이 저장되게 한다(11-18 검토)", () => {
+    const names = actAsFieldNames("POST", { "a\u0000b": 1, ["x".repeat(59) + "😀"]: 2, name: 3 });
+    expect(names[0]).toBe("a?b");
+    expect(names[1]).toBe("x".repeat(59) + "?");
+    expect(names[2]).toBe("name");
+    expect(names.every((n) => /^[A-Za-z0-9_.\-[\]?]*$/.test(n))).toBe(true);
+  });
+
+  it("HEAD는 보기로 센다", () => {
+    expect(actAsActionArea({ method: "HEAD", route: "/seller/products", status: 200 })).toBe(
+      "view",
+    );
   });
 });
