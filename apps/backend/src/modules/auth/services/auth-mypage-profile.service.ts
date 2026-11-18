@@ -1,4 +1,6 @@
 import { isAllowedUploadUrl } from "@apps/backend/modules/upload/utils/upload-url.util";
+import { UploadService } from "@apps/backend/modules/upload/upload.service";
+import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import {
   Injectable,
   BadRequestException,
@@ -30,7 +32,25 @@ import {
  */
 @Injectable()
 export class AuthMypageProfileService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploadService: UploadService,
+  ) {}
+
+  /**
+   * 프로필 사진을 바꾸거나 지웠으면 옛 사진 파일을 지운다(처리방침 "탈퇴 후 즉시 파기"와 같은 뜻으로 바꾼 사진도 남기지 않음).
+   * 저장한 뒤에 불러야 이 계정 행을 참조로 세지 않는다. 우리 저장소에 올린 사진만 지우고(바깥 주소는 건너뜀),
+   * 다른 곳이 같은 파일을 쓰면 남긴다. 실패해도 프로필 저장은 성공으로 둔다.
+   */
+  private async deleteReplacedProfileImage(before: string | null, after: string | null): Promise<void> {
+    if (!before || before === after) return;
+    try {
+      await this.uploadService.deleteFilesByUrl([before]);
+    } catch (error) {
+      LoggerUtil.log("옛 프로필 사진 지우기 실패(프로필 저장은 완료)");
+      SentryUtil.captureException(error, "warning", { module: "auth-mypage-profile", step: "old-image" });
+    }
+  }
 
   private assertMypagePatchHasSomeField(dto: UpdateMypageProfileRequestDto): void {
     if (dto.name === undefined && dto.nickname === undefined && dto.profileImageUrl === undefined) {
@@ -129,6 +149,7 @@ export class AuthMypageProfileService {
       data,
       include: CONSUMER_TERMS_AGREEMENT_INCLUDE,
     });
+    await this.deleteReplacedProfileImage(existing.profileImageUrl, updated.profileImageUrl);
 
     return ConsumerMapperUtil.mapConsumerToInfo(updated, undefined, true, updated.termsAgreements);
   }
@@ -172,6 +193,7 @@ export class AuthMypageProfileService {
       data,
       include: SELLER_TERMS_AGREEMENT_INCLUDE,
     });
+    await this.deleteReplacedProfileImage(existing.profileImageUrl, updated.profileImageUrl);
 
     return SellerMapperUtil.mapToSellerInfo(updated, undefined, updated.termsAgreements);
   }

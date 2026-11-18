@@ -13,6 +13,7 @@ import { ORDER_STATUSES_BLOCKING_ACCOUNT_WITHDRAWAL } from "@apps/backend/module
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
 import { AuthKakaoOauthService } from "@apps/backend/modules/auth/services/auth-kakao-oauth.service";
 import { AuthNaverOauthService } from "@apps/backend/modules/auth/services/auth-naver-oauth.service";
+import { UploadService } from "@apps/backend/modules/upload/upload.service";
 
 /**
  * 회원 탈퇴 — 계정을 "익명화 후 비활성화" 처리합니다(하드 삭제 아님).
@@ -49,6 +50,7 @@ export class AuthWithdrawService {
     private readonly quoteRequestCleanup: QuoteRequestCleanupService,
     private readonly chatCleanup: ChatCleanupService,
     private readonly manualOrderService: ManualOrderService,
+    private readonly uploadService: UploadService,
   ) {}
 
   async withdraw(audience: AudienceConst, accountId: string, reason: string): Promise<void> {
@@ -62,6 +64,7 @@ export class AuthWithdrawService {
         select: {
           id: true,
           withdrawnAt: true,
+          profileImageUrl: true,
           appleRefreshToken: true,
           kakaoId: true,
           naverId: true,
@@ -99,6 +102,9 @@ export class AuthWithdrawService {
         },
       });
 
+      // 프로필 사진 파일도 지운다(처리방침 "탈퇴 후 즉시 파기"). 계정 행을 비운 뒤라 이 사진을 쓰는 곳이 없으면 지워진다
+      await this.deleteProfileImageFile(AUDIENCE.CONSUMER, row.profileImageUrl);
+
       // 바깥 연결 끊기는 탈퇴 처리를 마친 뒤(읽어 둔 값으로). 무엇이 실패해도 탈퇴는 끝난 상태로 둔다.
       await this.afterWithdrawal(AUDIENCE.CONSUMER, async () => {
         // Apple 가이드라인 5.1.1(v) — 계정 삭제 시 Sign in with Apple 인가를 revoke.
@@ -124,6 +130,7 @@ export class AuthWithdrawService {
         select: {
           id: true,
           withdrawnAt: true,
+          profileImageUrl: true,
           phone: true,
           kakaoId: true,
           naverId: true,
@@ -161,6 +168,8 @@ export class AuthWithdrawService {
         data: { calendarFeedToken: null },
       });
       await this.manualOrderService.deleteAllForSeller(accountId);
+      // 프로필 사진 파일도 지운다(처리방침 "탈퇴 후 즉시 파기")
+      await this.deleteProfileImageFile(AUDIENCE.SELLER, row.profileImageUrl);
       await this.afterWithdrawal(AUDIENCE.SELLER, async () => {
         // 카카오 연결 끊기(탈퇴 처리를 마친 뒤). 같은 카카오로 가입한 손님 계정이 있으면 끊지 않는다
         if (row.kakaoId && !(await this.hasOtherRoleWithKakaoId(AUDIENCE.CONSUMER, row.kakaoId))) {
@@ -196,6 +205,24 @@ export class AuthWithdrawService {
    * "같은 계정의 다른 역할" 확인 같은 DB 조회가 실패하면 예외가 올라가 이미 끝난 탈퇴에 500이 났다
    * (다시 누르면 "계정을 찾을 수 없어요") — 여기서 잡아 기록만 하고 탈퇴는 성공으로 둔다(11-16 검토).
    */
+  /**
+   * 탈퇴한 계정의 프로필 사진 파일 지우기. 계정 행의 사진 주소를 비운 뒤에 불러야 그 행을 참조로 세지 않는다.
+   * 우리 저장소에 올린 사진만 지우고(구글 프로필 사진 같은 바깥 주소는 건너뜀), 다른 곳이 같은 파일을 쓰면 남긴다.
+   * 실패해도 탈퇴는 끝난 상태로 둔다.
+   */
+  private async deleteProfileImageFile(audience: AudienceConst, url: string | null): Promise<void> {
+    if (!url) return;
+    try {
+      await this.uploadService.deleteFilesByUrl([url]);
+    } catch (error) {
+      LoggerUtil.log(`탈퇴 뒤 프로필 사진 지우기 실패(탈퇴는 완료): audience=${audience}`);
+      SentryUtil.captureException(error, "warning", {
+        module: "auth-withdraw",
+        step: "profile-image",
+      });
+    }
+  }
+
   private async afterWithdrawal(audience: AudienceConst, run: () => Promise<void>): Promise<void> {
     try {
       await run();

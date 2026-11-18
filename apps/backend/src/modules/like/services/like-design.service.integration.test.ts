@@ -197,6 +197,7 @@ describe("디자인 좋아요 (integration)", () => {
         deleteAllForConsumer: vi.fn().mockResolvedValue({ messages: 0, photos: 0 }),
       } as unknown as ChatCleanupService,
       { deleteAllForSeller: vi.fn().mockResolvedValue({ orders: 0, photos: 0 }) } as any,
+      { deleteFilesByUrl: vi.fn().mockResolvedValue(0) } as any,
     );
     await withdraw.withdraw(AUDIENCE.CONSUMER, leaving.id, "테스트");
 
