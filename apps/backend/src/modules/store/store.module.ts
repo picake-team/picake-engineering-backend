@@ -15,8 +15,17 @@ import { StoreLinkStatsService } from "@apps/backend/modules/store/services/stor
 /**
  * 스토어 관련 모듈
  */
+import { NotificationModule } from "@apps/backend/modules/notification/notification.module";
+
 @Module({
-  imports: [BusinessModule, DatabaseModule, LikeModule, NaverPlaceModule, OpsAlertModule],
+  imports: [
+    BusinessModule,
+    DatabaseModule,
+    LikeModule,
+    NaverPlaceModule,
+    OpsAlertModule,
+    NotificationModule,
+  ],
   providers: [
     StoreService,
     StoreCreateService,

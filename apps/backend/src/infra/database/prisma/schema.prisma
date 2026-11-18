@@ -1545,6 +1545,7 @@ enum NotificationAppSurface {
 enum NotificationCategory {
   ORDER
   QUOTE
+  STORE // 판매자 스토어 안내(정산 계좌가 바뀜 등, 2026-11-18). orderId 없음
 }
 
 enum OrderStatus {
