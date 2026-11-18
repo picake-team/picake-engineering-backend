@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, Param } from "@nestjs/common";
+import { Controller, Get, HttpCode, HttpStatus, NotFoundException, Param } from "@nestjs/common";
 import { ApiExtraModels, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
@@ -37,6 +37,10 @@ export class ConsumerTermsController {
     dataExample: createMessageObject(TERMS_ERROR_MESSAGES.ACTIVE_NOT_FOUND),
   })
   async getActive(@Param("type") type: TermsType) {
+    // 없는 종류를 DB에 그대로 넘기면 Prisma가 enum 오류로 500을 낸다(11-18 검토 자동 검사에서 찾음) → 없는 약관과 같게 404
+    if (!(Object.values(TermsType) as string[]).includes(type)) {
+      throw new NotFoundException(TERMS_ERROR_MESSAGES.ACTIVE_NOT_FOUND);
+    }
     return await this.termsService.getActiveByType(type);
   }
 }
