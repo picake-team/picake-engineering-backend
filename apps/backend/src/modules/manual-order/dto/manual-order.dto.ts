@@ -150,6 +150,8 @@ export class ManualOrderDto {
   @ApiProperty({ enum: ManualOrderSource }) source!: ManualOrderSource;
   @ApiProperty({ type: String, nullable: true }) memo!: string | null;
   @ApiProperty({ type: [String] }) photoUrls!: string[];
+  @ApiProperty({ description: "운영자가 가게 대신 적은 주문이면 true(기획 I-41)" })
+  enteredByOperator!: boolean;
   @ApiProperty() createdAt!: Date;
   @ApiProperty() updatedAt!: Date;
 }

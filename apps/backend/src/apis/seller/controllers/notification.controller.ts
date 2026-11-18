@@ -12,6 +12,7 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiExtraModels } from "@nestjs/swagger";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -41,6 +42,7 @@ import { PaginationMetaResponseDto } from "@apps/backend/common/dto/pagination-r
 export class SellerNotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
+  @AllowActAs()
   @Get()
   @ApiOperation({ summary: "판매자 웹 알림 목록 (스토어별)" })
   @SwaggerResponse(200, { dataDto: SellerNotificationListResponseDto })
@@ -61,6 +63,7 @@ export class SellerNotificationController {
     return { data: items, meta };
   }
 
+  @AllowActAs()
   @Get("unread-count")
   @ApiOperation({ summary: "안 읽은 알림 개수 (스토어별)" })
   @SwaggerResponse(200, { dataDto: SellerNotificationUnreadCountResponseDto })
@@ -76,6 +79,7 @@ export class SellerNotificationController {
     return { count };
   }
 
+  @AllowActAs()
   @Get("preferences")
   @ApiOperation({ summary: "판매자 웹 알림 설정 조회 (스토어별)" })
   @SwaggerResponse(200, { dataDto: SellerNotificationPreferenceResponseDto })

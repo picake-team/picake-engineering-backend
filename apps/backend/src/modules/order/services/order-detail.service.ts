@@ -6,6 +6,8 @@ import { OrderOwnershipUtil } from "@apps/backend/modules/order/utils/order-owne
 import { ORDER_ERROR_MESSAGES } from "@apps/backend/modules/order/constants/order.constants";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { OrderAutomationService } from "@apps/backend/modules/order/services/order-automation.service";
+import { assertActAsStore } from "@apps/backend/modules/act-as/utils/act-as-scope.util";
+import type { ActAsActor } from "@apps/backend/modules/auth/types/auth.types";
 
 /**
  * 주문 상세조회 서비스
@@ -51,9 +53,14 @@ export class OrderDetailService {
    * @param userId - 판매자 사용자 ID (권한 확인용)
    * @returns 주문 정보 (OrderResponseDto)
    */
-  async getOrderByIdForSeller(orderId: string, userId: string): Promise<OrderResponseDto> {
+  async getOrderByIdForSeller(
+    orderId: string,
+    userId: string,
+    actingUser?: { actor?: ActAsActor },
+  ): Promise<OrderResponseDto> {
     // 주문 소유권 확인
-    await OrderOwnershipUtil.verifyOrderStoreOwnership(this.prisma, orderId, userId);
+    const owned = await OrderOwnershipUtil.verifyOrderStoreOwnership(this.prisma, orderId, userId);
+    assertActAsStore(actingUser, owned.store.id);
 
     await this.orderAutomationService.syncOrderLifecycleById(orderId);
 

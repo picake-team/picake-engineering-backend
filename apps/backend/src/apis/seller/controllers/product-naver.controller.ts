@@ -13,6 +13,7 @@ import {
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
@@ -49,6 +50,7 @@ export class SellerProductNaverController {
     private readonly aiDraftService: ProductAiDraftService,
   ) {}
 
+  @AllowActAs()
   @Get("store/:storeId/naver-products")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -69,6 +71,7 @@ export class SellerProductNaverController {
     return await this.importService.listForSeller(storeId, req.user);
   }
 
+  @AllowActAs()
   @Get("store/:storeId/naver-products/:itemKey")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 20, ttl: 60000 } })
@@ -93,6 +96,7 @@ export class SellerProductNaverController {
     return await this.importService.detailForSeller(storeId, itemKey, req.user);
   }
 
+  @AllowActAs()
   @Post("store/:storeId/naver-products/:itemKey/images")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -115,6 +119,7 @@ export class SellerProductNaverController {
     return await this.importService.importImagesForSeller(storeId, itemKey, body.indexes, req.user);
   }
 
+  @AllowActAs()
   @Put("products/:productId/naver-item")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -138,6 +143,7 @@ export class SellerProductNaverController {
     return await this.linkService.linkForSeller(productId, body.bizItemId, req.user);
   }
 
+  @AllowActAs()
   @Delete("products/:productId/naver-item")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -153,6 +159,7 @@ export class SellerProductNaverController {
     return await this.linkService.unlinkForSeller(productId, req.user);
   }
 
+  @AllowActAs()
   @Post("store/:storeId/products/description-draft")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })

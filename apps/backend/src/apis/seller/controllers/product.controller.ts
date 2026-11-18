@@ -14,6 +14,7 @@ import {
 import { ApiTags, ApiOperation, ApiExtraModels } from "@nestjs/swagger";
 import { ProductService } from "@apps/backend/modules/product/product.service";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -64,6 +65,7 @@ export class SellerProductController {
    * 자신이 소유한 스토어의 상품만 조회합니다.
    * 로그인한 사용자의 경우 각 상품의 좋아요 여부(isLiked)도 함께 반환됩니다.
    */
+  @AllowActAs()
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -88,6 +90,7 @@ export class SellerProductController {
    * 자신이 소유한 스토어의 상품만 조회 가능합니다.
    * 로그인한 사용자의 경우 해당 상품의 좋아요 여부(isLiked)도 함께 반환됩니다.
    */
+  @AllowActAs()
   @Get(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -109,6 +112,7 @@ export class SellerProductController {
    * 상품 등록 API
    * 판매자가 새로운 상품을 등록합니다.
    */
+  @AllowActAs()
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -135,6 +139,7 @@ export class SellerProductController {
    * 상품 수정 API
    * 판매자가 등록한 상품을 수정합니다.
    */
+  @AllowActAs()
   @Put(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -157,6 +162,7 @@ export class SellerProductController {
    * 상품 삭제 API
    * 판매자가 등록한 상품을 삭제합니다.
    */
+  @AllowActAs()
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

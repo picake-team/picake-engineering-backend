@@ -4,6 +4,8 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
 import { isProduction } from "@apps/backend/common/utils/environment.util";
 import {
+  buildActAsStartedMessage,
+  type ActAsStartedAlert,
   buildChatReportMessage,
   buildQuoteOpsMessage,
   type QuoteOpsAlert,
@@ -42,6 +44,11 @@ export class OpsAlertService {
 
   notifyChatReport(report: ChatReportAlert): Promise<void> {
     return this.send("chat-report", (ctx) => buildChatReportMessage(report, ctx));
+  }
+
+  /** 운영자가 가게 대신 입력을 시작함(기획 I-41) */
+  notifyActAsStarted(alert: ActAsStartedAlert): Promise<void> {
+    return this.send("act-as-started", (ctx) => buildActAsStartedMessage(alert, ctx));
   }
 
   notifyQuote(alert: QuoteOpsAlert): Promise<void> {

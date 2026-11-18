@@ -77,11 +77,17 @@ export const AUTH_ERROR_MESSAGES = {
     "[ACCESS_TOKEN_INVALID] 액세스 토큰에 필수 정보가 누락되었습니다. 다시 로그인해주세요.",
   ACCESS_TOKEN_ACCOUNT_NOT_FOUND: "[ACCESS_TOKEN_INVALID] 계정을 찾을 수 없어요.",
   ACCESS_TOKEN_ACCOUNT_INACTIVE: "[ACCESS_TOKEN_INVALID] 비활성화된 계정이에요.",
+  /** 운영자 대신 입력(기획 I-41) 세션이 끝났거나 시간이 지났거나 관리자 계정이 꺼졌을 때 */
+  ACT_AS_SESSION_ENDED: "[ACCESS_TOKEN_INVALID] 운영자 대신 입력이 끝났어요.",
   /** 로그인·회원가입 시 관리자 비활성 계정 차단 (401 ACCESS_TOKEN_* 와 구분) */
   ACCOUNT_INACTIVE: "비활성화된 계정입니다. 관리자에게 문의해주세요.",
   /* ------------------------------------------------------------------------------------------------------ */
   AUDIENCE_NOT_AUTHORIZED: "이 요청에 사용할 수 없는 로그인이에요.",
   JWT_TYPE_NOT_ALLOWED_FOR_ROUTE: "이 요청에 사용할 수 없는 토큰이에요.",
+  /** 운영자 대신 입력(기획 I-41) 중 허용 목록(`@AllowActAs`)에 없는 경로 — 403 */
+  ACT_AS_ROUTE_BLOCKED: "운영자 대신 입력 중에는 쓸 수 없는 기능이에요.",
+  /** 운영자 대신 입력 중 들어간 가게가 아닌 다른 스토어 — 403 */
+  ACT_AS_OTHER_STORE: "운영자 대신 입력 중인 가게만 열 수 있어요.",
   REQUIRED_TERMS_NOT_AGREED: "필수 약관에 모두 동의해야 가입할 수 있어요.",
   WITHDRAW_BLOCKED_ACTIVE_ORDERS:
     "진행 중인 주문이 있어 탈퇴할 수 없어요. 주문을 완료하거나 취소한 뒤 다시 시도해 주세요.",
@@ -206,6 +212,11 @@ export const TOKEN_TYPES = {
   TOTP_SETUP_PENDING: "totp_setup_pending",
   /** 소셜 로그인에서 서버가 확인한 소셜 ID를 회원가입까지 들고 가는 가입표 */
   REGISTER: "register",
+  /**
+   * 운영자가 가게 대신 입력하는 짧은 출입증(기획 I-41). `aud: seller`, `sid`(세션 id), 60분.
+   * 판매자 경로 가운데 `@AllowActAs()`를 붙인 경로만 받고(`AuthGuard`), 매 요청마다 세션 행을 확인한다(`JwtStrategy`).
+   */
+  ACT_AS: "act_as",
 } as const;
 
 /**

@@ -2,6 +2,7 @@ import { Controller, Get, HttpCode, HttpStatus, Query } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { AUDIENCE } from "@apps/backend/modules/auth/constants/auth.constants";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
@@ -26,6 +27,7 @@ export class SellerNaverPlaceController {
    * 네이버 플레이스 미리보기 API
    * 네이버 플레이스 링크로 매장 정보를 조회해 스토어 폼 자동 채우기 값을 돌려줍니다. 저장은 하지 않습니다.
    */
+  @AllowActAs()
   @Get("preview")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60000 } })

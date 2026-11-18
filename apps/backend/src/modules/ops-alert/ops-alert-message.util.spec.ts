@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildActAsStartedMessage,
   buildChatReportMessage,
   buildNewSellerMessage,
   buildNewStoreEntryRequestMessage,
@@ -71,5 +72,28 @@ describe("운영자 실시간 알림 문구 (I-56)", () => {
     expect(e.title).toBe("채팅 신고 — 사기 의심");
     expect(e.url).toBe("https://admin.picakes.com/chat-reports/rep_1");
     expect(e.fields.map((f) => f.value)).toEqual(["사기가 의심돼요", "손님"]);
+  });
+
+  it("가게 대신 입력 시작(I-41): 가게·관리자·사유(서식 기호 뺌)·끝나는 한국 시각", () => {
+    const m = buildActAsStartedMessage(
+      {
+        storeId: "st1",
+        storeName: "구름케이크",
+        adminUsername: "ops_admin",
+        reason: "카톡 요청 — **첫 상품** 3개",
+        startedAt: at,
+        expiresAt: new Date("2026-11-11T04:00:00.000Z"),
+      },
+      ctx,
+    );
+    const e = m.embeds[0];
+    expect(e.title).toBe("운영자가 가게 대신 입력을 시작했어요");
+    expect(e.description).toContain("13:00에 저절로 끝나요.");
+    expect(e.fields.map((f) => f.value)).toEqual([
+      "구름케이크",
+      "`ops_admin`",
+      "카톡 요청 — 첫 상품 3개",
+    ]);
+    expect(e.footer.text).toBe("스토어 st1");
   });
 });

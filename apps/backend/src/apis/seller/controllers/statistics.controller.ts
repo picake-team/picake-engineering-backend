@@ -1,6 +1,7 @@
 import { Controller, Get, HttpCode, HttpStatus, Query, Request } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiExtraModels } from "@nestjs/swagger";
 import { Auth } from "@apps/backend/modules/auth/decorators/auth.decorator";
+import { AllowActAs } from "@apps/backend/modules/auth/decorators/allow-act-as.decorator";
 import { SwaggerResponse } from "@apps/backend/common/decorators/swagger-response.decorator";
 import { SwaggerAuthResponses } from "@apps/backend/common/decorators/swagger-auth-responses.decorator";
 import { JwtVerifiedPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -29,6 +30,7 @@ export class SellerStatisticsController {
    * 스토어 주문 통계(기간별 요약·상품 랭킹·요일·시간대)
    * 픽업 완료(PICKUP_COMPLETED) 주문만 집계합니다.
    */
+  @AllowActAs()
   @Get("orders/overview")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

@@ -94,8 +94,10 @@ export class ProductMapperUtil {
     product: ProductWithStore | ProductWithReviewsAndStore,
     isLiked?: boolean | null,
     options: ProductResponseOptionScope = "full",
+    audience: "seller" | "consumer" = "consumer",
   ): ProductResponseDto {
-    const { store, ...productData } = product;
+    // 운영자 id는 어느 응답에도 내보내지 않는다. 판매자 응답에만 "운영자 입력" 표시(기획 I-41)
+    const { store, createdByAdminId, ...productData } = product;
     const optionFields = ProductMapperUtil.mapOptionFields(product, options);
 
     // 후기 통계 계산
@@ -128,6 +130,7 @@ export class ProductMapperUtil {
       averageRating,
       totalReviewCount,
       isLiked: isLiked !== undefined ? isLiked : null,
+      ...(audience === "seller" ? { enteredByOperator: createdByAdminId != null } : {}),
       storeName: store.name,
       storeLogoImageUrl: store?.logoImageUrl || undefined,
       storeRefundCancellationPolicy: refundCancellationPolicyFromDb(store.refundCancellationPolicy),

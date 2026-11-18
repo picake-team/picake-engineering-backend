@@ -10,6 +10,8 @@ import { SuccessResponseInterceptor } from "@apps/backend/common/interceptors/su
 import { ErrorResponseInterceptor } from "@apps/backend/common/interceptors/error-response.interceptor";
 import { MaintenanceGuard } from "@apps/backend/common/guards/maintenance.guard";
 import { AppThrottlerGuard } from "@apps/backend/common/guards/app-throttler.guard";
+import { ActAsAuditModule } from "@apps/backend/modules/act-as/act-as-audit.module";
+import { ActAsAuditInterceptor } from "@apps/backend/modules/act-as/interceptors/act-as-audit.interceptor";
 
 /**
  * NestJS 애플리케이션의 루트 모듈
@@ -40,6 +42,9 @@ import { AppThrottlerGuard } from "@apps/backend/common/guards/app-throttler.gua
     // 데이터베이스 모듈
     DatabaseModule,
 
+    // 운영자 대신 입력(기획 I-41) 요청 기록 — 전역(가드·인터셉터가 씀)
+    ActAsAuditModule,
+
     // Consumer API 모듈
     ConsumerApiModule,
 
@@ -54,6 +59,11 @@ import { AppThrottlerGuard } from "@apps/backend/common/guards/app-throttler.gua
     {
       provide: APP_INTERCEPTOR,
       useClass: SuccessResponseInterceptor,
+    },
+    // 운영자 대신 입력(기획 I-41) 중 요청을 모두 남김(대리 출입증 요청만, 사장님 요청은 그대로 지나감)
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ActAsAuditInterceptor,
     },
     // 전역 Error Response Interceptor 등록 // 예외 처리를 통일된 형태로 처리
     {

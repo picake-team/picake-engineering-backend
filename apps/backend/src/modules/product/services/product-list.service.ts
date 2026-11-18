@@ -32,6 +32,7 @@ import {
   CUSTOMER_LISTED_STORE_WHERE,
   REVIEW_STORE_BUSINESS_NO,
 } from "@apps/backend/modules/store/constants/store.constants";
+import { actAsStoreWhere } from "@apps/backend/modules/act-as/utils/act-as-scope.util";
 
 @Injectable()
 export class ProductListService {
@@ -469,6 +470,8 @@ export class ProductListService {
     const userStores = await this.prisma.store.findMany({
       where: {
         sellerId: user.sub,
+        // 운영자 대신 입력 중(기획 I-41)이면 들어간 가게 상품만
+        ...actAsStoreWhere(user),
       },
       select: {
         id: true,
@@ -575,7 +578,12 @@ export class ProductListService {
       const likedProductIds = await this.getLikedProductIds(user.sub, productIds);
 
       products = orderedProducts.map((product) =>
-        ProductMapperUtil.mapToProductResponse(product, likedProductIds.has(product.id), "list"),
+        ProductMapperUtil.mapToProductResponse(
+          product,
+          likedProductIds.has(product.id),
+          "list",
+          "seller",
+        ),
       );
     } else {
       switch (sortBy) {
@@ -613,7 +621,12 @@ export class ProductListService {
       const likedProductIds = await this.getLikedProductIds(user.sub, productIds);
 
       products = productsWithStore.map((product) =>
-        ProductMapperUtil.mapToProductResponse(product, likedProductIds.has(product.id), "list"),
+        ProductMapperUtil.mapToProductResponse(
+          product,
+          likedProductIds.has(product.id),
+          "list",
+          "seller",
+        ),
       );
     }
 
