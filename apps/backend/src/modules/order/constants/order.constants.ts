@@ -12,6 +12,8 @@ export const ORDER_ERROR_MESSAGES = {
   QUOTE_ORDER_NO_OPTIONS:
     "견적으로 만든 예약은 옵션을 바꿀 수 없어요. 바꿀 내용은 채팅으로 가게에 알려 주세요.",
   QUOTE_ALREADY_RESERVED: "이미 이 견적으로 예약했어요. 내 예약에서 확인해 주세요.",
+  /** 견적 예약 중 사장님이 금액을 고침(견적 모듈 RESERVE_PRICE_CHANGED와 같은 글) */
+  QUOTE_PRICE_CHANGED: "사장님이 견적을 고쳤어요. 바뀐 금액을 확인하고 다시 예약해 주세요.",
   PICKUP_IN_PAST: "지난 시각은 고를 수 없어요. 픽업 시간을 다시 골라 주세요.",
   PRODUCT_INACTIVE: "판매중지된 상품이에요.",
   PRODUCT_NOT_AVAILABLE: "구매할 수 없는 상품이에요.",
