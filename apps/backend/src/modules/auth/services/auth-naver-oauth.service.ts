@@ -36,6 +36,8 @@ import { rethrowRegisterUniqueConflict } from "@apps/backend/modules/auth/utils/
 
 /** 토큰 발급·갱신·삭제(연동 해제)를 모두 받는 곳 — grant_type으로 나눈다(네이버 로그인 API 명세) */
 const NAVER_TOKEN_URL = "https://nid.naver.com/oauth2.0/token";
+/** 연동 해제(Token Revocation) — 2026-05부터 네이버 공식 명세(옛 `/oauth2.0/token?grant_type=delete`는 명세에서 빠짐) */
+const NAVER_REVOKE_URL = "https://nid.naver.com/oauth2.0/revoke";
 const NAVER_PROFILE_URL = "https://openapi.naver.com/v1/nid/me";
 
 /**
@@ -482,10 +484,11 @@ export class AuthNaverOauthService {
    * 다시 가입할 때 정보 제공 동의부터 새로 본다. 상용에서만 끊는다(staging·로컬은 같은 네이버 앱이라).
    * 실패해도 탈퇴는 그대로 진행한다(카카오·애플과 같게).
    *
-   * 네이버 연동 해제는 **접근 토큰 삭제**(`/oauth2.0/token`, `grant_type=delete`, `service_provider=NAVER`)다.
-   * 접근 토큰은 1시간이라 저장해 둔 갱신 토큰으로 먼저 새 접근 토큰을 받고(`grant_type=refresh_token`) 그 토큰을 지운다.
-   * 성공은 본문 `result: "success"`로 본다(네이버는 실패해도 200에 error를 담기도 함). 리다이렉트는 따라가지 않는다.
-   * (11-16 검토: 처음 만든 `/oauth2.0/revoke`는 네이버에 없는 주소라 401 오류 화면이 와 끊기지 않았다)
+   * 네이버 연동 해제는 **토큰 폐기**(`POST /oauth2.0/revoke`, RFC 7009)다. 저장해 둔 갱신 토큰을
+   * `token_type_hint=refresh_token`으로 보내면 짝인 접근 토큰도 같이 폐기되고 "연결된 서비스"에서 빠진다.
+   * 성공은 **HTTP 200**(본문 없음, 이미 폐기됐거나 없는 토큰도 200)으로 보고, 본문에 error·HTML 오류 화면이 오면 실패로 남긴다.
+   * 리다이렉트는 따라가지 않는다. (11-18 검토: 11-16에 옮긴 `grant_type=delete`는 2026-05 네이버 명세에서 빠진 옛 방식이고
+   * 가짜 키·가짜 토큰에도 `result: "success"`를 줘 끊겼는지 알 수 없었다. `/revoke`가 가짜 키에 401인 것은 키 확인 실패다)
    */
   async revoke(
     audience: AudienceConst,
@@ -522,35 +525,25 @@ export class AuthNaverOauthService {
         new Error(`naver ${operation} ${status}`),
       );
     try {
-      const refreshed = await this.httpClient.post(
-        NAVER_TOKEN_URL,
+      const res = await this.httpClient.post(
+        NAVER_REVOKE_URL,
         new URLSearchParams({
-          grant_type: "refresh_token",
           client_id: clientId,
           client_secret: clientSecret,
-          refresh_token: refreshToken,
+          token: refreshToken,
+          token_type_hint: "refresh_token",
         }),
         requestConfig,
       );
-      const accessToken: unknown = refreshed.data?.access_token;
-      if (typeof accessToken !== "string" || !accessToken) {
-        // 갱신 토큰이 만료·폐기됐으면(손님이 네이버에서 먼저 끊은 경우 등) 끊을 연결이 없을 수도 있다 — 기록만
-        reportRevokeFailure("revoke-refresh", refreshed.status, refreshed.data);
+      const body: unknown = res.data;
+      const looksLikeError =
+        (typeof body === "string" && /<html/i.test(body)) ||
+        (typeof body === "object" && body !== null && "error" in body);
+      if (res.status === 200 && !looksLikeError) {
+        LoggerUtil.log(`네이버 연결 끊기 완료(${audience})`);
         return;
       }
-      const res = await this.httpClient.post(
-        NAVER_TOKEN_URL,
-        new URLSearchParams({
-          grant_type: "delete",
-          client_id: clientId,
-          client_secret: clientSecret,
-          access_token: accessToken,
-          service_provider: "NAVER",
-        }),
-        requestConfig,
-      );
-      if (res.status === 200 && res.data?.result === "success") return;
-      reportRevokeFailure("revoke", res.status, res.data);
+      reportRevokeFailure("revoke", res.status, body);
     } catch (error: any) {
       ExternalApiErrorUtil.reportFailure(
         {

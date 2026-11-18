@@ -499,49 +499,52 @@ describe("AuthNaverOauthService.revoke — 탈퇴 때 네이버 연결 끊기", 
     ).encrypt(plain);
   const paramsOf = (call: unknown[]) =>
     Object.fromEntries(new URLSearchParams(call[1] as URLSearchParams));
-  /** 갱신 → 새 접근 토큰, 삭제 → result success (네이버 로그인 API 명세의 응답 모양) */
-  const naverAnswers = (deleteAnswer: { status: number; data: unknown }) =>
-    httpClientMock.post
-      .mockResolvedValueOnce({
-        status: 200,
-        data: { access_token: "new-access", token_type: "bearer" },
-      })
-      .mockResolvedValueOnce(deleteAnswer);
+  /** 네이버 토큰 폐기(`/oauth2.0/revoke`) 응답 — 명세상 성공은 본문 없는 200 */
+  const naverAnswers = (revokeAnswer: { status: number; data: unknown }) =>
+    httpClientMock.post.mockResolvedValueOnce(revokeAnswer);
 
-  it("상용이면 갱신 토큰으로 접근 토큰을 받아 그 토큰을 삭제(연동 해제)한다", async () => {
+  it("상용이면 저장한 갱신 토큰을 /oauth2.0/revoke로 폐기한다(짝인 접근 토큰도 같이 폐기, 2026-05 네이버 명세)", async () => {
     const service = await createService({
       prisma: prismaMock,
       jwtUtil: {},
       config: { NODE_ENV: "production" },
     });
     const report = vi.spyOn(ExternalApiErrorUtil, "reportFailure");
-    naverAnswers({ status: 200, data: { result: "success", access_token: "new-access" } });
+    naverAnswers({ status: 200, data: "" });
 
     await service.revoke("consumer", encrypt("plain-refresh"));
 
-    expect(httpClientMock.post).toHaveBeenCalledTimes(2);
-    const [refreshCall, deleteCall] = httpClientMock.post.mock.calls;
-    expect(refreshCall[0]).toBe("https://nid.naver.com/oauth2.0/token");
-    expect(paramsOf(refreshCall)).toEqual({
-      grant_type: "refresh_token",
+    expect(httpClientMock.post).toHaveBeenCalledTimes(1);
+    const [revokeCall] = httpClientMock.post.mock.calls;
+    expect(revokeCall[0]).toBe("https://nid.naver.com/oauth2.0/revoke");
+    expect(paramsOf(revokeCall)).toEqual({
       client_id: "naver-client-id",
       client_secret: "naver-client-secret",
-      refresh_token: "plain-refresh",
-    });
-    expect(deleteCall[0]).toBe("https://nid.naver.com/oauth2.0/token");
-    expect(paramsOf(deleteCall)).toEqual({
-      grant_type: "delete",
-      client_id: "naver-client-id",
-      client_secret: "naver-client-secret",
-      access_token: "new-access",
-      service_provider: "NAVER",
+      token: "plain-refresh",
+      token_type_hint: "refresh_token",
     });
     // 리다이렉트(오류 화면 등)를 따라가 200을 성공으로 잘못 보지 않게
-    expect(deleteCall[2]).toMatchObject({ maxRedirects: 0 });
+    expect(revokeCall[2]).toMatchObject({ maxRedirects: 0 });
     expect(report).not.toHaveBeenCalled();
   });
 
-  it("삭제가 200이어도 본문이 success가 아니면 실패로 남긴다(네이버는 200에 error를 담기도 함)", async () => {
+  it("옛 방식(grant_type=delete)은 부르지 않는다 — 가짜 키·토큰에도 success를 줘 끊겼는지 알 수 없었다(11-18 검토)", async () => {
+    const service = await createService({
+      prisma: prismaMock,
+      jwtUtil: {},
+      config: { NODE_ENV: "production" },
+    });
+    naverAnswers({ status: 200, data: "" });
+
+    await service.revoke("consumer", encrypt("plain-refresh"));
+
+    for (const call of httpClientMock.post.mock.calls) {
+      expect(paramsOf(call).grant_type).toBeUndefined();
+      expect(call[0]).not.toBe("https://nid.naver.com/oauth2.0/token");
+    }
+  });
+
+  it("200이어도 본문에 error가 있거나 HTML 오류 화면이면 실패로 남긴다", async () => {
     const service = await createService({
       prisma: prismaMock,
       jwtUtil: {},
@@ -549,32 +552,33 @@ describe("AuthNaverOauthService.revoke — 탈퇴 때 네이버 연결 끊기", 
     });
     const report = vi.spyOn(ExternalApiErrorUtil, "reportFailure");
     naverAnswers({ status: 200, data: { error: "invalid_request", error_description: "x" } });
-
+    await expect(service.revoke("consumer", encrypt("plain-refresh"))).resolves.toBeUndefined();
+    naverAnswers({ status: 200, data: "<!doctype html><html><title>현재 서비스 접속이 불가합니다.</title></html>" });
     await expect(service.revoke("consumer", encrypt("plain-refresh"))).resolves.toBeUndefined();
 
+    expect(report).toHaveBeenCalledTimes(2);
     expect(report).toHaveBeenCalledWith(
       expect.objectContaining({ operation: "revoke" }),
       expect.anything(),
     );
   });
 
-  it("갱신 토큰이 만료·폐기돼 접근 토큰을 못 받으면 삭제를 부르지 않고 기록만 한다", async () => {
+  it("키 확인 실패(401 unauthorized_client)는 실패로 남기고 탈퇴는 막지 않는다", async () => {
     const service = await createService({
       prisma: prismaMock,
       jwtUtil: {},
       config: { NODE_ENV: "production" },
     });
     const report = vi.spyOn(ExternalApiErrorUtil, "reportFailure");
-    httpClientMock.post.mockResolvedValueOnce({
-      status: 200,
-      data: { error: "invalid_grant", error_description: "invalid refresh token" },
+    naverAnswers({
+      status: 401,
+      data: { error: "unauthorized_client", error_description: "Client authentication failed." },
     });
 
     await expect(service.revoke("consumer", encrypt("plain-refresh"))).resolves.toBeUndefined();
 
-    expect(httpClientMock.post).toHaveBeenCalledTimes(1);
     expect(report).toHaveBeenCalledWith(
-      expect.objectContaining({ operation: "revoke-refresh" }),
+      expect.objectContaining({ operation: "revoke", httpStatus: 401 }),
       expect.anything(),
     );
   });
@@ -589,7 +593,7 @@ describe("AuthNaverOauthService.revoke — 탈퇴 때 네이버 연결 끊기", 
         NAVER_CLIENT_SECRET_SELLER: "seller-secret",
       },
     });
-    naverAnswers({ status: 200, data: { result: "success" } });
+    naverAnswers({ status: 200, data: "" });
 
     await service.revoke("seller", encrypt("plain-refresh"));
 
@@ -605,7 +609,7 @@ describe("AuthNaverOauthService.revoke — 탈퇴 때 네이버 연결 끊기", 
       jwtUtil: {},
       config: { NODE_ENV: "production", NAVER_CLIENT_SECRET_SELLER: "seller-secret-only" },
     });
-    naverAnswers({ status: 200, data: { result: "success" } });
+    naverAnswers({ status: 200, data: "" });
 
     await service.revoke("seller", encrypt("plain-refresh"));
 
