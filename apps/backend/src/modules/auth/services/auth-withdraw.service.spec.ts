@@ -18,6 +18,7 @@ import { AuthWithdrawService } from "./auth-withdraw.service";
 import { QuoteRequestCleanupService } from "@apps/backend/modules/quote-request/services/quote-request-cleanup.service";
 import { ChatCleanupService } from "@apps/backend/modules/chat/services/chat-cleanup.service";
 import { ManualOrderService } from "@apps/backend/modules/manual-order/services/manual-order.service";
+import { UploadService } from "@apps/backend/modules/upload/upload.service";
 
 describe("AuthWithdrawService.withdraw", () => {
   const prismaMock = mockDeep<PrismaService>();
@@ -33,6 +34,7 @@ describe("AuthWithdrawService.withdraw", () => {
   const manualOrderMock = {
     deleteAllForSeller: vi.fn().mockResolvedValue({ orders: 0, photos: 0 }),
   };
+  const uploadMock = { deleteFilesByUrl: vi.fn().mockResolvedValue(1) };
 
   let service: AuthWithdrawService;
 
@@ -50,6 +52,7 @@ describe("AuthWithdrawService.withdraw", () => {
         { provide: QuoteRequestCleanupService, useValue: quoteCleanupMock },
         { provide: ChatCleanupService, useValue: chatCleanupMock },
         { provide: ManualOrderService, useValue: manualOrderMock },
+        { provide: UploadService, useValue: uploadMock },
       ],
     }).compile();
 
@@ -57,6 +60,44 @@ describe("AuthWithdrawService.withdraw", () => {
   });
 
   describe("consumer", () => {
+    it("탈퇴하면 프로필 사진 파일도 계정 행을 비운 뒤에 지운다(처리방침 탈퇴 후 즉시 파기)", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        profileImageUrl: "https://cdn.example.com/uploads/me.jpg",
+        appleRefreshToken: null,
+      } as any);
+      const order: string[] = [];
+      prismaMock.consumer.update.mockImplementation((() => {
+        order.push("update");
+        return Promise.resolve({});
+      }) as any);
+      uploadMock.deleteFilesByUrl.mockImplementation(async () => {
+        order.push("delete");
+        return 1;
+      });
+
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
+
+      expect(uploadMock.deleteFilesByUrl).toHaveBeenCalledWith([
+        "https://cdn.example.com/uploads/me.jpg",
+      ]);
+      expect(order).toEqual(["update", "delete"]);
+    });
+
+    it("프로필 사진 지우기가 실패해도 탈퇴는 끝난다", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        profileImageUrl: "https://cdn.example.com/uploads/me.jpg",
+        appleRefreshToken: null,
+      } as any);
+      uploadMock.deleteFilesByUrl.mockRejectedValueOnce(new Error("db down"));
+
+      await expect(service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유")).resolves.toBeUndefined();
+      expect(prismaMock.consumer.update).toHaveBeenCalled();
+    });
+
     it("탈퇴하면 견적 요청을 지운다(주문과 달리 보관 의무 없음)", async () => {
       prismaMock.consumer.findUnique.mockResolvedValue({
         id: "consumer-1",
