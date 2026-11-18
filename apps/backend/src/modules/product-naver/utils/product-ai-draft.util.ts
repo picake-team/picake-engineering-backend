@@ -5,6 +5,11 @@ export const SELLER_CHECK_MARK = "[판매자 확인 필요]";
 
 /** 표시 찾기: "[판매자 확인 필요]"와 "[판매자 확인 필요: 소비기한]" 둘 다 잡는다 (화면의 저장 막기와 같은 기준) */
 export const SELLER_CHECK_PATTERN = /\[\s*판매자\s*확인\s*필요[^\]]*\]/;
+/**
+ * 상품 저장 막기용(사장님이 쓴 상세설명 전체에 돌린다). 위 패턴은 "[판매자확인필요"가 닫는 괄호 없이 많이 이어지면
+ * 글 길이의 제곱만큼 느려진다(CodeQL polynomial-redos, 11-18) — 반복을 묶어 길이에 비례하게. 표시 안 글은 짧다(초안 질문 200자)
+ */
+export const SELLER_CHECK_SAVE_PATTERN = /\[\s{0,5}판매자\s{0,5}확인\s{0,5}필요[^\]]{0,200}\]/;
 
 const MAX_PARAGRAPHS = 8;
 const MAX_PARAGRAPH_LENGTH = 600;
