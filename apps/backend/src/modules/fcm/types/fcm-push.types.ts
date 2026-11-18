@@ -6,6 +6,8 @@ export const FCM_PUSH_TYPE = {
   SELLER_TEST: "SELLER_TEST",
   /** 판매자 앱 아침 요약(매일 8시, 그날 픽업이 있을 때만). data에 storeId·path(홈)가 들어간다 */
   SELLER_MORNING_SUMMARY: "SELLER_MORNING_SUMMARY",
+  /** 판매자 스토어 안내(정산 계좌가 바뀜 등). data에 storeId·path(스토어 정보 수정)가 들어간다 */
+  SELLER_STORE_NOTICE: "SELLER_STORE_NOTICE",
   /** 손님 채팅 알림(기획 I-11). data에 threadId·path(/chat/:threadId)가 들어간다 — 새 손님 앱(Capacitor)은 path로 이동, 스토어에 남은 예전 Flutter 앱은 앱만 연다 */
   CHAT_MESSAGE: "CHAT_MESSAGE",
   /** 판매자 앱 채팅 알림. data에 storeId·threadId·path가 들어간다 */
@@ -68,6 +70,11 @@ export interface SendSellerOrderPushParams {
 }
 
 /** 판매자 웹 스토어 홈 경로(아침 요약을 누르면 열림). web-seller `ROUTES.STORE_DETAIL_HOME`과 같아야 합니다. */
+/** 판매자 웹의 스토어 정보 수정 경로(web-seller `ROUTES.STORE_DETAIL_EDIT`와 같아야 함) */
+export function buildSellerStoreEditPath(storeId: string): string {
+  return `/stores/${encodeURIComponent(storeId)}/edit`;
+}
+
 export function buildSellerHomePath(storeId: string): string {
   return `/stores/${encodeURIComponent(storeId)}`;
 }

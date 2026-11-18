@@ -100,8 +100,18 @@ export class SellerNotificationItemResponseDto {
   @ApiProperty()
   storeId: string;
 
-  @ApiProperty()
-  orderId: string;
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: "주문 알림만. 스토어 안내(STORE)는 null",
+  })
+  orderId: string | null;
+
+  @ApiProperty({
+    enum: ["ORDER", "STORE"],
+    description: "ORDER 주문 알림 / STORE 스토어 안내(정산 계좌가 바뀜 등 — 누르면 스토어 정보)",
+  })
+  category: "ORDER" | "STORE";
 }
 
 export class SellerNotificationListResponseDto {
