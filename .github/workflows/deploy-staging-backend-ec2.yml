@@ -622,9 +622,9 @@ jobs:
           echo "=============================================="
           echo "✅ SSL 및 HTTPS 헬스체크 통과"
 
-      # staging은 실패·취소만 알린다(운영자 11-18: 【개발】 한 주 332건 중 62%가 staging 성공이었음)
+      # staging(검증)도 성공·실패 모두 알린다(운영자 11-18 "검증 성공도 그냥 디스코드에 알려줘" — 같은 날 끈 것을 되돌림)
       - name: Notify Discord
-        if: always() && job.status != 'success'
+        if: always()
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL_WEB_BE }}
           TAG: ${{ github.ref_name }}
