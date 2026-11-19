@@ -99,6 +99,75 @@ describe("채팅 (integration)", () => {
     expect(list.threads[0].lastMessagePreview).toBe("한 가지 더요");
   });
 
+  it("채팅 문의를 끈 가게(I-01): 새 문의는 막고, 주문에서 연 대화·이미 있는 대화는 된다", async () => {
+    const { chat, prisma, consumer, store } = await build();
+    await chat.agreeRules("CONSUMER", consumer.id, CHAT_RULES_VERSION);
+    const other = await createTestConsumer(prisma, { nickname: "다른_손님_5678" });
+    await chat.agreeRules("CONSUMER", other.id, CHAT_RULES_VERSION);
+    const product = await createTestProduct(prisma, store.id, { name: "견적 케이크" });
+
+    // 끄기 전에 대화를 연 손님
+    const before = await chat.startForConsumer(consumer.id, {
+      storeId: store.id,
+      clientId: cid(),
+      text: "먼저 물어볼게요",
+    });
+    await prisma.store.update({ where: { id: store.id }, data: { chatInquiryVisible: false } });
+
+    // 새 손님의 상품 화면·가게 화면 문의는 막힌다
+    await expect(
+      chat.startForConsumer(other.id, {
+        storeId: store.id,
+        productId: product.id,
+        clientId: cid(),
+        text: "문의요",
+      }),
+    ).rejects.toThrow(CHAT_ERROR_MESSAGES.INQUIRY_OFF);
+    expect(await prisma.chatThread.count({ where: { consumerId: other.id } })).toBe(0);
+
+    // 이미 있는 대화는 계속된다
+    const again = await chat.startForConsumer(consumer.id, {
+      storeId: store.id,
+      clientId: cid(),
+      text: "한 번 더요",
+    });
+    expect(again.threadId).toBe(before.threadId);
+
+    // 예약한 손님은 주문 화면에서 연다
+    const order = await createTestOrder(
+      prisma,
+      { consumerId: other.id, productId: product.id, storeId: store.id },
+      { orderStatus: OrderStatus.PAYMENT_PENDING },
+    );
+    const fromOrder = await chat.startForConsumer(other.id, {
+      storeId: store.id,
+      orderId: order.id,
+      clientId: cid(),
+      text: "입금했어요",
+    });
+    expect(fromOrder.threadId).toBeTruthy();
+  });
+
+  it("상품 카드 가격: 추가금이 있거나 견적 받기 상품이면 물결(~), 없으면 딱 그 값(I-01)", async () => {
+    const { chat, prisma, consumer, store } = await build();
+    await chat.agreeRules("CONSUMER", consumer.id, CHAT_RULES_VERSION);
+    const withExtra = await createTestProduct(prisma, store.id, {
+      name: "크기 여러 개",
+      salePrice: 35000,
+      cakeSizeOptions: [
+        { id: "s1", displayName: "도시락", lengthCm: 10, price: 0, visible: "ENABLE" },
+        { id: "s2", displayName: "1호", lengthCm: 15, price: 10000, visible: "ENABLE" },
+      ],
+    });
+    const r = await chat.startForConsumer(consumer.id, {
+      storeId: store.id,
+      productId: withExtra.id,
+      clientId: cid(),
+      text: "문의요",
+    });
+    expect(r.messages.find((m) => m.card)?.card?.subtitle).toBe("35,000원~");
+  });
+
   it("동시에 첫 글을 두 번 보내도 방은 하나", async () => {
     const { chat, prisma, consumer, store } = await build();
     await chat.agreeRules("CONSUMER", consumer.id, CHAT_RULES_VERSION);

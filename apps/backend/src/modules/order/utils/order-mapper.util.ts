@@ -1,3 +1,7 @@
+import {
+  STORE_CONTACT_VISIBILITY_SELECT,
+  customerVisibleContacts,
+} from "@apps/backend/modules/store/utils/store-contact-visibility.util";
 import { Order, OrderItem } from "@apps/backend/infra/database/prisma/generated/client";
 import {
   OrderItemResponseDto,
@@ -20,6 +24,7 @@ export const ORDER_RESPONSE_STORE_SELECT = {
   phoneNumber: true,
   kakaoChannelId: true,
   instagramId: true,
+  ...STORE_CONTACT_VISIBILITY_SELECT,
   refundCancellationPolicy: true,
 } as const satisfies Prisma.StoreSelect;
 
@@ -168,6 +173,14 @@ export class OrderMapperUtil {
     // 정산 계좌·예금주는 입금할 때(입금대기)만 준다. 손님 화면도 그때만 보여 준다 — 사장님이 확인하기 전 예약신청·취소한 주문으로도
     // 계좌와 대표 실명을 얻을 수 있었다(기획 P-07, 11-18 검토). 사장님·관리자 화면은 이 칸을 쓰지 않는다
     const showAccount = order.orderStatus === OrderStatus.PAYMENT_PENDING;
+    // 사장님이 "손님에게 보이기"를 끈 연락처는 손님·사장님 응답에서 뺀다(기획 I-01). 관리자는 그대로 본다
+    const contacts = options.includeAdminNotes
+      ? {
+          phoneNumber: order.store.phoneNumber ?? null,
+          kakaoChannelId: order.store.kakaoChannelId ?? null,
+          instagramId: order.store.instagramId ?? null,
+        }
+      : customerVisibleContacts(order.store);
     return {
       id: order.id,
       userId: order.consumerId,
@@ -182,9 +195,9 @@ export class OrderMapperUtil {
         : (order.productImages ?? []),
       storeId: order.storeId,
       storeName: order.storeName ?? "",
-      storePhoneNumber: order.store.phoneNumber ?? null,
-      storeKakaoChannelId: order.store.kakaoChannelId ?? null,
-      storeInstagramId: order.store.instagramId ?? null,
+      storePhoneNumber: contacts.phoneNumber,
+      storeKakaoChannelId: contacts.kakaoChannelId,
+      storeInstagramId: contacts.instagramId,
       storeBankName: showAccount ? (order.store.bankName ?? null) : null,
       storeBankAccountNumber: showAccount ? (order.store.bankAccountNumber ?? null) : null,
       storeAccountHolderName: showAccount ? (order.store.accountHolderName ?? null) : null,

@@ -23,6 +23,7 @@ import {
   EnableStatus,
   ProductCategoryType,
   ProductType,
+  ProductOrderMethod,
   CakeSizeDisplayName,
   CustomOptionType,
   CUSTOM_OPTION_LIMITS,
@@ -271,6 +272,16 @@ export class CreateProductRequestDto {
   })
   @IsEnum(ProductType)
   productType: ProductType;
+
+  @ApiPropertyOptional({
+    description:
+      "주문 받는 방법. 커스텀 케이크만 QUOTE(견적 받기)를 고를 수 있다. 생략하면 RESERVATION(예약 받기)",
+    enum: ProductOrderMethod,
+    example: ProductOrderMethod.RESERVATION,
+  })
+  @IsOptional()
+  @IsEnum(ProductOrderMethod)
+  orderMethod?: ProductOrderMethod;
 
   @ApiProperty({
     description: "케이크 옵션 - 사이즈 목록 (노출 중인 사이즈 1개 이상 필수)",

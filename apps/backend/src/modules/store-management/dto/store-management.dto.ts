@@ -254,6 +254,18 @@ export class StoreManagementDetailResponseDto extends StoreManagementItemRespons
   @ApiProperty({ nullable: true, description: "인스타그램 ID" })
   instagramId: string | null;
 
+  @ApiProperty({ description: "손님에게 보이기: Picake 채팅 문의(기획 I-01)" })
+  chatInquiryVisible: boolean;
+
+  @ApiProperty({ description: "손님에게 보이기: 카카오톡 채널" })
+  kakaoChannelVisible: boolean;
+
+  @ApiProperty({ description: "손님에게 보이기: 인스타그램" })
+  instagramVisible: boolean;
+
+  @ApiProperty({ description: "손님에게 보이기: 전화(연락처)" })
+  phoneVisible: boolean;
+
   @ApiProperty({ description: "피드 수" })
   feedCount: number;
 

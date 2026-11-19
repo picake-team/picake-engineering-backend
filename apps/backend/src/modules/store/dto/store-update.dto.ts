@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
-import { IsEnum, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsBoolean, IsEnum, IsOptional, IsString, ValidateNested } from "class-validator";
 import {
   IsValidStoreName,
   IsValidStoreDescription,
@@ -69,6 +69,39 @@ export class UpdateStoreRequestDto extends StoreAddressDto {
   @IsOptional()
   @IsString()
   instagramId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "손님에게 보이기: Picake 채팅 문의(기획 I-01 2026-11-19). 끄면 가게·상품 화면 문의 창에서 채팅이 빠진다. 예약한 손님의 주문 화면 채팅은 그대로",
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  chatInquiryVisible?: boolean;
+
+  @ApiPropertyOptional({
+    description: "손님에게 보이기: 카카오톡 채널. 끄면 ID가 있어도 손님에게 보내지 않는다",
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  kakaoChannelVisible?: boolean;
+
+  @ApiPropertyOptional({
+    description: "손님에게 보이기: 인스타그램. 끄면 ID가 있어도 손님에게 보내지 않는다",
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  instagramVisible?: boolean;
+
+  @ApiPropertyOptional({
+    description: "손님에게 보이기: 전화(스토어 연락처). 끄면 손님에게 번호를 보내지 않는다",
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  phoneVisible?: boolean;
 
   @ApiProperty({
     description: "정산 계좌번호 (숫자, 하이픈, 공백)",

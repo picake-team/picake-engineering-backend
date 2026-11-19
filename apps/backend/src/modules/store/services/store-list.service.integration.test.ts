@@ -101,3 +101,43 @@ describe("스토어 목록 카테고리 거르기 (integration)", () => {
     expect(await names([C.BIRTHDAY, C.COUPLE])).toEqual(["나눠 파는 가게", "생일 캐릭터 가게"]);
   });
 });
+
+/** 손님 문의 "손님에게 보이기"(기획 I-01 2026-11-19): 끈 연락처는 손님 응답에서 빠지고 사장님 화면에는 남는다 */
+describe("가게 연락처 손님에게 보이기 (integration)", () => {
+  it("끈 전화·카톡·인스타는 손님 상세에서 빠지고, 사장님 상세에는 값과 스위치가 그대로", async () => {
+    const prisma = getTestPrisma();
+    const service = new StoreListService(prisma, new LikeStoreDetailService(prisma));
+    const seller = await createTestSeller(prisma);
+    const store = await createTestStore(prisma, seller.id, {
+      phoneNumber: "02-123-4567",
+      kakaoChannelId: "_abcd",
+      instagramId: "moon_cake",
+      phoneVisible: false,
+      instagramVisible: false,
+      chatInquiryVisible: false,
+    });
+    await createTestProduct(prisma, store.id);
+
+    const forCustomer = await service.getStoreByIdForUser(store.id);
+    expect(forCustomer.phoneNumber).toBeUndefined();
+    expect(forCustomer.instagramId).toBeUndefined();
+    expect(forCustomer.kakaoChannelId).toBe("_abcd");
+    expect(forCustomer).toMatchObject({
+      chatInquiryVisible: false,
+      kakaoChannelVisible: true,
+      instagramVisible: false,
+      phoneVisible: false,
+    });
+
+    const forSeller = await service.getStoreByIdForSeller(store.id, {
+      sub: seller.id,
+      aud: "seller",
+    } as never);
+    expect(forSeller).toMatchObject({
+      phoneNumber: "02-123-4567",
+      instagramId: "moon_cake",
+      phoneVisible: false,
+      instagramVisible: false,
+    });
+  });
+});

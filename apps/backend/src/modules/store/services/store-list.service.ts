@@ -287,6 +287,7 @@ export class StoreListService {
 
     const storeResponses = (await StoreMapperUtil.mapToStoreResponse(stores, this.prisma, {
       includeSettlementAccount: true,
+      sellerView: true,
     })) as StoreResponseDto[];
 
     const likedStoreIds = await this.getLikedStoreIds(
@@ -329,6 +330,7 @@ export class StoreListService {
 
     const storeResponse = (await StoreMapperUtil.mapToStoreResponse(store, this.prisma, {
       includeSettlementAccount: true,
+      sellerView: true,
     })) as StoreResponseDto;
     storeResponse.isLiked = isLiked;
     storeResponse.naverPlace = toStoreNaverPlace(store);
@@ -403,6 +405,7 @@ export class StoreListService {
       minPrice: params.minPrice,
       maxPrice: params.maxPrice,
       productCategoryTypes: params.productCategoryTypes,
+      customerList: true,
     });
     if (Object.keys(productFilterWhere).length > 0) {
       conditions.push(productFilterWhere);
@@ -422,6 +425,8 @@ export class StoreListService {
     minPrice?: number;
     maxPrice?: number;
     productCategoryTypes?: ProductCategoryType[];
+    /** 손님 목록이면 당일픽업에서 견적 받기 상품을 뺀다(기획 I-01) */
+    customerList?: boolean;
   }): Promise<Prisma.StoreWhereInput> {
     const hasProductFilter =
       (params.sizes?.length ?? 0) > 0 ||
@@ -452,7 +457,9 @@ export class StoreListService {
       }
     }
     // 카테고리: 한 상품이 묶음(상황·디자인·서비스)마다 맞아야 한다(묶음 안은 또는)
-    const categoryConditions = productCategoryWhereConditions(params.productCategoryTypes);
+    const categoryConditions = productCategoryWhereConditions(params.productCategoryTypes, {
+      customerList: params.customerList,
+    });
     if (categoryConditions.length > 0) {
       productSome.AND = categoryConditions;
     }

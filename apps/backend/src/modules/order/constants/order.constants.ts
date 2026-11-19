@@ -17,6 +17,8 @@ export const ORDER_ERROR_MESSAGES = {
   PICKUP_IN_PAST: "지난 시각은 고를 수 없어요. 픽업 시간을 다시 골라 주세요.",
   PRODUCT_INACTIVE: "판매중지된 상품이에요.",
   PRODUCT_NOT_AVAILABLE: "구매할 수 없는 상품이에요.",
+  /** 견적 받기 상품은 예약신청 대신 견적 요청(기획 I-01 2026-11-19). 옛 화면·API 직접 호출을 막는다 */
+  PRODUCT_QUOTE_ONLY: "이 케이크는 견적으로 주문해요. '이 디자인으로 견적 받기'를 눌러 주세요.",
   STORE_NOT_FOUND: "스토어를 찾을 수 없어요.",
   /** 정지·탈퇴한 사장님 가게(11-15 운영자: 손님 목록·주문 만들기에서 뺀다) */
   STORE_NOT_ORDERABLE: "지금은 이 가게에 예약할 수 없어요.",

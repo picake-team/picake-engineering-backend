@@ -6,6 +6,7 @@ import {
   parseCustomOptions,
   toVisibleCustomOptions,
 } from "@apps/backend/modules/product/utils/product-custom-option.util";
+import { productHasExtraPrice } from "@apps/backend/modules/product/utils/product-order-method.util";
 
 /**
  * 상품 매핑 유틸리티
@@ -127,6 +128,8 @@ export class ProductMapperUtil {
     return {
       ...rest,
       ...optionFields,
+      // 숨긴 옵션을 빼기 전 원본으로 센다(숨긴 것은 productHasExtraPrice가 빼고 셈). 목록은 옵션을 비워 보내도 같은 값
+      hasExtraPrice: productHasExtraPrice(product.cakeSizeOptions, product.customOptions),
       averageRating,
       totalReviewCount,
       isLiked: isLiked !== undefined ? isLiked : null,
