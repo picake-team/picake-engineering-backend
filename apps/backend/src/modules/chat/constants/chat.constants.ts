@@ -65,6 +65,8 @@ export const CHAT_ERROR_MESSAGES = {
   INVALID_IMAGE: "사진은 업로드한 사진만 보낼 수 있어요.",
   RULES_NOT_AGREED: "채팅 이용 규칙에 동의한 뒤 보낼 수 있어요.",
   CANNOT_SEND: "지금은 메시지를 보낼 수 없어요.",
+  /** 사장님이 채팅 문의를 "손님에게 보이기"에서 끈 가게(기획 I-01 2026-11-19). 예약한 손님·이미 있는 대화는 그대로 */
+  INQUIRY_OFF: "이 가게는 지금 채팅 문의를 받지 않아요.",
   /** 내가 차단한 방(상대가 나를 차단한 건 알리지 않고 CANNOT_SEND) */
   BLOCKED_BY_ME: "차단한 대화예요. 위쪽 ⋯에서 차단을 풀 수 있어요.",
   SHOP_LEFT: "가게가 Picake 채팅을 쓰지 않아요.",

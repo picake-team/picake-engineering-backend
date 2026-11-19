@@ -7,9 +7,11 @@ import {
 import {
   Prisma,
   QuoteRequestCloseReason,
+  QuoteRequestEntry,
   QuoteRequestStatus,
   QuoteRequestStoreAddedBy,
 } from "@apps/backend/infra/database/prisma/generated/client";
+import { EnableStatus } from "@apps/backend/modules/product/constants/product.constants";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { isAllowedUploadUrl } from "@apps/backend/modules/upload/utils/upload-url.util";
 import {
@@ -59,7 +61,17 @@ export class QuoteRequestWriteService {
     if (!description && photoUrls.length === 0) {
       throw new BadRequestException(QUOTE_REQUEST_ERROR_MESSAGES.PHOTO_OR_DESCRIPTION_REQUIRED);
     }
-    if (photoUrls.some((url) => !isAllowedUploadUrl(url))) {
+    // 상품 화면에서 연 요청(기획 I-01): 그 상품 사진은 업로드 주소가 아니어도(네이버에서 가져온 사진 등) 넣을 수 있다.
+    // 사진 파일은 복사하지 않고 같은 주소를 쓴다 — 탈퇴로 요청 사진을 지울 때 상품이 쓰는 파일은 남긴다(UploadService.filterUnreferencedUrls)
+    const product = dto.productId ? await this.resolveProduct(dto) : null;
+    const productImages = new Set(product?.images ?? []);
+    const foreignPhotos = photoUrls.filter(
+      (url) => !productImages.has(url) && !isAllowedUploadUrl(url),
+    );
+    if (
+      foreignPhotos.length > 0 &&
+      !(await this.areDesignatedStoreProductPhotos(dto, foreignPhotos))
+    ) {
       throw new BadRequestException("참고 사진은 업로드한 사진만 넣을 수 있어요.");
     }
     // 사진마다 디자인 모음에서 왔는지·무엇을 따를지(기획 I-112). 사진과 개수가 다르면 어느 사진의 정보인지 알 수 없다
@@ -103,7 +115,12 @@ export class QuoteRequestWriteService {
         budgetMax,
         requestNote: dto.requestNote?.trim() || null,
         shareContact: dto.shareContact === true,
-        entry: dto.entry ?? null,
+        entry: product
+          ? QuoteRequestEntry.PRODUCT
+          : dto.entry === QuoteRequestEntry.PRODUCT
+            ? null
+            : (dto.entry ?? null),
+        productId: product?.id ?? null,
         stores: { createMany: { data: stores } },
       },
       select: QUOTE_REQUEST_SELECT,
@@ -147,6 +164,51 @@ export class QuoteRequestWriteService {
       throw new BadRequestException(QUOTE_REQUEST_ERROR_MESSAGES.NOT_OPEN);
     }
     await this.quoteService.retireRequestCards(requestId);
+  }
+
+  /**
+   * 상품 화면에서 연 요청의 상품: 손님에게 보이는 상품이고, "이 가게에만"으로 넣은 가게 하나의 상품이어야 한다.
+   * 주문 받는 방법(예약/견적)은 보지 않는다 — 화면을 연 사이 사장님이 바꿔도 요청은 보낼 수 있게
+   */
+  /**
+   * 업로드 주소가 아닌 사진이 모두 이 요청을 받는 가게의 노출 중인 상품 사진인지.
+   * 상품 화면에서 쓰던 요청서를 다른 가게 화면에서 이어 쓰면 가게가 늘어 productId는 보내지 않지만
+   * 그 상품 사진은 남는다(기획 I-01) — 그때도 보낼 수 있게 한다
+   */
+  private async areDesignatedStoreProductPhotos(
+    dto: CreateQuoteRequestDto,
+    urls: string[],
+  ): Promise<boolean> {
+    const storeIds = [
+      ...new Set((dto.stores ?? []).map((s) => s.storeId).filter((id): id is string => !!id)),
+    ];
+    if (storeIds.length === 0) return false;
+    const products = await this.prisma.product.findMany({
+      where: {
+        storeId: { in: storeIds },
+        visibilityStatus: EnableStatus.ENABLE,
+        images: { hasSome: urls },
+      },
+      select: { images: true },
+    });
+    const known = new Set(products.flatMap((p) => p.images));
+    return urls.every((url) => known.has(url));
+  }
+
+  private async resolveProduct(dto: CreateQuoteRequestDto) {
+    const stores = dto.stores ?? [];
+    const storeId = stores.length === 1 ? stores[0].storeId : undefined;
+    if (!dto.onlyDesignatedStores || !storeId) {
+      throw new BadRequestException(QUOTE_REQUEST_ERROR_MESSAGES.PRODUCT_MISMATCH);
+    }
+    const product = await this.prisma.product.findFirst({
+      where: { id: dto.productId, storeId, visibilityStatus: EnableStatus.ENABLE },
+      select: { id: true, images: true },
+    });
+    if (!product) {
+      throw new BadRequestException(QUOTE_REQUEST_ERROR_MESSAGES.PRODUCT_MISMATCH);
+    }
+    return product;
   }
 
   /** 예산: 1만원~10만원, 1만원 단위. 최대가 없거나 10만원이면 "10만원 이상" */

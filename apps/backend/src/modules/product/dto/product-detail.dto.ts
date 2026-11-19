@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   EnableStatus,
   ProductType,
+  ProductOrderMethod,
   ProductCategoryType,
   SWAGGER_EXAMPLES,
 } from "@apps/backend/modules/product/constants/product.constants";
@@ -134,6 +135,21 @@ export class ProductResponseDto extends PickupAddressDto {
     example: ProductType.CUSTOM_CAKE,
   })
   productType: ProductType;
+
+  @ApiProperty({
+    description:
+      "주문 받는 방법. QUOTE면 손님 화면에 예약신청 대신 '이 디자인으로 견적 받기'(이 가게에만)",
+    enum: ProductOrderMethod,
+    example: ProductOrderMethod.RESERVATION,
+  })
+  orderMethod: ProductOrderMethod;
+
+  @ApiProperty({
+    description:
+      "손님에게 보이는 사이즈·추가 옵션에 0원보다 큰 추가금이 있는지. 없으면 가격 뒤 물결(~)을 빼고 딱 그 값으로 보인다(견적 받기 상품은 늘 물결)",
+    example: true,
+  })
+  hasExtraPrice: boolean;
 
   @ApiPropertyOptional({
     description: "상품 카테고리 타입 목록 (없을 수 있고, 여러 개 가능)",

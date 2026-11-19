@@ -1,6 +1,9 @@
 import { Transform } from "class-transformer";
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
-import { ProductCategoryType } from "@apps/backend/modules/product/constants/product.constants";
+import {
+  ProductCategoryType,
+  ProductOrderMethod,
+} from "@apps/backend/modules/product/constants/product.constants";
 
 const C = ProductCategoryType;
 
@@ -88,12 +91,23 @@ export function groupProductCategoryTypes(
   return unknown.length > 0 ? [...groups, unknown] : groups;
 }
 
+/**
+ * 당일픽업은 바로 예약해 오늘 가져가는 상품이라, 견적 받기 상품(사장님 답을 기다려야 함)은 사장님이 골라 두어도
+ * **손님 목록**에서 당일픽업으로 거를 때 빼낸다(기획 I-01 2026-11-19). 사장님 자기 목록에서는 고른 분류 그대로 보인다
+ * (`customerList: true`를 넘긴 곳만 뺀다)
+ */
+const isSameDayGroup = (group: readonly ProductCategoryType[]) => group.includes(C.SAME_DAY_PICKUP);
+
 /** Prisma 상품 조건: 묶음마다 hasSome, 묶음끼리 AND */
 export function productCategoryWhereConditions(
   types: readonly ProductCategoryType[] | undefined,
+  options: { customerList?: boolean } = {},
 ): Prisma.ProductWhereInput[] {
   return groupProductCategoryTypes(types).map((group) => ({
     productCategoryTypes: { hasSome: group },
+    ...(options.customerList && isSameDayGroup(group)
+      ? { orderMethod: ProductOrderMethod.RESERVATION }
+      : {}),
   }));
 }
 
@@ -101,10 +115,14 @@ export function productCategoryWhereConditions(
 export function productCategorySqlConditions(
   types: readonly ProductCategoryType[] | undefined,
   tableAlias = "p",
+  options: { customerList?: boolean } = {},
 ): Prisma.Sql[] {
   const column = Prisma.raw(`${tableAlias}.product_category_types`);
-  return groupProductCategoryTypes(types).map(
-    (group) => Prisma.sql`${column}::text[] && ARRAY[${Prisma.join(group)}]::text[]`,
+  const orderMethodColumn = Prisma.raw(`${tableAlias}.order_method`);
+  return groupProductCategoryTypes(types).map((group) =>
+    options.customerList && isSameDayGroup(group)
+      ? Prisma.sql`(${column}::text[] && ARRAY[${Prisma.join(group)}]::text[] AND ${orderMethodColumn}::text = ${ProductOrderMethod.RESERVATION})`
+      : Prisma.sql`${column}::text[] && ARRAY[${Prisma.join(group)}]::text[]`,
   );
 }
 

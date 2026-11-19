@@ -1,3 +1,4 @@
+import { pickContactVisibility } from "@apps/backend/modules/store/utils/store-contact-visibility.util";
 import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import { Injectable, BadRequestException } from "@nestjs/common";
 import { BusinessService } from "@apps/backend/modules/business/business.service";
@@ -107,6 +108,8 @@ export class StoreCreateService {
               // 채널 정보
               kakaoChannelId: createStoreDto.kakaoChannelId?.trim(),
               instagramId: createStoreDto.instagramId?.trim(),
+              // 손님에게 보이기(기획 I-01). 보내지 않으면 DB 기본값(켜짐)
+              ...pickContactVisibility(createStoreDto),
               // 네이버 플레이스 연결 (판매자가 확인한 경우만)
               naverPlaceId: createStoreDto.naverPlaceId ?? null,
               naverPlaceConnectedAt: createStoreDto.naverPlaceId ? new Date() : null,

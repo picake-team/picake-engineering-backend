@@ -24,6 +24,8 @@ export const PRODUCT_ERROR_MESSAGES = {
   CUSTOM_OPTION_INVALID: "추가 옵션 설정이 올바르지 않아요.",
   /** 상품을 지우면 주문도 함께 지워지므로(orders.product_id ON DELETE CASCADE) 주문이 있으면 막는다 */
   HAS_ORDERS: "주문이 있는 상품은 지울 수 없어요. 판매중지로 바꾸거나 숨겨 주세요.",
+  /** 견적 받기는 커스텀 케이크만(기본 케이크는 정해진 디자인이라 예약만, 기획 I-01 2026-11-19) */
+  QUOTE_NEEDS_CUSTOM_CAKE: "견적 받기는 커스텀 케이크만 고를 수 있어요.",
 } as const;
 
 /**
@@ -91,6 +93,16 @@ export enum EnableStatus {
 export enum ProductType {
   BASIC_CAKE = "BASIC_CAKE", // 기본 케이크
   CUSTOM_CAKE = "CUSTOM_CAKE", // 커스텀 케이크
+}
+
+/**
+ * 주문 받는 방법(기획 I-01 2026-11-19). 커스텀 케이크만 견적을 고를 수 있다.
+ * - RESERVATION: 판매가로 바로 예약(지금까지의 모든 상품)
+ * - QUOTE: 예약신청 대신 "이 디자인으로 견적 받기" — 이 가게에만 견적 요청이 간다
+ */
+export enum ProductOrderMethod {
+  RESERVATION = "RESERVATION",
+  QUOTE = "QUOTE",
 }
 
 /**

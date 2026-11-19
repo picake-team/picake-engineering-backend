@@ -57,6 +57,23 @@ describe("OrderCreateService (integration)", () => {
     return new OrderCreateService(prisma, lifecycleHook);
   }
 
+  it("견적 받기 상품은 예약신청을 받지 않는다(기획 I-01 2026-11-19)", async () => {
+    const prisma = getTestPrisma();
+    const seller = await createTestSeller(prisma);
+    const store = await createTestStore(prisma, seller.id);
+    const product = await createTestProduct(prisma, store.id, {
+      productType: "CUSTOM_CAKE",
+      orderMethod: "QUOTE",
+    });
+    const consumer = await createTestConsumer(prisma);
+    const service = buildService(prisma);
+
+    await expect(service.createOrderForUser(consumer.id, buildDto(product.id))).rejects.toThrow(
+      ORDER_ERROR_MESSAGES.PRODUCT_QUOTE_ONLY,
+    );
+    expect(await prisma.order.count({ where: { productId: product.id } })).toBe(0);
+  });
+
   it("주문을 생성하면 orderItems까지 실제 DB에 함께 저장된다", async () => {
     const { prisma, product, consumer } = await setupProduct();
     const service = buildService(prisma);

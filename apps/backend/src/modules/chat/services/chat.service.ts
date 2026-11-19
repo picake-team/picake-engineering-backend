@@ -1,3 +1,5 @@
+import { ProductOrderMethod } from "@apps/backend/modules/product/constants/product.constants";
+import { productHasExtraPrice } from "@apps/backend/modules/product/utils/product-order-method.util";
 import {
   BadRequestException,
   ForbiddenException,
@@ -189,7 +191,7 @@ export class ChatService {
   private async ensureShopForStore(storeId: string) {
     const store = await this.prisma.store.findUnique({
       where: { id: storeId },
-      select: { id: true, name: true, sellerId: true },
+      select: { id: true, name: true, sellerId: true, chatInquiryVisible: true },
     });
     if (!store) throw new NotFoundException(CHAT_ERROR_MESSAGES.STORE_NOT_FOUND);
     const shop = await this.prisma.shop.upsert({
@@ -856,7 +858,7 @@ export class ChatService {
       throw new BadRequestException(CHAT_ERROR_MESSAGES.RULES_NOT_AGREED);
     }
     this.validateContent(dto);
-    const { shopId } = await this.ensureShopForStore(dto.storeId);
+    const { shopId, store } = await this.ensureShopForStore(dto.storeId);
 
     let card: { kind: "ORDER" | "PRODUCT"; refId: string; snapshot: CardSnapshot } | undefined;
     if (dto.orderId) {
@@ -875,15 +877,27 @@ export class ChatService {
     } else if (dto.productId) {
       const product = await this.prisma.product.findFirst({
         where: { id: dto.productId, storeId: dto.storeId },
-        select: { id: true, name: true, images: true, salePrice: true },
+        select: {
+          id: true,
+          name: true,
+          images: true,
+          salePrice: true,
+          orderMethod: true,
+          cakeSizeOptions: true,
+          customOptions: true,
+        },
       });
       if (!product) throw new NotFoundException(CHAT_ERROR_MESSAGES.PRODUCT_NOT_FOUND);
+      // 상품 화면과 같은 가격 글자: 추가금이 있거나 견적 받기 상품이면 "~"(기획 I-01 2026-11-19)
+      const fromPrice =
+        product.orderMethod === ProductOrderMethod.QUOTE ||
+        productHasExtraPrice(product.cakeSizeOptions, product.customOptions);
       card = {
         kind: "PRODUCT",
         refId: product.id,
         snapshot: {
           title: product.name,
-          subtitle: `${product.salePrice.toLocaleString()}원`,
+          subtitle: `${product.salePrice.toLocaleString()}원${fromPrice ? "~" : ""}`,
           imageUrl: product.images[0] ?? null,
         },
       };
@@ -893,6 +907,15 @@ export class ChatService {
       where: { consumerId_shopId: { consumerId, shopId } },
       select: THREAD_SELECT,
     });
+    // 채팅 문의를 끈 가게: 새 대화는 막는다. 주문 화면에서 연 대화(예약한 손님)·픽업 전 예약이 있는 손님·이미 있는 대화는 그대로
+    if (
+      !thread &&
+      !store.chatInquiryVisible &&
+      card?.kind !== "ORDER" &&
+      !(await this.hasActiveOrder(consumerId, dto.storeId))
+    ) {
+      throw new ForbiddenException(CHAT_ERROR_MESSAGES.INQUIRY_OFF);
+    }
     if (!thread) {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const opened = await this.prisma.chatThread.count({

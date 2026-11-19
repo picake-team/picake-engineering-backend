@@ -15,6 +15,7 @@ import {
   EnableStatus,
   ProductCategoryType,
   ProductType,
+  ProductOrderMethod,
   CUSTOM_OPTION_LIMITS,
 } from "@apps/backend/modules/product/constants/product.constants";
 import { ProductCategoryTypesTransform } from "@apps/backend/modules/product/utils/product-category.util";
@@ -128,6 +129,16 @@ export class UpdateProductRequestDto {
   @IsOptional()
   @IsEnum(ProductType)
   productType?: ProductType;
+
+  @ApiPropertyOptional({
+    description:
+      "주문 받는 방법. 커스텀 케이크만 QUOTE(견적 받기). 기본 케이크로 바꾸면 RESERVATION으로 돌아간다",
+    enum: ProductOrderMethod,
+    example: ProductOrderMethod.QUOTE,
+  })
+  @IsOptional()
+  @IsEnum(ProductOrderMethod)
+  orderMethod?: ProductOrderMethod;
 
   @ApiPropertyOptional({
     description: "상세 설명 (HTML)",

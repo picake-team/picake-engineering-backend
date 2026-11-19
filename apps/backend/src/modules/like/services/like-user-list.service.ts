@@ -255,7 +255,10 @@ export class LikeUserListService {
       }
     }
     // 카테고리: 한 상품이 묶음(상황·디자인·서비스)마다 맞아야 한다(묶음 안은 또는)
-    const categoryConditions = productCategoryWhereConditions(params.productCategoryTypes);
+    // 손님 좋아요 목록: 당일픽업에서 견적 받기 상품은 뺀다(기획 I-01)
+    const categoryConditions = productCategoryWhereConditions(params.productCategoryTypes, {
+      customerList: true,
+    });
     if (categoryConditions.length > 0) {
       productSome.AND = categoryConditions;
     }
@@ -348,7 +351,9 @@ export class LikeUserListService {
     productType?: ProductType,
     productCategoryTypes?: ProductCategoryType[],
   ): void {
-    const searchConditions = search ? buildProductKeywordOrConditions(search) : [];
+    const searchConditions = search
+      ? buildProductKeywordOrConditions(search, { customerList: true })
+      : [];
 
     if (minPrice !== undefined || maxPrice !== undefined) {
       where.salePrice = {};
@@ -361,7 +366,9 @@ export class LikeUserListService {
     }
 
     // 카테고리: 묶음(상황·디자인·서비스) 안은 또는, 묶음끼리는 그리고
-    const categoryConditions = productCategoryWhereConditions(productCategoryTypes);
+    const categoryConditions = productCategoryWhereConditions(productCategoryTypes, {
+      customerList: true,
+    });
     if (categoryConditions.length > 0) {
       where.AND = [...(where.AND ?? []), ...categoryConditions];
     }
