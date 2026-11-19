@@ -194,6 +194,32 @@ describe("견적 요청 (integration)", () => {
         NOW,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+
+    // 근처 가게에도 묻는 요청서에 이어 쓰기로 그 가게·상품 사진을 더하면 상품 번호는 빠지지만,
+    // 받는 가게의 상품 사진이면 그대로 보낼 수 있다. 상품 없이 들어온 곳만 PRODUCT로 오면 비운다(숫자가 섞이지 않게)
+    const merged = await write.createForConsumer(
+      consumer.id,
+      baseDto({
+        entry: "PRODUCT" as never,
+        stores: [{ storeId: store.id }, { storeId: otherStore.id }],
+        photoUrls: [productImage],
+      }),
+      NOW,
+    );
+    expect(await prisma.quoteRequest.findUniqueOrThrow({ where: { id: merged.id } })).toMatchObject(
+      { productId: null, entry: null, photoUrls: [productImage] },
+    );
+    // 받는 가게의 상품이 아닌 바깥 사진은 막는다
+    await expect(
+      write.createForConsumer(
+        consumer.id,
+        baseDto({
+          stores: [{ storeId: otherStore.id }],
+          photoUrls: [productImage],
+        }),
+        NOW,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("막는 경우: 3시간 안, 사진·설명 없음, 동네 없음, 예산 단위, 같은 가게 두 번, 없는 가게", async () => {

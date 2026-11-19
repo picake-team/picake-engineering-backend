@@ -81,6 +81,8 @@ export class ProductListService {
     orderMethod?: ProductOrderMethod;
     productCategoryTypes?: ProductCategoryType[];
     sizes?: string[];
+    /** 손님 목록이면 당일픽업에서 견적 받기 상품을 뺀다(사장님 자기 목록은 그대로) */
+    customerList?: boolean;
   }): Prisma.Sql {
     const conditions: Prisma.Sql[] = [];
 
@@ -117,7 +119,11 @@ export class ProductListService {
     }
 
     if (params.search) {
-      conditions.push(buildProductKeywordSearchSqlCondition(params.search));
+      conditions.push(
+        buildProductKeywordSearchSqlCondition(params.search, "p", {
+          customerList: params.customerList,
+        }),
+      );
     }
 
     if (params.minPrice !== undefined) {
@@ -137,7 +143,11 @@ export class ProductListService {
     }
 
     // 카테고리: 묶음(상황·디자인·서비스) 안은 또는, 묶음끼리는 그리고
-    conditions.push(...productCategorySqlConditions(params.productCategoryTypes));
+    conditions.push(
+      ...productCategorySqlConditions(params.productCategoryTypes, "p", {
+        customerList: params.customerList,
+      }),
+    );
 
     if (params.sizes && params.sizes.length > 0) {
       conditions.push(
@@ -244,8 +254,11 @@ export class ProductListService {
     maxPrice?: number,
     productType?: ProductType,
     productCategoryTypes?: ProductCategoryType[],
+    customerList = false,
   ): void {
-    const searchConditions = search ? buildProductKeywordOrConditions(search) : [];
+    const searchConditions = search
+      ? buildProductKeywordOrConditions(search, { customerList })
+      : [];
 
     if (minPrice !== undefined || maxPrice !== undefined) {
       where.salePrice = {};
@@ -258,7 +271,9 @@ export class ProductListService {
     }
 
     // 카테고리: 묶음(상황·디자인·서비스) 안은 또는, 묶음끼리는 그리고
-    const categoryConditions = productCategoryWhereConditions(productCategoryTypes);
+    const categoryConditions = productCategoryWhereConditions(productCategoryTypes, {
+      customerList,
+    });
     if (categoryConditions.length > 0) {
       where.AND = where.AND || [];
       where.AND.push(...categoryConditions);
@@ -325,7 +340,15 @@ export class ProductListService {
       where.storeId = storeId;
     }
 
-    this.addCommonFilters(where, search, minPrice, maxPrice, productType, productCategoryTypes);
+    this.addCommonFilters(
+      where,
+      search,
+      minPrice,
+      maxPrice,
+      productType,
+      productCategoryTypes,
+      true,
+    );
     // 홈 "바로 예약할 수 있는 케이크"는 예약 받기 상품만(견적 받기 상품은 바로 예약이 안 됨, 기획 I-01 2026-11-19)
     if (orderMethod) {
       where.orderMethod = orderMethod;
@@ -355,6 +378,7 @@ export class ProductListService {
 
     if (needsReviewData || needsDistanceSort) {
       const filterSql = this.buildReviewSortFilterSql({
+        customerList: true,
         onlyVisible: true,
         onlyListedStores,
         storeIds: storeIdsFromRegion,

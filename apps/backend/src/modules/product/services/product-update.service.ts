@@ -184,6 +184,7 @@ export class ProductUpdateService {
         productType: (updateProductDto.productType ?? product!.productType) as ProductType,
         requested: updateProductDto.orderMethod,
         current: product!.orderMethod as ProductOrderMethod,
+        productTypeSent: updateProductDto.productType !== undefined,
       });
       if (nextOrderMethod !== product!.orderMethod) {
         updateData.orderMethod = nextOrderMethod;

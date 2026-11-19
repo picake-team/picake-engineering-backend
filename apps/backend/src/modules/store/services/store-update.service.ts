@@ -1,4 +1,7 @@
-import { pickContactVisibility } from "@apps/backend/modules/store/utils/store-contact-visibility.util";
+import {
+  STORE_CONTACT_VISIBILITY_SELECT,
+  pickContactVisibility,
+} from "@apps/backend/modules/store/utils/store-contact-visibility.util";
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { UpdateStoreRequestDto } from "@apps/backend/modules/store/dto/store-update.dto";
@@ -47,8 +50,24 @@ export class StoreUpdateService {
     // 정산 계좌가 바뀌면 사장님에게 알린다(운영자 11-18) — 저장 전 값과 비교
     const before = await this.prisma.store.findUnique({
       where: { id: storeId },
-      select: { bankName: true, bankAccountNumber: true, accountHolderName: true },
+      select: {
+        bankName: true,
+        bankAccountNumber: true,
+        accountHolderName: true,
+        ...STORE_CONTACT_VISIBILITY_SELECT,
+      },
     });
+    // 손님 연락 채널 "손님에게 보이기"는 사장님만 바꾼다(기획 I-01·P-93, 상품의 손님에게 보이기와 같게).
+    // 판매자 폼은 지금 값을 늘 같이 보내므로 같으면 통과하고 쓰지 않는다
+    const visibility = pickContactVisibility(updateStoreDto);
+    if (user.actor && before) {
+      const changed = (Object.keys(visibility) as (keyof typeof visibility)[]).some(
+        (key) => visibility[key] !== before[key],
+      );
+      if (changed) {
+        throw new ForbiddenException(ACT_AS_ERROR_MESSAGES.VISIBILITY_OWNER_ONLY);
+      }
+    }
 
     // 업데이트할 데이터 준비
     const updateData: {
@@ -110,8 +129,8 @@ export class StoreUpdateService {
     if (updateStoreDto.instagramId !== undefined) {
       updateData.instagramId = updateStoreDto.instagramId.trim();
     }
-    // 손님에게 보이기(기획 I-01 2026-11-19): 보낸 것만 바꾼다(옛 화면은 보내지 않아 그대로)
-    Object.assign(updateData, pickContactVisibility(updateStoreDto));
+    // 손님에게 보이기(기획 I-01 2026-11-19): 보낸 것만 바꾼다(옛 화면은 보내지 않아 그대로). 대신 입력 중에는 쓰지 않는다
+    if (!user.actor) Object.assign(updateData, visibility);
 
     try {
       // 스토어 수정

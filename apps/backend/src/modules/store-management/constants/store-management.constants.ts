@@ -96,6 +96,11 @@ export const STORE_MANAGEMENT_DETAIL_SELECT = {
   accountHolderName: true,
   kakaoChannelId: true,
   instagramId: true,
+  // 손님 연락 채널 "손님에게 보이기"(기획 I-01) — 손님이 "전화가 안 보여요"라고 할 때 운영자가 원인을 본다
+  chatInquiryVisible: true,
+  kakaoChannelVisible: true,
+  instagramVisible: true,
+  phoneVisible: true,
   likeCount: true,
   createdAt: true,
   updatedAt: true,

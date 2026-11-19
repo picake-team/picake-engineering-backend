@@ -46,13 +46,24 @@ describe("resolveProductOrderMethod", () => {
     ).toBe(ProductOrderMethod.RESERVATION);
   });
 
-  it("기본 케이크에 견적 받기를 보내면 막는다", () => {
+  it("기본 케이크 상품에 견적 받기만 따로 보내면 막는다", () => {
     expect(() =>
       resolveProductOrderMethod({
         productType: ProductType.BASIC_CAKE,
         requested: ProductOrderMethod.QUOTE,
       }),
     ).toThrow(BadRequestException);
+  });
+
+  it("커스텀 → 기본으로 바꾸며 지금 값(견적 받기)이 같이 와도 예약 받기로 돌린다", () => {
+    expect(
+      resolveProductOrderMethod({
+        productType: ProductType.BASIC_CAKE,
+        requested: ProductOrderMethod.QUOTE,
+        current: ProductOrderMethod.QUOTE,
+        productTypeSent: true,
+      }),
+    ).toBe(ProductOrderMethod.RESERVATION);
   });
 
   it("커스텀 케이크는 보낸 값 → 지금 값 → 예약 받기 순서", () => {

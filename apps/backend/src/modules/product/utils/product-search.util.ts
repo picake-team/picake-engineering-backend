@@ -1,5 +1,9 @@
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
-import { EnableStatus } from "@apps/backend/modules/product/constants/product.constants";
+import {
+  EnableStatus,
+  ProductCategoryType,
+  ProductOrderMethod,
+} from "@apps/backend/modules/product/constants/product.constants";
 import { productCategoryFromKeyword } from "@apps/backend/modules/product/utils/product-category.util";
 
 /**
@@ -30,7 +34,10 @@ export const enabledProductListWhere: Prisma.ProductWhereInput = {
  * 상품명(부분 일치) 또는 검색 태그(exact, # 변형 포함) 또는 같은 뜻 카테고리(연인·남친 → 연인·기념일 등) OR 조건
  * product-list.service addCommonFilters와 동일 의미
  */
-export function buildProductKeywordOrConditions(keyword: string): Prisma.ProductWhereInput[] {
+export function buildProductKeywordOrConditions(
+  keyword: string,
+  options: { customerList?: boolean } = {},
+): Prisma.ProductWhereInput[] {
   const trimmed = keyword.trim();
   if (!trimmed) return [];
 
@@ -45,7 +52,13 @@ export function buildProductKeywordOrConditions(keyword: string): Prisma.Product
 
   const category = productCategoryFromKeyword(trimmed);
   if (category) {
-    conditions.push({ productCategoryTypes: { has: category } });
+    // "당일"·"당일픽업"으로 찾을 때도 카테고리로 거를 때처럼 손님에게는 견적 받기 상품을 빼고 보인다(기획 I-01)
+    conditions.push({
+      productCategoryTypes: { has: category },
+      ...(options.customerList && category === ProductCategoryType.SAME_DAY_PICKUP
+        ? { orderMethod: ProductOrderMethod.RESERVATION }
+        : {}),
+    });
   }
 
   return conditions;
@@ -58,7 +71,8 @@ export function buildStoreKeywordSearchWhere(keyword: string): Prisma.StoreWhere
   const trimmed = keyword.trim();
   if (!trimmed) return {};
 
-  const productKeywordOr = buildProductKeywordOrConditions(trimmed);
+  // 스토어 검색은 손님 목록에서만 쓴다
+  const productKeywordOr = buildProductKeywordOrConditions(trimmed, { customerList: true });
   if (productKeywordOr.length === 0) return {};
 
   return {
@@ -82,13 +96,18 @@ export function buildStoreKeywordSearchWhere(keyword: string): Prisma.StoreWhere
 export function buildProductKeywordSearchSqlCondition(
   keyword: string,
   tableAlias = "p",
+  options: { customerList?: boolean } = {},
 ): Prisma.Sql {
   const trimmed = keyword.trim();
   const tagVariants = getProductSearchTagVariants(trimmed);
   const nameColumn = Prisma.raw(`${tableAlias}.name`);
   const category = productCategoryFromKeyword(trimmed);
+  const reservableOnly =
+    options.customerList && category === ProductCategoryType.SAME_DAY_PICKUP
+      ? Prisma.sql` AND ${Prisma.raw(`${tableAlias}.order_method`)}::text = ${ProductOrderMethod.RESERVATION}`
+      : Prisma.empty;
   const categoryCondition = category
-    ? Prisma.sql` OR ${Prisma.raw(`${tableAlias}.product_category_types`)}::text[] && ARRAY[${category}]::text[]`
+    ? Prisma.sql` OR (${Prisma.raw(`${tableAlias}.product_category_types`)}::text[] && ARRAY[${category}]::text[]${reservableOnly})`
     : Prisma.empty;
 
   if (tagVariants.length === 0) {

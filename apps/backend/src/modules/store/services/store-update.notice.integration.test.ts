@@ -113,4 +113,35 @@ describe("스토어 수정 — 정산 계좌가 바뀌면 사장님 알림 (inte
     ).rejects.toThrow(ACT_AS_ERROR_MESSAGES.BANK_ACCOUNT_LOCKED);
     expect(t.push.sendToSeller).not.toHaveBeenCalled();
   });
+
+  it('대신 입력 중에는 손님 연락 채널 "손님에게 보이기"를 바꿀 수 없고, 지금 값 그대로면 저장된다(기획 I-01·P-93)', async () => {
+    const t = await setup();
+    const actor = { ...t.user, actor: { type: "ADMIN", adminId: "a1", sessionId: "s1" } } as never;
+    const same = {
+      chatInquiryVisible: true,
+      kakaoChannelVisible: true,
+      instagramVisible: true,
+      phoneVisible: true,
+    };
+    await expect(
+      t.service.updateStoreForSeller(t.store.id, t.dto({ ...same, phoneVisible: false }), actor),
+    ).rejects.toThrow(ACT_AS_ERROR_MESSAGES.VISIBILITY_OWNER_ONLY);
+    await t.service.updateStoreForSeller(
+      t.store.id,
+      t.dto({ ...same, description: "대신 고친 소개" }),
+      actor,
+    );
+    const saved = await t.prisma.store.findUniqueOrThrow({ where: { id: t.store.id } });
+    expect(saved).toMatchObject({ description: "대신 고친 소개", phoneVisible: true });
+
+    // 사장님은 바꿀 수 있다
+    await t.service.updateStoreForSeller(
+      t.store.id,
+      t.dto({ ...same, phoneVisible: false }),
+      t.user,
+    );
+    expect(
+      (await t.prisma.store.findUniqueOrThrow({ where: { id: t.store.id } })).phoneVisible,
+    ).toBe(false);
+  });
 });

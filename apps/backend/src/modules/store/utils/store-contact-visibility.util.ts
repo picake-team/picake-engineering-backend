@@ -44,13 +44,12 @@ export function customerVisibleContacts(
     phoneNumber: string | null;
     kakaoChannelId: string | null;
     instagramId: string | null;
-  } & Partial<StoreContactVisibility>,
+  } & StoreContactVisibility,
 ): { phoneNumber: string | null; kakaoChannelId: string | null; instagramId: string | null } {
-  // 칸이 없던 행(옛 select)은 켜진 것으로 본다(DB 기본값과 같게)
-  const on = (v: boolean | undefined) => v !== false;
+  // 스위치는 꼭 받는다(타입) — select에서 빠뜨려 꺼 둔 연락처가 켜진 것처럼 나가지 않게. true일 때만 보낸다
   return {
-    phoneNumber: on(store.phoneVisible) ? (store.phoneNumber ?? null) : null,
-    kakaoChannelId: on(store.kakaoChannelVisible) ? (store.kakaoChannelId ?? null) : null,
-    instagramId: on(store.instagramVisible) ? (store.instagramId ?? null) : null,
+    phoneNumber: store.phoneVisible === true ? (store.phoneNumber ?? null) : null,
+    kakaoChannelId: store.kakaoChannelVisible === true ? (store.kakaoChannelId ?? null) : null,
+    instagramId: store.instagramVisible === true ? (store.instagramId ?? null) : null,
   };
 }

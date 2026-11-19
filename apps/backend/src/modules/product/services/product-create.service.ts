@@ -111,6 +111,7 @@ export class ProductCreateService {
             orderMethod: resolveProductOrderMethod({
               productType: createProductDto.productType,
               requested: createProductDto.orderMethod,
+              productTypeSent: true,
             }),
             // 사장님이 고른 그대로(11-15부터 레터링도 직접 고르는 디자인 값. 상품 유형과 묶지 않는다)
             productCategoryTypes: createProductDto.productCategoryTypes ?? [],

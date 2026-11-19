@@ -9,18 +9,20 @@ import { parseCustomOptions } from "@apps/backend/modules/product/utils/product-
 
 /**
  * 저장할 주문 받는 방법(기획 I-01 2026-11-19).
- * - 기본 케이크는 정해진 디자인이라 늘 예약 받기. 견적 받기를 보내면 막는다(화면은 커스텀 케이크에서만 고르게 함)
+ * - 기본 케이크는 정해진 디자인이라 늘 예약 받기. 종류(productType)를 같이 보낸 요청(등록, 커스텀 → 기본으로 바꾸기)은
+ *   견적 받기가 같이 와도 예약 받기로 돌린다(수정 화면은 지금 값을 같이 보냄). 기본 케이크 상품에 견적 받기만 따로 보내면 막는다
  * - 커스텀 케이크는 보낸 값, 없으면 지금 값, 그것도 없으면(새 상품) 예약 받기
- * - 커스텀 → 기본으로 바꾸면서 방법을 보내지 않으면 예약 받기로 돌린다
  */
 export function resolveProductOrderMethod(params: {
   productType: ProductType;
   requested?: ProductOrderMethod;
   current?: ProductOrderMethod;
+  /** 이 요청이 종류(productType)를 같이 보냈는지 */
+  productTypeSent?: boolean;
 }): ProductOrderMethod {
-  const { productType, requested, current } = params;
+  const { productType, requested, current, productTypeSent } = params;
   if (productType !== ProductType.CUSTOM_CAKE) {
-    if (requested === ProductOrderMethod.QUOTE) {
+    if (requested === ProductOrderMethod.QUOTE && !productTypeSent) {
       throw new BadRequestException(PRODUCT_ERROR_MESSAGES.QUOTE_NEEDS_CUSTOM_CAKE);
     }
     return ProductOrderMethod.RESERVATION;
