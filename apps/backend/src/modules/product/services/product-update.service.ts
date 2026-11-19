@@ -1,7 +1,11 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { UpdateProductRequestDto } from "@apps/backend/modules/product/dto/product-update.dto";
-import { PRODUCT_ERROR_MESSAGES } from "@apps/backend/modules/product/constants/product.constants";
+import {
+  PRODUCT_ERROR_MESSAGES,
+  ProductOrderMethod,
+  ProductType,
+} from "@apps/backend/modules/product/constants/product.constants";
 import {
   canonicalJson,
   deriveLegacyOptionFields,
@@ -17,6 +21,7 @@ import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { ACT_AS_ERROR_MESSAGES } from "@apps/backend/modules/act-as/constants/act-as.constants";
 import { assertActAsStore } from "@apps/backend/modules/act-as/utils/act-as-scope.util";
 import { SELLER_CHECK_SAVE_PATTERN } from "@apps/backend/modules/product-naver/utils/product-ai-draft.util";
+import { resolveProductOrderMethod } from "@apps/backend/modules/product/utils/product-order-method.util";
 
 @Injectable()
 export class ProductUpdateService {
@@ -103,6 +108,8 @@ export class ProductUpdateService {
         salePrice: true,
         cakeSizeOptions: true,
         customOptions: true,
+        productType: true,
+        orderMethod: true,
       },
     });
 
@@ -169,6 +176,18 @@ export class ProductUpdateService {
     }
     if (updateProductDto.productType !== undefined) {
       updateData.productType = updateProductDto.productType;
+    }
+    // 주문 받는 방법: 견적 받기는 커스텀 케이크만. 기본 케이크로 바꾸면 예약 받기로 돌린다(기획 I-01 2026-11-19).
+    // 이미 받은 예약·견적 요청은 그대로 이어진다(바꾼 뒤 새로 오는 손님만 새 버튼을 봄)
+    if (updateProductDto.productType !== undefined || updateProductDto.orderMethod !== undefined) {
+      const nextOrderMethod = resolveProductOrderMethod({
+        productType: (updateProductDto.productType ?? product!.productType) as ProductType,
+        requested: updateProductDto.orderMethod,
+        current: product!.orderMethod as ProductOrderMethod,
+      });
+      if (nextOrderMethod !== product!.orderMethod) {
+        updateData.orderMethod = nextOrderMethod;
+      }
     }
     // 사장님이 고른 그대로(11-15부터 레터링도 직접 고르는 디자인 값. 상품 유형과 묶지 않는다)
     if (updateProductDto.productCategoryTypes !== undefined) {

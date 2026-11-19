@@ -287,6 +287,7 @@ export class StoreListService {
 
     const storeResponses = (await StoreMapperUtil.mapToStoreResponse(stores, this.prisma, {
       includeSettlementAccount: true,
+      sellerView: true,
     })) as StoreResponseDto[];
 
     const likedStoreIds = await this.getLikedStoreIds(
@@ -329,6 +330,7 @@ export class StoreListService {
 
     const storeResponse = (await StoreMapperUtil.mapToStoreResponse(store, this.prisma, {
       includeSettlementAccount: true,
+      sellerView: true,
     })) as StoreResponseDto;
     storeResponse.isLiked = isLiked;
     storeResponse.naverPlace = toStoreNaverPlace(store);

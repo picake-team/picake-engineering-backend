@@ -1,3 +1,4 @@
+import { customerVisibleContacts } from "@apps/backend/modules/store/utils/store-contact-visibility.util";
 import { Store } from "@apps/backend/infra/database/prisma/generated/client";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { StoreResponseDto } from "@apps/backend/modules/store/dto/store-detail.dto";
@@ -50,7 +51,7 @@ export class StoreMapperUtil {
   static async mapToStoreResponse(
     stores: Store | Store[],
     prisma: PrismaService,
-    options: { includeSettlementAccount?: boolean } = {},
+    options: { includeSettlementAccount?: boolean; sellerView?: boolean } = {},
   ): Promise<StoreResponseDto | StoreResponseDto[]> {
     const storesArray = Array.isArray(stores) ? stores : [stores];
     const isSingle = !Array.isArray(stores);
@@ -157,6 +158,8 @@ export class StoreMapperUtil {
         store.refundCancellationPolicy,
       );
 
+      const contacts = customerVisibleContacts(store);
+
       return {
         id: store.id,
         userId: store.sellerId,
@@ -171,7 +174,8 @@ export class StoreMapperUtil {
         logoImageUrl: store.logoImageUrl ?? undefined,
         name: store.name,
         description: store.description ?? undefined,
-        phoneNumber: store.phoneNumber ?? undefined,
+        // 손님 화면에는 사장님이 "손님에게 보이기"를 끈 연락처를 보내지 않는다(기획 I-01). 사장님 본인 화면은 그대로
+        phoneNumber: (options.sellerView ? store.phoneNumber : contacts.phoneNumber) ?? undefined,
 
         // 픽업장소
         address: store.address ?? "",
@@ -189,8 +193,13 @@ export class StoreMapperUtil {
             }
           : {}),
         // 채널 정보
-        kakaoChannelId: store.kakaoChannelId ?? undefined,
-        instagramId: store.instagramId ?? undefined,
+        kakaoChannelId:
+          (options.sellerView ? store.kakaoChannelId : contacts.kakaoChannelId) ?? undefined,
+        instagramId: (options.sellerView ? store.instagramId : contacts.instagramId) ?? undefined,
+        chatInquiryVisible: store.chatInquiryVisible,
+        kakaoChannelVisible: store.kakaoChannelVisible,
+        instagramVisible: store.instagramVisible,
+        phoneVisible: store.phoneVisible,
         // 기타
         likeCount: store.likeCount,
         averageRating,

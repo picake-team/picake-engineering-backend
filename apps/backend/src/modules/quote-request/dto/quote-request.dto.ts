@@ -298,6 +298,17 @@ export class CreateQuoteRequestDto {
   @IsOptional()
   @IsEnum(QuoteRequestEntry)
   entry?: QuoteRequestEntry;
+
+  @ApiPropertyOptional({
+    description:
+      "상품 화면 '이 디자인으로 견적 받기'에서 연 요청이면 그 상품 ID. '이 가게에만'(그 상품의 가게 하나)일 때만 받는다. " +
+      "그 상품 사진은 업로드 주소가 아니어도 참고 사진에 넣을 수 있다(기획 I-01 2026-11-19)",
+    example: "cmabc123product",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  productId?: string;
 }
 
 export class CreateQuoteRequestResponseDto {

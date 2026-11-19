@@ -47,6 +47,13 @@ describe("카테고리 묶음", () => {
       { productCategoryTypes: { hasSome: [C.CHARACTER, C.FLOWER] } },
     ]);
   });
+
+  it("당일픽업으로 거르면 견적 받기 상품은 뺀다(바로 예약 상품만, 기획 I-01)", () => {
+    expect(productCategoryWhereConditions([C.BIRTHDAY, C.SAME_DAY_PICKUP])).toEqual([
+      { productCategoryTypes: { hasSome: [C.BIRTHDAY] } },
+      { productCategoryTypes: { hasSome: [C.SAME_DAY_PICKUP] }, orderMethod: "RESERVATION" },
+    ]);
+  });
 });
 
 describe("옛 카테고리 값", () => {

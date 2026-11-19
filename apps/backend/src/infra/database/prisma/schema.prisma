@@ -250,6 +250,8 @@ enum QuoteRequestEntry {
   MYPAGE
   /// 케이크 디자인 모음(기획 I-112)에서 디자인을 골라 연 요청서
   DESIGN
+  /// 상품 화면 "이 디자인으로 견적 받기"(견적 받기 상품, 기획 I-01 2026-11-19)
+  PRODUCT
 }
 
 /// 견적을 물어볼 가게를 넣은 사람
@@ -320,6 +322,8 @@ model QuoteRequest {
   photoDetails Json          @default("[]") @map("photo_details")
   /// 고른 디자인 ID(겹치지 않게, 사진 순서대로). 요청·주문·후기를 디자인과 이을 때 쓴다
   designIds    String[]      @default([]) @map("design_ids")
+  /// 상품 화면에서 연 요청이면 그 상품(견적 받기 상품, 기획 I-01). 상품이 지워져도 요청은 남는다
+  productId    String?       @map("product_id")
   size         QuoteCakeSize
   quantity     Int
   creams       QuoteCream[]  @default([])
@@ -554,6 +558,8 @@ model Product {
   salesStatus          EnableStatus          @map("sales_status") // 판매 상태
   visibilityStatus     EnableStatus          @map("visibility_status") // 노출 상태
   productType          ProductType           @default(BASIC_CAKE) @map("product_type") // 상품 타입 (기본/커스텀)
+  /// 주문 받는 방법: 예약(판매가로 바로 예약) / 견적(디자인을 보고 가격을 정함). 견적은 커스텀 케이크만(기획 I-01 2026-11-19)
+  orderMethod          ProductOrderMethod    @default(RESERVATION) @map("order_method")
   productCategoryTypes ProductCategoryType[] @default([]) @map("product_category_types") // 상품 카테고리 타입 (없거나 여러 개)
   searchTags           String[]              @default([]) @map("search_tags") // 검색 태그 (없거나 여러 개)
   detailDescription    String?               @map("detail_description") // 상세 설명
@@ -694,6 +700,13 @@ model Store {
   // 비즈니스 필드 - 채널 정보
   kakaoChannelId String? @map("kakao_channel_id") // 카카오채널 ID
   instagramId    String? @map("instagram_id") // 인스타그램 ID
+
+  /// 손님 문의 "손님에게 보이기"(기획 I-01 2026-11-19). 끄면 손님에게 가는 가게 정보·문의 창에서 뺀다.
+  /// 값(카톡·인스타·전화)이 있어도 꺼 두면 안 보인다. 예약한 손님의 주문 화면 채팅은 끌 수 없다
+  chatInquiryVisible   Boolean @default(true) @map("chat_inquiry_visible")
+  kakaoChannelVisible  Boolean @default(true) @map("kakao_channel_visible")
+  instagramVisible     Boolean @default(true) @map("instagram_visible")
+  phoneVisible         Boolean @default(true) @map("phone_visible")
 
   // 비즈니스 필드 - 네이버 플레이스 연결 (매장 정보 가져오기·갱신용. 연결은 매장 소유 인증이 아니다)
   naverPlaceId          String?   @map("naver_place_id") // 연결한 네이버 플레이스 ID
@@ -1495,6 +1508,12 @@ enum EnableStatus {
 enum ProductType {
   BASIC_CAKE // 기본 케이크
   CUSTOM_CAKE // 커스텀 케이크
+}
+
+/// 상품의 주문 받는 방법(기획 I-01 2026-11-19)
+enum ProductOrderMethod {
+  RESERVATION // 예약 받기: 판매가로 바로 예약
+  QUOTE // 견적 받기: 상품 화면에서 이 가게에만 견적 요청
 }
 
 // 상품 카테고리 타입

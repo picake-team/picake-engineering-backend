@@ -12,6 +12,7 @@ import type { CreateQuoteRequestDto } from "@apps/backend/modules/quote-request/
 import { getTestPrisma } from "@apps/backend/test/integration/db";
 import {
   createTestConsumer,
+  createTestProduct,
   createTestSeller,
   createTestStore,
 } from "@apps/backend/test/integration/factories";
@@ -132,6 +133,64 @@ describe("견적 요청 (integration)", () => {
       write.createForConsumer(
         consumer.id,
         baseDto({ onlyDesignatedStores: true, stores: [] }),
+        NOW,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("상품 화면에서 연 요청(I-01): 그 가게에만, 상품 번호·들어온 곳을 남기고 상품 사진은 업로드 주소가 아니어도 넣는다", async () => {
+    const { prisma, write } = build();
+    const consumer = await createTestConsumer(prisma);
+    const seller = await createTestSeller(prisma);
+    const store = await createTestStore(prisma, seller.id, { name: "달빛케이크" });
+    // 한 사장님의 가게는 사업자번호가 겹치면 안 되므로 다른 가게는 사장님을 따로 만든다
+    const otherStore = await createTestStore(prisma, (await createTestSeller(prisma)).id, {
+      name: "다른 가게",
+    });
+    // 네이버에서 가져온 상품처럼 업로드 주소가 아닌 사진
+    const productImage = "https://shop-phinf.pstatic.net/test/wreath.jpg";
+    const product = await createTestProduct(prisma, store.id, {
+      name: "리스 레터링",
+      productType: "CUSTOM_CAKE",
+      orderMethod: "QUOTE",
+      images: [productImage],
+    });
+
+    const res = await write.createForConsumer(
+      consumer.id,
+      baseDto({
+        entry: undefined,
+        onlyDesignatedStores: true,
+        stores: [{ storeId: store.id }],
+        productId: product.id,
+        photoUrls: [productImage],
+      }),
+      NOW,
+    );
+    const saved = await prisma.quoteRequest.findUniqueOrThrow({ where: { id: res.id } });
+    expect(saved).toMatchObject({
+      productId: product.id,
+      entry: "PRODUCT",
+      photoUrls: [productImage],
+      onlyDesignatedStores: true,
+    });
+
+    // 다른 가게에 보내거나 "이 가게에만"이 아니면 상품을 받지 않는다
+    await expect(
+      write.createForConsumer(
+        consumer.id,
+        baseDto({
+          onlyDesignatedStores: true,
+          stores: [{ storeId: otherStore.id }],
+          productId: product.id,
+        }),
+        NOW,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      write.createForConsumer(
+        consumer.id,
+        baseDto({ stores: [{ storeId: store.id }], productId: product.id }),
         NOW,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);

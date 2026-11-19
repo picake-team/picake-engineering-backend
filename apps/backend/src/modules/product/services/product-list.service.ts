@@ -11,6 +11,7 @@ import {
 import {
   EnableStatus,
   ProductType,
+  ProductOrderMethod,
   ProductCategoryType,
   SortBy,
   PRODUCT_ERROR_MESSAGES,
@@ -77,6 +78,7 @@ export class ProductListService {
     minPrice?: number;
     maxPrice?: number;
     productType?: ProductType;
+    orderMethod?: ProductOrderMethod;
     productCategoryTypes?: ProductCategoryType[];
     sizes?: string[];
   }): Prisma.Sql {
@@ -128,6 +130,10 @@ export class ProductListService {
 
     if (params.productType) {
       conditions.push(Prisma.sql`p.product_type::text = ${params.productType}`);
+    }
+
+    if (params.orderMethod) {
+      conditions.push(Prisma.sql`p.order_method::text = ${params.orderMethod}`);
     }
 
     // 카테고리: 묶음(상황·디자인·서비스) 안은 또는, 묶음끼리는 그리고
@@ -278,6 +284,7 @@ export class ProductListService {
       maxPrice,
       storeId,
       productType,
+      orderMethod,
       productCategoryTypes,
       regions,
       sizes,
@@ -319,6 +326,10 @@ export class ProductListService {
     }
 
     this.addCommonFilters(where, search, minPrice, maxPrice, productType, productCategoryTypes);
+    // 홈 "바로 예약할 수 있는 케이크"는 예약 받기 상품만(견적 받기 상품은 바로 예약이 안 됨, 기획 I-01 2026-11-19)
+    if (orderMethod) {
+      where.orderMethod = orderMethod;
+    }
 
     if (sizes?.length) {
       const sizeIds = await this.getProductIdsMatchingCakeSizes(sizes);
@@ -352,6 +363,7 @@ export class ProductListService {
         minPrice,
         maxPrice,
         productType,
+        orderMethod,
         productCategoryTypes,
         sizes,
       });

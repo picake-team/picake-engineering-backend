@@ -1,3 +1,4 @@
+import { pickContactVisibility } from "@apps/backend/modules/store/utils/store-contact-visibility.util";
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { UpdateStoreRequestDto } from "@apps/backend/modules/store/dto/store-update.dto";
@@ -67,6 +68,10 @@ export class StoreUpdateService {
       bankName?: StoreBankName;
       accountHolderName?: string;
       refundCancellationPolicy: Prisma.InputJsonValue;
+      chatInquiryVisible?: boolean;
+      kakaoChannelVisible?: boolean;
+      instagramVisible?: boolean;
+      phoneVisible?: boolean;
     } = {
       // 필수 필드
       name: updateStoreDto.name,
@@ -105,6 +110,8 @@ export class StoreUpdateService {
     if (updateStoreDto.instagramId !== undefined) {
       updateData.instagramId = updateStoreDto.instagramId.trim();
     }
+    // 손님에게 보이기(기획 I-01 2026-11-19): 보낸 것만 바꾼다(옛 화면은 보내지 않아 그대로)
+    Object.assign(updateData, pickContactVisibility(updateStoreDto));
 
     try {
       // 스토어 수정

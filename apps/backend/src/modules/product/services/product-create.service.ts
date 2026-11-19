@@ -21,6 +21,7 @@ import {
   koreaCalendarYmd,
 } from "@apps/backend/modules/order/utils/order-list-query.util";
 import { SELLER_CHECK_SAVE_PATTERN } from "@apps/backend/modules/product-naver/utils/product-ai-draft.util";
+import { resolveProductOrderMethod } from "@apps/backend/modules/product/utils/product-order-method.util";
 
 @Injectable()
 export class ProductCreateService {
@@ -106,6 +107,11 @@ export class ProductCreateService {
             customOptions: customOptions as unknown as Prisma.InputJsonValue,
             ...deriveLegacyOptionFields(customOptions),
             productType: createProductDto.productType,
+            // 견적 받기는 커스텀 케이크만(기획 I-01 2026-11-19)
+            orderMethod: resolveProductOrderMethod({
+              productType: createProductDto.productType,
+              requested: createProductDto.orderMethod,
+            }),
             // 사장님이 고른 그대로(11-15부터 레터링도 직접 고르는 디자인 값. 상품 유형과 묶지 않는다)
             productCategoryTypes: createProductDto.productCategoryTypes ?? [],
             searchTags: createProductDto.searchTags ?? [],

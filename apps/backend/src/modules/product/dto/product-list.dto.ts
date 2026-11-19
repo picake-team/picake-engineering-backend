@@ -20,6 +20,7 @@ import {
   SortBy,
   EnableStatus,
   ProductType,
+  ProductOrderMethod,
   ProductCategoryType,
   CakeSizeDisplayName,
 } from "@apps/backend/modules/product/constants/product.constants";
@@ -80,6 +81,16 @@ export class GetProductsRequestDto extends PaginationRequestDto {
   @IsOptional()
   @IsEnum(ProductType)
   productType?: ProductType;
+
+  @ApiPropertyOptional({
+    description:
+      "(필터) 주문 받는 방법 — 홈 '바로 예약할 수 있는 케이크'는 RESERVATION만(견적 받기 상품은 바로 예약이 안 됨)",
+    enum: ProductOrderMethod,
+    example: ProductOrderMethod.RESERVATION,
+  })
+  @IsOptional()
+  @IsEnum(ProductOrderMethod)
+  orderMethod?: ProductOrderMethod;
 
   @ApiPropertyOptional({
     description:

@@ -54,6 +54,7 @@ export const QUOTE_REQUEST_ENTRY_LABELS: Record<QuoteRequestEntry, string> = {
   STORE: "가게 상세",
   MYPAGE: "MY",
   DESIGN: "디자인 모음",
+  PRODUCT: "상품 상세",
 };
 
 /**
@@ -96,6 +97,8 @@ export const QUOTE_REQUEST_ERROR_MESSAGES = {
   TOO_MANY_OPEN: "진행 중인 견적 요청이 많아요. 진행 중인 요청을 닫은 뒤 다시 보내 주세요.",
   NOT_OPEN: "견적을 받는 중인 요청만 닫을 수 있어요.",
   PHOTO_DETAILS_MISMATCH: "사진 정보가 맞지 않아요. 다시 시도해 주세요.",
+  /** 상품 화면에서 연 요청인데 그 상품이 없거나 넣은 가게의 상품이 아님(기획 I-01 2026-11-19) */
+  PRODUCT_MISMATCH: "상품 정보가 맞지 않아요. 상품 화면에서 다시 시도해 주세요.",
 } as const;
 
 export const QUOTE_REQUEST_SUCCESS_MESSAGES = {

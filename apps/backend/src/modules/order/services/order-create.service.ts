@@ -18,7 +18,10 @@ import {
   OrderStatus,
 } from "@apps/backend/modules/order/constants/order.constants";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
-import { EnableStatus } from "@apps/backend/modules/product/constants/product.constants";
+import {
+  EnableStatus,
+  ProductOrderMethod,
+} from "@apps/backend/modules/product/constants/product.constants";
 import { OrderLifecycleHookService } from "@apps/backend/modules/order/services/order-lifecycle-hook.service";
 import { ORDER_STATUS_TRANSITION_SOURCE } from "@apps/backend/modules/order/types/order-lifecycle.types";
 import {
@@ -101,6 +104,12 @@ export class OrderCreateService {
         `주문 생성 실패: 상품 비공개 상태 - productId: ${productId}, userId: ${userId}, visibilityStatus: ${product.visibilityStatus}`,
       );
       throw new BadRequestException(ORDER_ERROR_MESSAGES.PRODUCT_NOT_AVAILABLE);
+    }
+
+    // 견적 받기 상품은 예약신청을 받지 않는다(손님 화면은 "이 디자인으로 견적 받기"만 보임, 기획 I-01 2026-11-19)
+    if (product.orderMethod === ProductOrderMethod.QUOTE) {
+      LoggerUtil.log(`주문 생성 실패: 견적 받기 상품 - productId: ${productId}, userId: ${userId}`);
+      throw new BadRequestException(ORDER_ERROR_MESSAGES.PRODUCT_QUOTE_ONLY);
     }
 
     // 정지·탈퇴한 사장님 가게는 예약을 받지 않는다(사장님이 로그인할 수 없어 예약이 묵힌다)

@@ -98,6 +98,29 @@ export class StoreResponseDto extends StoreAddressDto {
   instagramId?: string | null;
 
   @ApiProperty({
+    description:
+      "손님에게 보이기: Picake 채팅 문의(기획 I-01). 손님 응답에서 false면 문의 창에 채팅을 넣지 않는다. " +
+      "카톡·인스타·전화는 꺼 두면 손님 응답에서 값(kakaoChannelId·instagramId·phoneNumber)이 빠진다",
+    example: true,
+  })
+  chatInquiryVisible: boolean;
+
+  @ApiProperty({
+    description: "손님에게 보이기: 카카오톡 채널(사장님 화면에서 스위치 값)",
+    example: true,
+  })
+  kakaoChannelVisible: boolean;
+
+  @ApiProperty({
+    description: "손님에게 보이기: 인스타그램(사장님 화면에서 스위치 값)",
+    example: true,
+  })
+  instagramVisible: boolean;
+
+  @ApiProperty({ description: "손님에게 보이기: 전화(사장님 화면에서 스위치 값)", example: true })
+  phoneVisible: boolean;
+
+  @ApiProperty({
     description: "사업자등록번호",
     example: BUSINESS_SWAGGER_EXAMPLES.B_NO,
   })
