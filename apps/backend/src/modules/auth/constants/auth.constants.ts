@@ -150,6 +150,22 @@ export function getAppleRedirectBaseUrl(nodeEnv: string | undefined): string {
   return nodeEnv === "production" ? "https://picakes.com" : "https://staging.picakes.com";
 }
 
+/**
+ * 판매자 애플 로그인 Return URL(서버 주소, 2026-11-26 판매자 앱 심사 4.8).
+ * 판매자 웹은 Vite 정적 앱이라 애플이 form_post로 보내는 응답을 받을 서버 경로가 없다 → 서버가 받아
+ * `code`·`state`(+처음 한 번 오는 이름)만 판매자 웹 콜백(`PUBLIC_SELLER_DOMAIN` + `/auth/login/apple`)으로 넘긴다.
+ * 애플 Services ID(`com.product.picake.web`)에 이 주소 둘(상용·staging)이 등록돼 있어야 하고(계정 주인만 등록 가능),
+ * 로컬도 손님처럼 staging 주소를 쓴다(애플은 HTTPS 도메인만 받음 — 실제 처리는 staging 서버).
+ * 토큰 교환의 redirect_uri도 이 값이라 판매자 웹 `appleAuthorizeUrl`과 글자까지 같아야 한다.
+ */
+export const SELLER_APPLE_CALLBACK_PATH = "/v1/seller/auth/apple/callback";
+
+export function getSellerAppleRedirectUri(nodeEnv: string | undefined): string {
+  const base =
+    nodeEnv === "production" ? "https://api.picakes.com" : "https://api-staging.picakes.com";
+  return `${base}${SELLER_APPLE_CALLBACK_PATH}`;
+}
+
 /** 관리자 `Admin.password_hash` bcrypt cost — `AuthAdminService.register`·`prisma/seed` 동일 */
 export const ADMIN_BCRYPT_SALT_ROUNDS = 12;
 
@@ -223,6 +239,9 @@ export const TOKEN_TYPES = {
  * 카카오 간편가입(카카오싱크, 기획 I-59 B) 약관 태그 — 카카오 콘솔 [카카오 로그인] > [간편가입]에 같은 태그로 등록한다.
  * 손님·사장님이 카카오 앱 하나를 같이 써서, 로그인 요청의 service_terms로 각자 약관만 보여 준다(웹 oauth-login-url).
  * type은 우리 약관 종류 — 동의하면 그 종류의 지금 활성 버전으로 동의 이력을 남긴다.
+ * type이 null인 "만 14세 이상"(법무 LG-02)은 약관 문서가 없어 동의 이력 대신 계정의 ageConfirmedAt에 남긴다.
+ * 카카오 콘솔의 전용 "만 14세 이상 연령 동의"라 태그가 user_age_check로 고정이고 손님·사장님이 같이 쓴다(앱에 하나, 만 14세 미만은 카카오가 간편가입을 막음).
+ * 1단계(2026-11-26)는 required: false — 웹·카카오 콘솔이 다 나가기 전에 서버가 먼저 필수로 바꾸면 웹이 약관 칸을 건너뛴 카카오 가입이 막힌다.
  */
 export const KAKAO_SERVICE_TERMS = {
   consumer: [
@@ -230,10 +249,12 @@ export const KAKAO_SERVICE_TERMS = {
     { tag: "picake_c_privacy", type: "CONSUMER_PRIVACY_POLICY", required: true },
     { tag: "picake_c_third_party", type: "CONSUMER_THIRD_PARTY_CONSENT", required: true },
     { tag: "picake_c_location", type: "CONSUMER_LOCATION_TERMS", required: false },
+    { tag: "user_age_check", type: null, required: false },
   ],
   seller: [
     { tag: "picake_s_tos", type: "SELLER_TERMS_OF_SERVICE", required: true },
     { tag: "picake_s_privacy", type: "SELLER_PRIVACY_POLICY", required: true },
+    { tag: "user_age_check", type: null, required: false },
   ],
 } as const;
 

@@ -1,3 +1,4 @@
+import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 import {
   Injectable,
   ConflictException,
@@ -18,6 +19,7 @@ import {
   APPLE_PRIMARY_APP_ID,
   APPLE_ISSUER,
   getAppleRedirectBaseUrl,
+  getSellerAppleRedirectUri,
   PhoneVerificationPurpose,
 } from "@apps/backend/modules/auth/constants/auth.constants";
 import { AppleUserInfo, AppleIdTokenPayload } from "@apps/backend/modules/auth/types/auth.types";
@@ -27,7 +29,9 @@ import { phoneTakenConflict } from "@apps/backend/modules/auth/utils/phone-confl
 import {
   AppleLoginRequestDto,
   AppleRegisterRequestDto,
+  SellerAppleRegisterRequestDto,
 } from "@apps/backend/modules/auth/dto/auth-apple-oauth.dto";
+import { buildSellerAppleCallbackUrl } from "@apps/backend/modules/auth/utils/apple-signin.util";
 import { buildInitialNickname } from "@apps/backend/modules/auth/utils/register-nickname.util";
 import { ExternalApiErrorUtil } from "@apps/backend/common/utils/external-api-error.util";
 import { TokenEncryptionUtil } from "@apps/backend/common/utils/token-encryption.util";
@@ -35,7 +39,9 @@ import { TermsService } from "@apps/backend/modules/terms/terms.service";
 import { rethrowRegisterUniqueConflict } from "@apps/backend/modules/auth/utils/register-conflict.util";
 
 /**
- * 애플(Sign in with Apple) OAuth — 구매자(web-user)만 지원, 판매자는 대상 아님.
+ * 애플(Sign in with Apple) OAuth — 구매자(web-user)와 판매자(web-seller, 2026-11-26 판매자 앱 심사 4.8).
+ * 두 쪽이 Services ID 하나를 같이 써서 같은 애플 계정이면 `sub`(appleId)가 같다 — 탈퇴 때 다른 쪽 계정이 남아 있으면 revoke하지 않는다.
+ * 판매자는 Return URL이 서버 주소(`getSellerAppleRedirectUri`)라 form_post를 서버가 받아 판매자 웹으로 code를 넘긴다.
  *
  * 구글/카카오와 다른 점 (반드시 숙지):
  * - `client_secret`이 고정 문자열이 아니라 매 요청 직전 서버가 직접 서명하는 JWT(ES256).
@@ -52,6 +58,10 @@ export class AuthAppleOauthService {
   private readonly privateKey: string;
   private readonly clientId: string;
   private readonly redirectUri: string;
+  /** 판매자 Return URL(서버 주소) — 토큰 교환 redirect_uri도 이 값 */
+  private readonly sellerRedirectUri: string;
+  /** 판매자 웹 주소 — form_post를 받은 뒤 code를 넘길 곳 */
+  private readonly sellerBase: string;
   private readonly httpClient: AxiosInstance;
   private readonly jwks: ReturnType<typeof jwksClient>;
 
@@ -62,12 +72,15 @@ export class AuthAppleOauthService {
     private readonly authPhoneService: AuthPhoneService,
     private readonly termsService: TermsService,
     private readonly tokenEncryptionUtil: TokenEncryptionUtil,
+    private readonly opsAlert: OpsAlertService,
   ) {
     this.teamId = configService.get<string>("APPLE_TEAM_ID")!;
     this.keyId = configService.get<string>("APPLE_KEY_ID")!;
     this.privateKey = configService.get<string>("APPLE_PRIVATE_KEY")!.replace(/\\n/g, "\n");
     this.clientId = configService.get<string>("APPLE_CLIENT_ID")!;
     this.redirectUri = `${getAppleRedirectBaseUrl(configService.get<string>("NODE_ENV"))}${OAUTH_REDIRECT_PATHS.APPLE}`;
+    this.sellerRedirectUri = getSellerAppleRedirectUri(configService.get<string>("NODE_ENV"));
+    this.sellerBase = configService.get<string>("PUBLIC_SELLER_DOMAIN")!;
     this.httpClient = axios.create({
       timeout: 30000,
       headers: {
@@ -96,8 +109,19 @@ export class AuthAppleOauthService {
   }
 
   async consumerAppleLoginWithCode(dto: AppleLoginRequestDto) {
-    const appleUserInfo = await this.exchangeCodeForToken(dto.code);
+    const appleUserInfo = await this.exchangeCodeForToken(dto.code, this.redirectUri);
     return this.appleLogin(appleUserInfo);
+  }
+
+  /** 판매자 — 판매자 웹이 서버 콜백에서 받은 code로 부른다(토큰 교환 redirect_uri는 서버 Return URL) */
+  async sellerAppleLoginWithCode(dto: AppleLoginRequestDto) {
+    const appleUserInfo = await this.exchangeCodeForToken(dto.code, this.sellerRedirectUri);
+    return this.appleLoginSeller(appleUserInfo);
+  }
+
+  /** 판매자 Return URL로 온 애플 form_post 본문 → 판매자 웹 콜백 주소(303으로 보냄) */
+  sellerAppleCallbackRedirectUrl(form: unknown): string {
+    return buildSellerAppleCallbackUrl(this.sellerBase, form);
   }
 
   /**
@@ -123,7 +147,7 @@ export class AuthAppleOauthService {
    * Authorization Code로 토큰 교환 후 id_token 검증.
    * @throws BadRequestException `APPLE_OAUTH_TOKEN_EXCHANGE_FAILED` — 코드 만료·redirect_uri 불일치 등
    */
-  private async exchangeCodeForToken(code: string): Promise<AppleUserInfo> {
+  private async exchangeCodeForToken(code: string, redirectUri: string): Promise<AppleUserInfo> {
     try {
       const tokenResponse = await this.httpClient.post(
         `${APPLE_ISSUER}/auth/token`,
@@ -132,7 +156,7 @@ export class AuthAppleOauthService {
           client_secret: this.buildClientSecret(),
           code: decodeURIComponent(code),
           grant_type: "authorization_code",
-          redirect_uri: this.redirectUri,
+          redirect_uri: redirectUri,
         }),
         { headers: { "Content-Type": "application/x-www-form-urlencoded" } },
       );
@@ -145,7 +169,7 @@ export class AuthAppleOauthService {
           module: "auth-apple-oauth",
           operation: "token-exchange",
           ...ExternalApiErrorUtil.fromResponseBody(tokenResponse.data, tokenResponse.status),
-          details: { redirectUri: this.redirectUri },
+          details: { redirectUri },
         };
         ExternalApiErrorUtil.reportFailure(
           failure,
@@ -185,7 +209,7 @@ export class AuthAppleOauthService {
         module: "auth-apple-oauth",
         operation: "exchange-code-for-token",
         ...ExternalApiErrorUtil.fromAxiosError(error),
-        details: { redirectUri: this.redirectUri },
+        details: { redirectUri },
       };
       ExternalApiErrorUtil.reportFailure(failure, error);
       throw new BadRequestException(AUTH_ERROR_MESSAGES.APPLE_OAUTH_TOKEN_EXCHANGE_FAILED);
@@ -293,13 +317,54 @@ export class AuthAppleOauthService {
   }
 
   /**
+   * 애플 로그인 처리 (판매자) — 손님과 같지만 Seller 테이블·aud seller
+   */
+  private async appleLoginSeller(appleUserInfo: AppleUserInfo) {
+    const {
+      userInfo: { appleId, appleEmail },
+      refreshToken,
+    } = appleUserInfo;
+
+    const seller = await this.prisma.seller.findUnique({ where: { appleId } });
+
+    if (!seller) {
+      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, appleId, appleEmail);
+    }
+
+    if (!seller.isActive) {
+      throw new ForbiddenException(AUTH_ERROR_MESSAGES.ACCOUNT_INACTIVE);
+    }
+
+    if (!seller.phone || !seller.isPhoneVerified) {
+      throw await this.buildRegisterRequiredError(AUDIENCE.SELLER, appleId, appleEmail);
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      const tokenPair = await this.jwtUtil.generateTokenPair({
+        sub: seller.id,
+        aud: AUDIENCE.SELLER,
+      });
+      await tx.seller.update({
+        where: { id: seller.id },
+        data: {
+          lastLoginAt: new Date(),
+          // 재로그인 때도 최신 refresh_token으로 — 탈퇴 때 revoke가 늘 유효한 토큰을 쓰게
+          appleRefreshToken: this.tokenEncryptionUtil.encrypt(refreshToken),
+        },
+      });
+      return { accessToken: tokenPair.accessToken, refreshToken: tokenPair.refreshToken };
+    });
+  }
+
+  /**
    * 애플 회원가입(구매자) — 휴대폰 `APPLE_REGISTRATION` 인증 완료 후에만 진행.
    * 로그인과 별개 호출이라 여기서도 code 교환을 다시 하지 않고, 로그인 때 서버가 확인한 `appleId`·`appleEmail`이 든
    * 가입표(registerToken)로만 가입한다 — `refresh_token`은 가입 완료 후 최초 로그인 시 저장됩니다.
    * @throws ConflictException 이미 다른 애플과 연결된 번호 / 동일 번호 비애플 계정 / 이미 존재하는 appleId
    */
   async consumerAppleRegisterWithPhone(appleRegisterDto: AppleRegisterRequestDto) {
-    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = appleRegisterDto;
+    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty, agreedToAge14 } =
+      appleRegisterDto;
     const { providerId: appleId, email: appleEmail } = await this.jwtUtil.verifyRegisterTicket(
       appleRegisterDto.registerToken,
       { aud: AUDIENCE.CONSUMER, provider: "apple" },
@@ -352,6 +417,7 @@ export class AuthAppleOauthService {
             name: trimmedName,
             nickname: buildInitialNickname(),
             isPhoneVerified: true,
+            ageConfirmedAt: agreedToAge14 === true ? new Date() : null,
             lastLoginAt: now,
           },
         });
@@ -371,6 +437,100 @@ export class AuthAppleOauthService {
       .catch((e: unknown) =>
         rethrowRegisterUniqueConflict(e, AUTH_ERROR_MESSAGES.APPLE_ID_ALREADY_EXISTS),
       );
+  }
+
+  /**
+   * 애플 회원가입(판매자) — 휴대폰 `APPLE_REGISTRATION`(audience seller) 인증 완료 후에만.
+   * 손님 가입과 같은 순서이고, 판매자 약관(이용약관·처리방침)·새 사장님 알림(기획 I-56)은 구글 판매자 가입과 같다.
+   * `refresh_token`은 손님과 같이 가입 뒤 첫 로그인 때 저장된다(가입 API는 code 교환을 다시 하지 않음).
+   */
+  async sellerAppleRegisterWithPhone(dto: SellerAppleRegisterRequestDto) {
+    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToAge14 } = dto;
+    const { providerId: appleId, email: appleEmail } = await this.jwtUtil.verifyRegisterTicket(
+      dto.registerToken,
+      { aud: AUDIENCE.SELLER, provider: "apple" },
+    );
+    const trimmedName = name.trim();
+    const normalizedPhone = PhoneUtil.normalizePhone(phone);
+
+    if (!agreedToTerms || !agreedToPrivacy) {
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.REQUIRED_TERMS_NOT_AGREED);
+    }
+
+    const existing = await this.prisma.seller.findUnique({ where: { appleId } });
+    if (existing) {
+      if (!existing.isActive) {
+        throw new ForbiddenException(AUTH_ERROR_MESSAGES.ACCOUNT_INACTIVE);
+      }
+      throw new ConflictException(AUTH_ERROR_MESSAGES.APPLE_ID_ALREADY_EXISTS);
+    }
+
+    const isPhoneVerified = await this.authPhoneService.checkPhoneVerificationStatus(
+      normalizedPhone,
+      AUDIENCE.SELLER,
+      PhoneVerificationPurpose.APPLE_REGISTRATION,
+    );
+    if (!isPhoneVerified) {
+      throw new BadRequestException(AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED);
+    }
+
+    const existingPhone = await this.prisma.seller.findFirst({
+      where: { phone: normalizedPhone },
+    });
+    if (existingPhone && !existingPhone.isActive) {
+      throw new ForbiddenException(AUTH_ERROR_MESSAGES.ACCOUNT_INACTIVE);
+    }
+
+    const phoneConflict = phoneTakenConflict(existingPhone, ["google", "kakao", "apple", "naver"]);
+    if (phoneConflict) {
+      throw phoneConflict;
+    }
+
+    const result = await this.prisma
+      .$transaction(async (tx) => {
+        const now = new Date();
+        const row = await tx.seller.create({
+          data: {
+            appleId,
+            appleEmail,
+            phone: normalizedPhone,
+            name: trimmedName,
+            nickname: buildInitialNickname(),
+            isPhoneVerified: true,
+            ageConfirmedAt: agreedToAge14 === true ? now : null,
+            lastLoginAt: now,
+            sellerVerificationStatus: "REGISTERED",
+          },
+        });
+
+        await this.termsService.recordSellerAgreementsInTransaction(
+          tx,
+          row.id,
+          dto.termsDocumentIds ?? [],
+        );
+
+        const tokenPair = await this.jwtUtil.generateTokenPair({
+          sub: row.id,
+          aud: AUDIENCE.SELLER,
+        });
+        return {
+          accessToken: tokenPair.accessToken,
+          refreshToken: tokenPair.refreshToken,
+          sellerId: row.id,
+          createdAt: row.createdAt,
+        };
+      })
+      .catch((e: unknown) =>
+        rethrowRegisterUniqueConflict(e, AUTH_ERROR_MESSAGES.APPLE_ID_ALREADY_EXISTS),
+      );
+
+    // 새 사장님 가입을 운영자에게 바로 알린다(기획 I-56). 실패해도 가입은 그대로
+    void this.opsAlert.notifyNewSeller({
+      id: result.sellerId,
+      method: "APPLE",
+      createdAt: result.createdAt,
+    });
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken };
   }
 
   /**

@@ -1,5 +1,6 @@
-import { Controller, Post, Body, Get, HttpCode, HttpStatus, Request } from "@nestjs/common";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { Controller, Post, Body, Get, HttpCode, HttpStatus, Request, Res } from "@nestjs/common";
+import type { Response } from "express";
+import { ApiTags, ApiOperation, ApiConsumes } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { AuthService } from "@apps/backend/modules/auth/auth.service";
 import { FindAccountRequestDto } from "@apps/backend/modules/auth/dto/auth-find-account.dto";
@@ -16,6 +17,10 @@ import {
   NaverLoginRequestDto,
   NaverRegisterRequestDto,
 } from "@apps/backend/modules/auth/dto/auth-naver-oauth.dto";
+import {
+  AppleLoginRequestDto,
+  SellerAppleRegisterRequestDto,
+} from "@apps/backend/modules/auth/dto/auth-apple-oauth.dto";
 import {
   SendVerificationCodeRequestDto,
   VerifyPhoneCodeRequestDto,
@@ -185,13 +190,73 @@ export class SellerAuthController {
     return await this.authService.sellerNaverRegisterWithPhone(registerDto);
   }
 
+  @Post("apple/callback")
+  @HttpCode(HttpStatus.SEE_OTHER)
+  @ApiConsumes("application/x-www-form-urlencoded")
+  @ApiOperation({
+    summary: "애플 Return URL (판매자, 애플이 form_post로 부름)",
+    description:
+      "애플 로그인 화면이 이 주소로 code·state(·처음 한 번 user 이름)를 form_post로 보냅니다. 판매자 웹은 정적 앱이라 서버가 받아 판매자 웹 콜백(`PUBLIC_SELLER_DOMAIN` + `/auth/login/apple?code=&state=&appleName=`, 취소면 `?error=`)으로 303 보냅니다. 토큰 교환은 하지 않습니다(판매자 웹이 apple/login으로 code를 보낼 때 서버가 함). 애플 Services ID에 이 주소(상용·staging)가 Return URL로 등록돼 있어야 합니다.",
+  })
+  appleCallback(@Body() form: Record<string, unknown>, @Res() res: Response) {
+    // 본문은 애플이 정한 모양(code·state·user·id_token·error)이라 DTO 검사 없이 필요한 값만 꺼낸다
+    res.redirect(HttpStatus.SEE_OTHER, this.authService.sellerAppleCallbackRedirectUrl(form));
+  }
+
+  @Post("apple/login")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "애플 로그인 (판매자)",
+    description:
+      "apple/callback이 판매자 웹에 넘긴 Authorization Code로 애플 로그인을 처리합니다(토큰 교환 redirect_uri는 서버 Return URL). 응답에서 accessToken과 refreshToken을 반환합니다. 400 PHONE_VERIFICATION_REQUIRED일 때는 가입표 registerToken(30분, 서버가 확인한 애플 ID·이메일이 들어 있음)을 반환하며, 휴대폰 인증(apple_registration) 후 애플 회원가입 API에 registerToken을 보내 가입합니다.",
+  })
+  @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
+  @SwaggerResponse(400, {
+    dataExample: {
+      message: AUTH_ERROR_MESSAGES.PHONE_VERIFICATION_REQUIRED,
+      registerToken: SWAGGER_EXAMPLES.REGISTER_TOKEN,
+    },
+  })
+  @SwaggerResponse(400, {
+    dataExample: createMessageObject(AUTH_ERROR_MESSAGES.APPLE_OAUTH_TOKEN_EXCHANGE_FAILED),
+  })
+  @SwaggerResponse(403, {
+    dataExample: createMessageObject(AUTH_ERROR_MESSAGES.ACCOUNT_INACTIVE),
+  })
+  async appleAuth(@Body() authDto: AppleLoginRequestDto) {
+    return await this.authService.sellerAppleLoginWithCode(authDto);
+  }
+
+  @Post("apple/register")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: "애플 회원가입 (판매자, 휴대폰 인증 후)",
+    description:
+      "새로운 애플 사용자를 등록합니다. 로그인 응답의 가입표 registerToken(30분)으로만 가입합니다(지났거나 위조됐으면 400 REGISTER_TICKET_INVALID). 휴대폰 인증(apple_registration, audience seller)이 끝나 있어야 합니다. 같은 애플 계정이나 휴대폰 번호가 있으면 409.",
+  })
+  @SwaggerResponse(201, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
+  @SwaggerResponse(409, {
+    dataExample: {
+      message: AUTH_ERROR_MESSAGES.PHONE_GOOGLE_ACCOUNT_EXISTS,
+      name: "홍*동",
+      phone: "010-****-5678",
+    },
+  })
+  @SwaggerResponse(409, {
+    dataExample: createMessageObject(AUTH_ERROR_MESSAGES.APPLE_ID_ALREADY_EXISTS),
+  })
+  async appleRegisterWithPhone(@Body() registerDto: SellerAppleRegisterRequestDto) {
+    return await this.authService.sellerAppleRegisterWithPhone(registerDto);
+  }
+
   @Post("review-login")
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 3600000 } })
+  // 심사관은 아이폰·아이패드, 탈퇴 확인 뒤 다시 로그인처럼 같은 IP로 여러 번 들어온다(6자리 코드라 20번이어도 맞히기 어려움, 11-26)
+  @Throttle({ default: { limit: 20, ttl: 3600000 } })
   @ApiOperation({
     summary: "심사용 로그인 (판매자 앱 App Store/Play 스토어 심사 대응)",
     description:
-      "로그인 화면 로고를 2초 안에 10번 누르면 여는 창(SC-62)에서 부릅니다. 6자리 코드를 서버 환경값 `SELLER_REVIEW_LOGIN_CODE_SHA256`(코드의 SHA-256)과 비교하고, 값이 없으면 항상 401입니다. 맞으면 심사용 사장님 계정으로 로그인하고, 손님 목록에 보이지 않는 심사용 가게와 예시 상품을 없을 때 만들며, 상태별 예시 주문을 처음 상태로 되돌립니다. IP당 1시간에 5번까지.",
+      "로그인 화면 로고를 2초 안에 10번 누르면 여는 창(SC-62)에서 부릅니다. 6자리 코드를 서버 환경값 `SELLER_REVIEW_LOGIN_CODE_SHA256`(코드의 SHA-256)과 비교하고, 값이 없으면 항상 401입니다. 맞으면 심사용 사장님 계정으로 로그인하고, 손님 목록에 보이지 않는 심사용 가게와 예시 상품을 없을 때 만들며, 상태별 예시 주문을 처음 상태로 되돌립니다. IP당 1시간에 20번까지.",
   })
   @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(401, {

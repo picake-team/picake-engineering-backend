@@ -317,11 +317,12 @@ export class ConsumerAuthController {
 
   @Post("review-login")
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 3600000 } })
+  // 심사관은 아이폰·아이패드, 탈퇴 확인 뒤 다시 로그인처럼 같은 IP로 여러 번 들어온다(6자리 코드라 20번이어도 맞히기 어려움, 11-26)
+  @Throttle({ default: { limit: 20, ttl: 3600000 } })
   @ApiOperation({
     summary: "심사용 로그인 (구매자, App Store/Play 스토어 대응)",
     description:
-      "심사 대응용 임시 로그인 경로입니다. 코드는 서버에 하드코딩되어 있으며, 심사용 계정은 최초 호출 시 자동 생성됩니다.",
+      "심사 대응용 로그인 경로입니다. 6자리 코드를 서버 환경값 `CONSUMER_REVIEW_LOGIN_CODE_SHA256`(코드의 SHA-256)과 비교하고, 값이 없으면 항상 401입니다. 심사용 계정은 처음 부를 때 만들어지고, 탈퇴하면 다음 호출 때 새로 만들어집니다. IP당 1시간에 20번까지.",
   })
   @SwaggerResponse(200, { dataExample: SWAGGER_EXAMPLES.TOKEN_RESPONSE })
   @SwaggerResponse(401, {

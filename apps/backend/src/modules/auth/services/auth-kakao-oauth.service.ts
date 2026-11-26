@@ -420,7 +420,8 @@ export class AuthKakaoOauthService {
   }
 
   async consumerKakaoRegisterWithPhone(kakaoRegisterDto: KakaoRegisterRequestDto) {
-    const { name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = kakaoRegisterDto;
+    const { name, agreedToTerms, agreedToPrivacy, agreedToThirdParty, agreedToAge14 } =
+      kakaoRegisterDto;
     const ticket = await this.jwtUtil.verifyRegisterTicket(kakaoRegisterDto.registerToken, {
       aud: AUDIENCE.CONSUMER,
       provider: "kakao",
@@ -480,6 +481,7 @@ export class AuthKakaoOauthService {
             name: trimmedName,
             nickname: buildInitialNickname(),
             isPhoneVerified: true,
+            ageConfirmedAt: agreedToAge14 === true || kakaoTerms.age14 ? new Date() : null,
             lastLoginAt: now,
           },
         });
@@ -505,7 +507,7 @@ export class AuthKakaoOauthService {
   }
 
   async sellerKakaoRegisterWithPhone(kakaoRegisterDto: KakaoRegisterRequestDto) {
-    const { name, agreedToTerms, agreedToPrivacy } = kakaoRegisterDto;
+    const { name, agreedToTerms, agreedToPrivacy, agreedToAge14 } = kakaoRegisterDto;
     const ticket = await this.jwtUtil.verifyRegisterTicket(kakaoRegisterDto.registerToken, {
       aud: AUDIENCE.SELLER,
       provider: "kakao",
@@ -549,7 +551,7 @@ export class AuthKakaoOauthService {
     }
 
     // 이 번호로 이미 가입한 계정이 있으면 그 로그인 수단을 알린다(이름·번호·이메일은 가려서). 소셜 연결이 없는 계정이면 PHONE_ALREADY_EXISTS
-    const phoneConflict = phoneTakenConflict(existingPhone, ["kakao", "google", "naver"]);
+    const phoneConflict = phoneTakenConflict(existingPhone, ["kakao", "google", "apple", "naver"]);
     if (phoneConflict) {
       throw phoneConflict;
     }
@@ -565,6 +567,7 @@ export class AuthKakaoOauthService {
             name: trimmedName,
             nickname: buildInitialNickname(),
             isPhoneVerified: true,
+            ageConfirmedAt: agreedToAge14 === true || kakaoTerms.age14 ? new Date() : null,
             lastLoginAt: now,
             sellerVerificationStatus: "REGISTERED",
           },

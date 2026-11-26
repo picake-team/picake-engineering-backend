@@ -69,7 +69,7 @@ Picake 플랫폼을 위한 NestJS 백엔드 서비스입니다. 3-way 분리된 
 
 ### Seller API (`/v1/seller`)
 
-- **인증**: `/v1/seller/auth/*` - 판매자 로그인, 회원가입, Google/Kakao/Naver OAuth, 판매자 앱 심사용 로그인(`review-login`, I-48). 심사용 로그인은 코드를 서버 환경값 `SELLER_REVIEW_LOGIN_CODE_SHA256`(코드의 SHA-256, GitHub 비밀값)과 비교하고 값이 없으면 꺼진다. 들어오면 손님 목록에 보이지 않는 심사용 가게(`Store.businessNo` = `REVIEW-STORE`)와 예시 상품을 없을 때 만들고, 상태별 예시 주문 8건을 처음 상태로 되돌린다. 심사용 계정은 예시 주문이 있어도 탈퇴되고 그 가게는 지워진다
+- **인증**: `/v1/seller/auth/*` - 판매자 로그인, 회원가입, Google/Kakao/Naver/Apple OAuth, 판매자 앱 심사용 로그인(`review-login`, I-48). 애플(2026-11-26, 판매자 앱 App Store 4.8)은 판매자 웹이 정적 앱이라 Return URL이 서버 주소 `apple/callback`(상용 `https://api.picakes.com/v1/seller/auth/apple/callback`, 그 밖은 staging — 애플 Services ID에 등록돼 있어야 함)이다: 애플 form_post를 받아 code·state·이름만 판매자 웹 `/auth/login/apple`로 303 넘기고, 판매자 웹이 `apple/login`으로 code를 보내면 같은 redirect_uri로 토큰을 교환한다. 손님과 Services ID가 같아 같은 애플이면 appleId가 같고, 탈퇴 때 다른 쪽 계정이 남아 있으면 revoke하지 않는다. 심사용 로그인은 코드를 서버 환경값 `SELLER_REVIEW_LOGIN_CODE_SHA256`(코드의 SHA-256, GitHub 비밀값)과 비교하고 값이 없으면 꺼진다. 들어오면 손님 목록에 보이지 않는 심사용 가게(`Store.businessNo` = `REVIEW-STORE`)와 예시 상품을 없을 때 만들고, 상태별 예시 주문 8건을 처음 상태로 되돌린다. 심사용 계정은 예시 주문이 있어도 탈퇴되고 그 가게는 지워진다
 - **사업자**:
   - `/v1/seller/business/validate` - 사업자등록번호 진위확인 (POST)
   - `/v1/seller/business/online-trading-company/detail` - 통신판매사업자 등록상세 조회 (GET) — 스토어 만들기에서는 선택(동네 음식료 판매는 전자상거래법 제3조 ④로 통신판매업 신고 의무가 없어 받지 않을 수 있음, 2026-11 법 검토)

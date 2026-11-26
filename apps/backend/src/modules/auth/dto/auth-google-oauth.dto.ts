@@ -77,6 +77,16 @@ export class GoogleRegisterRequestDto {
   agreedToThirdParty?: boolean;
 
   @ApiProperty({
+    description:
+      "만 14세 이상 확인 (약관 제5조, 법무 LG-02). 1단계(2026-11-26): 보내면 가입 시각을 기록하고 없어도 막지 않는다 — 웹이 다 나간 뒤 필수로",
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  agreedToAge14?: boolean;
+
+  @ApiProperty({
     description: "위치기반서비스 이용약관 동의 여부 (구매자 선택, 판매자 미사용)",
     example: false,
     required: false,
