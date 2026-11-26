@@ -140,14 +140,14 @@ describe("카카오 한 번에 가입 도우미", () => {
         "picake_c_tos",
         "picake_c_privacy",
         "picake_c_third_party",
-        "picake_c_age14",
+        "user_age_check",
       ]);
       expect(r.age14).toBe(true);
       expect(r.types).not.toContain(null);
       expect(r.types).toHaveLength(3);
-      expect(resolveKakaoAgreedTerms(AUDIENCE.SELLER, ["picake_s_age14"]).age14).toBe(true);
-      // 다른 대상 태그는 섞이지 않는다
-      expect(resolveKakaoAgreedTerms(AUDIENCE.SELLER, ["picake_c_age14"]).age14).toBe(false);
+      // 카카오 전용 연령 동의는 태그 하나(user_age_check, 콘솔에서 고정)를 손님·사장님이 같이 쓴다
+      expect(resolveKakaoAgreedTerms(AUDIENCE.SELLER, ["user_age_check"]).age14).toBe(true);
+      expect(resolveKakaoAgreedTerms(AUDIENCE.SELLER, ["picake_s_tos"]).age14).toBe(false);
     });
 
     it("1단계: 만 14세 동의가 없어도 필수 약관을 다 동의했으면 가입은 그대로(웹이 다 나간 뒤 필수로)", () => {
