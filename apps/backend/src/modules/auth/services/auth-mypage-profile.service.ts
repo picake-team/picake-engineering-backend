@@ -42,19 +42,13 @@ export class AuthMypageProfileService {
    * 저장한 뒤에 불러야 이 계정 행을 참조로 세지 않는다. 우리 저장소에 올린 사진만 지우고(바깥 주소는 건너뜀),
    * 다른 곳이 같은 파일을 쓰면 남긴다. 실패해도 프로필 저장은 성공으로 둔다.
    */
-  private async deleteReplacedProfileImage(
-    before: string | null,
-    after: string | null,
-  ): Promise<void> {
+  private async deleteReplacedProfileImage(before: string | null, after: string | null): Promise<void> {
     if (!before || before === after) return;
     try {
       await this.uploadService.deleteFilesByUrl([before]);
     } catch (error) {
       LoggerUtil.log("옛 프로필 사진 지우기 실패(프로필 저장은 완료)");
-      SentryUtil.captureException(error, "warning", {
-        module: "auth-mypage-profile",
-        step: "old-image",
-      });
+      SentryUtil.captureException(error, "warning", { module: "auth-mypage-profile", step: "old-image" });
     }
   }
 

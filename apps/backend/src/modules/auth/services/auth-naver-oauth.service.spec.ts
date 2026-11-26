@@ -553,10 +553,7 @@ describe("AuthNaverOauthService.revoke — 탈퇴 때 네이버 연결 끊기", 
     const report = vi.spyOn(ExternalApiErrorUtil, "reportFailure");
     naverAnswers({ status: 200, data: { error: "invalid_request", error_description: "x" } });
     await expect(service.revoke("consumer", encrypt("plain-refresh"))).resolves.toBeUndefined();
-    naverAnswers({
-      status: 200,
-      data: "<!doctype html><html><title>현재 서비스 접속이 불가합니다.</title></html>",
-    });
+    naverAnswers({ status: 200, data: "<!doctype html><html><title>현재 서비스 접속이 불가합니다.</title></html>" });
     await expect(service.revoke("consumer", encrypt("plain-refresh"))).resolves.toBeUndefined();
 
     expect(report).toHaveBeenCalledTimes(2);

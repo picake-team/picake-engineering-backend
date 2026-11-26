@@ -94,9 +94,7 @@ describe("AuthWithdrawService.withdraw", () => {
       } as any);
       uploadMock.deleteFilesByUrl.mockRejectedValueOnce(new Error("db down"));
 
-      await expect(
-        service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유"),
-      ).resolves.toBeUndefined();
+      await expect(service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유")).resolves.toBeUndefined();
       expect(prismaMock.consumer.update).toHaveBeenCalled();
     });
 
