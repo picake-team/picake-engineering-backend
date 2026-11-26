@@ -432,7 +432,7 @@ export class AuthNaverOauthService {
     if (existingPhone && !existingPhone.isActive) {
       throw new ForbiddenException(AUTH_ERROR_MESSAGES.ACCOUNT_INACTIVE);
     }
-    const phoneConflict = phoneTakenConflict(existingPhone, ["naver", "kakao", "google"]);
+    const phoneConflict = phoneTakenConflict(existingPhone, ["naver", "kakao", "google", "apple"]);
     if (phoneConflict) {
       throw phoneConflict;
     }

@@ -7,7 +7,7 @@ import {
   maskLoginEmail,
 } from "@apps/backend/modules/auth/utils/display-name.util";
 
-/** 가입하려는 번호를 이미 쓰는 계정(손님·사장님 공용 — 사장님은 애플 칸이 없다) */
+/** 가입하려는 번호를 이미 쓰는 계정(손님·사장님 공용 — 사장님 애플은 2026-11-26부터) */
 export interface PhoneOwner {
   name: string | null;
   phone: string;

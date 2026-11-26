@@ -463,7 +463,7 @@ export class AuthGoogleOauthService {
     }
 
     // 이 번호로 이미 가입한 계정이 있으면 그 로그인 수단을 알린다(이름·번호·이메일은 가려서). 소셜 연결이 없는 계정이면 PHONE_ALREADY_EXISTS
-    const phoneConflict = phoneTakenConflict(existingPhone, ["google", "kakao", "naver"]);
+    const phoneConflict = phoneTakenConflict(existingPhone, ["google", "kakao", "apple", "naver"]);
     if (phoneConflict) {
       throw phoneConflict;
     }

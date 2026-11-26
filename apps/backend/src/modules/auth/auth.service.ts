@@ -25,6 +25,7 @@ import {
 import {
   AppleLoginRequestDto,
   AppleRegisterRequestDto,
+  SellerAppleRegisterRequestDto,
 } from "@apps/backend/modules/auth/dto/auth-apple-oauth.dto";
 import {
   SendVerificationCodeRequestDto,
@@ -145,7 +146,7 @@ export class AuthService {
   }
 
   /**
-   * 애플 — Authorization Code 로그인 (구매자, web-user 전용 — 판매자 미지원)
+   * 애플 — Authorization Code 로그인 (구매자)
    */
   async consumerAppleLoginWithCode(dto: AppleLoginRequestDto) {
     return this.authAppleOauthService.consumerAppleLoginWithCode(dto);
@@ -156,6 +157,27 @@ export class AuthService {
    */
   async consumerAppleRegisterWithPhone(dto: AppleRegisterRequestDto) {
     return this.authAppleOauthService.consumerAppleRegisterWithPhone(dto);
+  }
+
+  /**
+   * 애플 — Authorization Code 로그인 (판매자, 2026-11-26)
+   */
+  async sellerAppleLoginWithCode(dto: AppleLoginRequestDto) {
+    return this.authAppleOauthService.sellerAppleLoginWithCode(dto);
+  }
+
+  /**
+   * 애플 — 회원가입 (휴대폰 인증 완료 후, 판매자)
+   */
+  async sellerAppleRegisterWithPhone(dto: SellerAppleRegisterRequestDto) {
+    return this.authAppleOauthService.sellerAppleRegisterWithPhone(dto);
+  }
+
+  /**
+   * 애플 — 판매자 Return URL로 온 form_post를 판매자 웹 콜백 주소로
+   */
+  sellerAppleCallbackRedirectUrl(form: unknown): string {
+    return this.authAppleOauthService.sellerAppleCallbackRedirectUrl(form);
   }
 
   /**

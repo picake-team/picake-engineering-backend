@@ -462,6 +462,11 @@ model Seller {
   naverId           String? @unique @map("naver_id")
   /// 네이버 `refresh_token` (AES-256-GCM 암호화) — 탈퇴 때 연결 끊기용으로만 사용
   naverRefreshToken String? @map("naver_refresh_token")
+  /// 애플 로그인 사용자 ID(id_token `sub`, 판매자 앱 심사 4.8 — 2026-11-26). 손님과 같은 Services ID라 같은 애플 계정이면 손님 appleId와 같다
+  appleId           String? @unique @map("apple_id")
+  appleEmail        String? @map("apple_email")
+  /// Apple `refresh_token` (AES-256-GCM 암호화, `TokenEncryptionUtil`) — 탈퇴 때 `/auth/revoke`용으로만 사용
+  appleRefreshToken String? @map("apple_refresh_token")
 
   /// 판매자 온보딩·검증 단계 (스토어 생성 후 갱신)
   sellerVerificationStatus SellerVerificationStatus @default(REGISTERED) @map("seller_verification_status")
@@ -482,6 +487,7 @@ model Seller {
   @@index([googleId])
   @@index([kakaoId])
   @@index([naverId])
+  @@index([appleId])
   @@map("sellers")
 }
 

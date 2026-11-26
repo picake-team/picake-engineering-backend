@@ -6,6 +6,7 @@ import {
   IsArray,
   MinLength,
   MaxLength,
+  ArrayMaxSize,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
@@ -102,5 +103,69 @@ export class AppleRegisterRequestDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  termsDocumentIds?: string[];
+}
+
+/**
+ * 애플 연동 회원가입 요청 DTO (판매자, 2026-11-26 판매자 앱 심사 4.8) — 판매자 약관은 이용약관·처리방침 둘(제3자 제공·위치 없음)
+ */
+export class SellerAppleRegisterRequestDto {
+  @ApiProperty({
+    description: SWAGGER_DESCRIPTIONS.REGISTER_TOKEN,
+    example: SWAGGER_EXAMPLES.REGISTER_TOKEN,
+  })
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(4096)
+  registerToken: string;
+
+  @ApiProperty({
+    description: SWAGGER_DESCRIPTIONS.DISPLAY_NAME,
+    example: SWAGGER_EXAMPLES.SELLER_DATA.name,
+  })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(50)
+  name: string;
+
+  @ApiProperty({
+    description: SWAGGER_DESCRIPTIONS.PHONE,
+    example: SWAGGER_EXAMPLES.SELLER_DATA.phone,
+  })
+  @IsString()
+  @IsValidKoreanPhone()
+  phone: string;
+
+  @ApiProperty({ description: "판매자 서비스 이용약관 동의 여부 (필수)", example: true })
+  @IsBoolean()
+  agreedToTerms: boolean;
+
+  @ApiProperty({ description: "판매자 개인정보 처리방침 동의 여부 (필수)", example: true })
+  @IsBoolean()
+  agreedToPrivacy: boolean;
+
+  @ApiProperty({
+    description:
+      "만 14세 이상 확인 (판매자 약관 제5조, 법무 LG-02). 1단계(2026-11-26): 보내면 가입 시각을 기록하고 없어도 막지 않는다",
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  agreedToAge14?: boolean;
+
+  @ApiProperty({
+    description: "동의한 약관 문서 ID 목록 (버전 이력 기록용, 선택)",
+    example: ["clxxxxxx", "clyyyyyy"],
+    required: false,
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
   termsDocumentIds?: string[];
 }

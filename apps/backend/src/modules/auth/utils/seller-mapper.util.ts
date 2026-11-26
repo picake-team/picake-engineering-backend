@@ -24,6 +24,8 @@ export class SellerMapperUtil {
       kakaoId: seller.kakaoId ?? "",
       kakaoEmail: seller.kakaoEmail ?? "",
       naverId: seller.naverId ?? "",
+      appleId: seller.appleId ?? "",
+      appleEmail: seller.appleEmail ?? "",
       sellerVerificationStatus: seller.sellerVerificationStatus,
       createdAt: seller.createdAt,
       lastLoginAt: lastLoginAt ?? seller.lastLoginAt ?? new Date(),

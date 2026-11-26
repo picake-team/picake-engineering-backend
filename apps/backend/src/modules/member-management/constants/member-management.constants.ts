@@ -48,6 +48,7 @@ export const MEMBER_SELLER_SELECT = {
   withdrawnAt: true,
   googleEmail: true,
   kakaoEmail: true,
+  appleEmail: true,
   naverId: true,
   sellerVerificationStatus: true,
   createdAt: true,

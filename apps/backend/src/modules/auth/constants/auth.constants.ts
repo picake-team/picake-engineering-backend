@@ -150,6 +150,22 @@ export function getAppleRedirectBaseUrl(nodeEnv: string | undefined): string {
   return nodeEnv === "production" ? "https://picakes.com" : "https://staging.picakes.com";
 }
 
+/**
+ * 판매자 애플 로그인 Return URL(서버 주소, 2026-11-26 판매자 앱 심사 4.8).
+ * 판매자 웹은 Vite 정적 앱이라 애플이 form_post로 보내는 응답을 받을 서버 경로가 없다 → 서버가 받아
+ * `code`·`state`(+처음 한 번 오는 이름)만 판매자 웹 콜백(`PUBLIC_SELLER_DOMAIN` + `/auth/login/apple`)으로 넘긴다.
+ * 애플 Services ID(`com.product.picake.web`)에 이 주소 둘(상용·staging)이 등록돼 있어야 하고(계정 주인만 등록 가능),
+ * 로컬도 손님처럼 staging 주소를 쓴다(애플은 HTTPS 도메인만 받음 — 실제 처리는 staging 서버).
+ * 토큰 교환의 redirect_uri도 이 값이라 판매자 웹 `appleAuthorizeUrl`과 글자까지 같아야 한다.
+ */
+export const SELLER_APPLE_CALLBACK_PATH = "/v1/seller/auth/apple/callback";
+
+export function getSellerAppleRedirectUri(nodeEnv: string | undefined): string {
+  const base =
+    nodeEnv === "production" ? "https://api.picakes.com" : "https://api-staging.picakes.com";
+  return `${base}${SELLER_APPLE_CALLBACK_PATH}`;
+}
+
 /** 관리자 `Admin.password_hash` bcrypt cost — `AuthAdminService.register`·`prisma/seed` 동일 */
 export const ADMIN_BCRYPT_SALT_ROUNDS = 12;
 

@@ -175,6 +175,18 @@ export class ConsumerMypageProfileResponseDto extends MypageProfileBaseResponseD
  */
 export class SellerMypageProfileResponseDto extends MypageProfileBaseResponseDto {
   @ApiProperty({
+    example: SWAGGER_EXAMPLES.CONSUMER_DATA.appleId,
+    description: "애플 연동 ID (없으면 빈 값)",
+  })
+  appleId: string;
+
+  @ApiProperty({
+    example: SWAGGER_EXAMPLES.CONSUMER_DATA.appleEmail,
+    description: "애플 연동 이메일 (없으면 빈 값)",
+  })
+  appleEmail: string;
+
+  @ApiProperty({
     enum: SellerVerificationStatus,
     example: SWAGGER_EXAMPLES.SELLER_DATA.sellerVerificationStatus,
     description: "판매자 온보딩·사업자 검증 단계",
