@@ -338,7 +338,8 @@ export class AuthGoogleOauthService {
    * @throws ConflictException 이미 다른 구글과 연결된 번호 / 동일 번호 비구글 계정 / 이미 존재하는 googleId
    */
   async consumerGoogleRegisterWithPhone(googleRegisterDto: GoogleRegisterRequestDto) {
-    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = googleRegisterDto;
+    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty, agreedToAge14 } =
+      googleRegisterDto;
     const { providerId: googleId, email: googleEmail } = await this.jwtUtil.verifyRegisterTicket(
       googleRegisterDto.registerToken,
       { aud: AUDIENCE.CONSUMER, provider: "google" },
@@ -394,6 +395,7 @@ export class AuthGoogleOauthService {
             name: trimmedName,
             nickname: buildInitialNickname(),
             isPhoneVerified: true,
+            ageConfirmedAt: agreedToAge14 === true ? new Date() : null,
             lastLoginAt: now,
           },
         });
@@ -421,7 +423,7 @@ export class AuthGoogleOauthService {
    * @throws ConflictException 이미 다른 구글과 연결된 번호 / 동일 번호 비구글 계정 / 이미 존재하는 googleId
    */
   async sellerGoogleRegisterWithPhone(googleRegisterDto: GoogleRegisterRequestDto) {
-    const { phone, name, agreedToTerms, agreedToPrivacy } = googleRegisterDto;
+    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToAge14 } = googleRegisterDto;
     const { providerId: googleId, email: googleEmail } = await this.jwtUtil.verifyRegisterTicket(
       googleRegisterDto.registerToken,
       { aud: AUDIENCE.SELLER, provider: "google" },
@@ -477,6 +479,7 @@ export class AuthGoogleOauthService {
             name: trimmedName,
             nickname: buildInitialNickname(),
             isPhoneVerified: true,
+            ageConfirmedAt: agreedToAge14 === true ? new Date() : null,
             lastLoginAt: now,
             sellerVerificationStatus: "REGISTERED",
           },

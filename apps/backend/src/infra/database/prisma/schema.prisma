@@ -150,6 +150,8 @@ model Consumer {
 
   createdAt   DateTime  @default(now()) @map("created_at")
   lastLoginAt DateTime? @map("last_login_at")
+  /// 가입 때 "만 14세 이상" 확인한 시각(약관 제5조·개인정보보호법 제22조의2, 법무 LG-02). 11-26 전 가입자는 null
+  ageConfirmedAt DateTime? @map("age_confirmed_at")
 
   productLikes            ProductLike[]
   storeLikes              StoreLike[]
@@ -466,6 +468,8 @@ model Seller {
 
   createdAt   DateTime  @default(now()) @map("created_at")
   lastLoginAt DateTime? @map("last_login_at")
+  /// 가입 때 "만 14세 이상" 확인한 시각(판매자 약관 제5조, 법무 LG-02). 11-26 전 가입자는 null
+  ageConfirmedAt DateTime? @map("age_confirmed_at")
 
   stores                  Store[]
   sellerNotifications     UserNotification[]
