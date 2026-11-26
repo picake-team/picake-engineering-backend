@@ -420,7 +420,8 @@ export class AuthKakaoOauthService {
   }
 
   async consumerKakaoRegisterWithPhone(kakaoRegisterDto: KakaoRegisterRequestDto) {
-    const { name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = kakaoRegisterDto;
+    const { name, agreedToTerms, agreedToPrivacy, agreedToThirdParty, agreedToAge14 } =
+      kakaoRegisterDto;
     const ticket = await this.jwtUtil.verifyRegisterTicket(kakaoRegisterDto.registerToken, {
       aud: AUDIENCE.CONSUMER,
       provider: "kakao",
@@ -480,6 +481,7 @@ export class AuthKakaoOauthService {
             name: trimmedName,
             nickname: buildInitialNickname(),
             isPhoneVerified: true,
+            ageConfirmedAt: agreedToAge14 === true || kakaoTerms.age14 ? new Date() : null,
             lastLoginAt: now,
           },
         });
@@ -505,7 +507,7 @@ export class AuthKakaoOauthService {
   }
 
   async sellerKakaoRegisterWithPhone(kakaoRegisterDto: KakaoRegisterRequestDto) {
-    const { name, agreedToTerms, agreedToPrivacy } = kakaoRegisterDto;
+    const { name, agreedToTerms, agreedToPrivacy, agreedToAge14 } = kakaoRegisterDto;
     const ticket = await this.jwtUtil.verifyRegisterTicket(kakaoRegisterDto.registerToken, {
       aud: AUDIENCE.SELLER,
       provider: "kakao",
@@ -565,6 +567,7 @@ export class AuthKakaoOauthService {
             name: trimmedName,
             nickname: buildInitialNickname(),
             isPhoneVerified: true,
+            ageConfirmedAt: agreedToAge14 === true || kakaoTerms.age14 ? new Date() : null,
             lastLoginAt: now,
             sellerVerificationStatus: "REGISTERED",
           },

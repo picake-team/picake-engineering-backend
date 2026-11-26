@@ -112,6 +112,7 @@ describe("카카오 한 번에 가입 도우미", () => {
           "CONSUMER_THIRD_PARTY_CONSENT",
           "CONSUMER_LOCATION_TERMS",
         ],
+        age14: false,
       });
     });
 
@@ -129,8 +130,34 @@ describe("카카오 한 번에 가입 도우미", () => {
       ).toEqual({
         allRequired: true,
         types: ["SELLER_TERMS_OF_SERVICE", "SELLER_PRIVACY_POLICY"],
+        age14: false,
       });
       expect(resolveKakaoAgreedTerms(AUDIENCE.SELLER, ["picake_c_tos"]).allRequired).toBe(false);
+    });
+
+    it("만 14세 이상(문서 없는 항목)은 age14로만 알리고 약관 이력 종류에는 넣지 않는다(법무 LG-02)", () => {
+      const r = resolveKakaoAgreedTerms(AUDIENCE.CONSUMER, [
+        "picake_c_tos",
+        "picake_c_privacy",
+        "picake_c_third_party",
+        "user_age_check",
+      ]);
+      expect(r.age14).toBe(true);
+      expect(r.types).not.toContain(null);
+      expect(r.types).toHaveLength(3);
+      // 카카오 전용 연령 동의는 태그 하나(user_age_check, 콘솔에서 고정)를 손님·사장님이 같이 쓴다
+      expect(resolveKakaoAgreedTerms(AUDIENCE.SELLER, ["user_age_check"]).age14).toBe(true);
+      expect(resolveKakaoAgreedTerms(AUDIENCE.SELLER, ["picake_s_tos"]).age14).toBe(false);
+    });
+
+    it("1단계: 만 14세 동의가 없어도 필수 약관을 다 동의했으면 가입은 그대로(웹이 다 나간 뒤 필수로)", () => {
+      expect(
+        resolveKakaoAgreedTerms(AUDIENCE.CONSUMER, [
+          "picake_c_tos",
+          "picake_c_privacy",
+          "picake_c_third_party",
+        ]).allRequired,
+      ).toBe(true);
     });
   });
 });

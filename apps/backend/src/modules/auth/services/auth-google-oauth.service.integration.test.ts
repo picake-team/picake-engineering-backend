@@ -93,6 +93,19 @@ describe("AuthGoogleOauthService.consumerGoogleRegisterWithPhone (integration)",
     expect(saved?.googleEmail).toBe("test@example.com");
     expect(saved?.phone).toBe(dto.phone);
     expect(saved?.isPhoneVerified).toBe(true);
+    // 만 14세 이상 확인을 보내지 않으면(옛 화면) 막지 않고 비워 둔다(법무 LG-02 1단계)
+    expect(saved?.ageConfirmedAt).toBeNull();
+  });
+
+  it("만 14세 이상 확인을 보내면 가입 시각으로 기록한다(법무 LG-02)", async () => {
+    const prisma = getTestPrisma();
+    const service = buildService();
+    const { dto, googleId } = await buildDto({ agreedToAge14: true });
+    const before = Date.now();
+    await service.consumerGoogleRegisterWithPhone(dto);
+    const saved = await prisma.consumer.findUnique({ where: { googleId } });
+    expect(saved?.ageConfirmedAt).toBeInstanceOf(Date);
+    expect(saved!.ageConfirmedAt!.getTime()).toBeGreaterThanOrEqual(before - 1000);
   });
 
   it("같은 가입표로 동시에 두 번 가입 요청이 들어와도 DB에는 한 건만 남는다", async () => {

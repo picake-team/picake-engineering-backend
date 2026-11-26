@@ -74,14 +74,18 @@ export function filterKakaoTermsTags(aud: AudienceConst, tags: string[]): string
  * 가입표에 담긴 카카오 약관 동의로 가입할 수 있는지.
  * allRequired: 이 대상의 필수 약관에 모두 동의 → 가입 화면 약관 체크 없이 가입
  * types: 동의한 약관 종류(선택 약관 포함) → 지금 활성 버전으로 동의 이력 기록
+ * age14: 카카오에서 "만 14세 이상"(문서 없는 항목, type null)에 동의 → 계정 ageConfirmedAt
  */
 export function resolveKakaoAgreedTerms(
   aud: AudienceConst,
   tags: string[] | undefined,
-): { allRequired: boolean; types: TermsType[] } {
+): { allRequired: boolean; types: TermsType[]; age14: boolean } {
   const agreed = new Set(tags ?? []);
   const list = termsFor(aud);
   const allRequired = list.filter((t) => t.required).every((t) => agreed.has(t.tag));
-  const types = list.filter((t) => agreed.has(t.tag)).map((t) => t.type as TermsType);
-  return { allRequired, types };
+  const types = list
+    .filter((t) => agreed.has(t.tag) && t.type !== null)
+    .map((t) => t.type as TermsType);
+  const age14 = list.some((t) => t.type === null && agreed.has(t.tag));
+  return { allRequired, types, age14 };
 }

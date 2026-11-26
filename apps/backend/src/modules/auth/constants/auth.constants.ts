@@ -223,6 +223,9 @@ export const TOKEN_TYPES = {
  * 카카오 간편가입(카카오싱크, 기획 I-59 B) 약관 태그 — 카카오 콘솔 [카카오 로그인] > [간편가입]에 같은 태그로 등록한다.
  * 손님·사장님이 카카오 앱 하나를 같이 써서, 로그인 요청의 service_terms로 각자 약관만 보여 준다(웹 oauth-login-url).
  * type은 우리 약관 종류 — 동의하면 그 종류의 지금 활성 버전으로 동의 이력을 남긴다.
+ * type이 null인 "만 14세 이상"(법무 LG-02)은 약관 문서가 없어 동의 이력 대신 계정의 ageConfirmedAt에 남긴다.
+ * 카카오 콘솔의 전용 "만 14세 이상 연령 동의"라 태그가 user_age_check로 고정이고 손님·사장님이 같이 쓴다(앱에 하나, 만 14세 미만은 카카오가 간편가입을 막음).
+ * 1단계(2026-11-26)는 required: false — 웹·카카오 콘솔이 다 나가기 전에 서버가 먼저 필수로 바꾸면 웹이 약관 칸을 건너뛴 카카오 가입이 막힌다.
  */
 export const KAKAO_SERVICE_TERMS = {
   consumer: [
@@ -230,10 +233,12 @@ export const KAKAO_SERVICE_TERMS = {
     { tag: "picake_c_privacy", type: "CONSUMER_PRIVACY_POLICY", required: true },
     { tag: "picake_c_third_party", type: "CONSUMER_THIRD_PARTY_CONSENT", required: true },
     { tag: "picake_c_location", type: "CONSUMER_LOCATION_TERMS", required: false },
+    { tag: "user_age_check", type: null, required: false },
   ],
   seller: [
     { tag: "picake_s_tos", type: "SELLER_TERMS_OF_SERVICE", required: true },
     { tag: "picake_s_privacy", type: "SELLER_PRIVACY_POLICY", required: true },
+    { tag: "user_age_check", type: null, required: false },
   ],
 } as const;
 

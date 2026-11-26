@@ -317,7 +317,7 @@ export class AuthNaverOauthService {
   }
 
   async consumerNaverRegisterWithPhone(dto: NaverRegisterRequestDto) {
-    const { name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = dto;
+    const { name, agreedToTerms, agreedToPrivacy, agreedToThirdParty, agreedToAge14 } = dto;
     const ticket = await this.jwtUtil.verifyRegisterTicket(dto.registerToken, {
       aud: AUDIENCE.CONSUMER,
       provider: "naver",
@@ -372,6 +372,7 @@ export class AuthNaverOauthService {
             name: trimmedName,
             nickname: buildInitialNickname(),
             isPhoneVerified: true,
+            ageConfirmedAt: agreedToAge14 === true ? new Date() : null,
             lastLoginAt: new Date(),
           },
         });
@@ -393,7 +394,7 @@ export class AuthNaverOauthService {
   }
 
   async sellerNaverRegisterWithPhone(dto: NaverRegisterRequestDto) {
-    const { name, agreedToTerms, agreedToPrivacy } = dto;
+    const { name, agreedToTerms, agreedToPrivacy, agreedToAge14 } = dto;
     const ticket = await this.jwtUtil.verifyRegisterTicket(dto.registerToken, {
       aud: AUDIENCE.SELLER,
       provider: "naver",
@@ -446,6 +447,7 @@ export class AuthNaverOauthService {
             name: trimmedName,
             nickname: buildInitialNickname(),
             isPhoneVerified: true,
+            ageConfirmedAt: agreedToAge14 === true ? new Date() : null,
             lastLoginAt: new Date(),
             sellerVerificationStatus: "REGISTERED",
           },

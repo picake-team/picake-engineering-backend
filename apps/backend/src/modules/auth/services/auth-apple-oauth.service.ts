@@ -299,7 +299,8 @@ export class AuthAppleOauthService {
    * @throws ConflictException 이미 다른 애플과 연결된 번호 / 동일 번호 비애플 계정 / 이미 존재하는 appleId
    */
   async consumerAppleRegisterWithPhone(appleRegisterDto: AppleRegisterRequestDto) {
-    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty } = appleRegisterDto;
+    const { phone, name, agreedToTerms, agreedToPrivacy, agreedToThirdParty, agreedToAge14 } =
+      appleRegisterDto;
     const { providerId: appleId, email: appleEmail } = await this.jwtUtil.verifyRegisterTicket(
       appleRegisterDto.registerToken,
       { aud: AUDIENCE.CONSUMER, provider: "apple" },
@@ -352,6 +353,7 @@ export class AuthAppleOauthService {
             name: trimmedName,
             nickname: buildInitialNickname(),
             isPhoneVerified: true,
+            ageConfirmedAt: agreedToAge14 === true ? new Date() : null,
             lastLoginAt: now,
           },
         });
