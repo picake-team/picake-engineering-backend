@@ -66,6 +66,7 @@ export class AuthWithdrawService {
           withdrawnAt: true,
           profileImageUrl: true,
           appleRefreshToken: true,
+          appleId: true,
           kakaoId: true,
           naverId: true,
           naverRefreshToken: true,
@@ -95,7 +96,7 @@ export class AuthWithdrawService {
         where: { id: accountId },
         data: {
           ...this.buildAnonymizedWithdrawalData(accountId, reason),
-          // Apple 필드는 Consumer 전용(Seller는 미지원)이라 공용 빌더에 넣지 않고 여기서만 null 처리
+          // Apple 필드는 공용 빌더에 넣지 않고 손님·사장님 분기에서 각각 null 처리(사장님은 2026-11-26부터 있음)
           appleId: null,
           appleEmail: null,
           appleRefreshToken: null,
@@ -108,7 +109,11 @@ export class AuthWithdrawService {
       // 바깥 연결 끊기는 탈퇴 처리를 마친 뒤(읽어 둔 값으로). 무엇이 실패해도 탈퇴는 끝난 상태로 둔다.
       await this.afterWithdrawal(AUDIENCE.CONSUMER, async () => {
         // Apple 가이드라인 5.1.1(v) — 계정 삭제 시 Sign in with Apple 인가를 revoke.
-        if (row.appleRefreshToken) {
+        // 같은 애플로 가입한 사장님 계정이 있으면 하지 않는다(Services ID 하나를 같이 써서 사장님 쪽 인가도 같이 끊긴다)
+        if (
+          row.appleRefreshToken &&
+          !(row.appleId && (await this.hasOtherRoleWithAppleId(AUDIENCE.SELLER, row.appleId)))
+        ) {
           await this.authAppleOauthService.revokeToken(row.appleRefreshToken);
         }
         // 카카오 연결 끊기 — 카카오에 남은 동의가 없어져 다시 가입할 때 동의부터 새로 받는다.
@@ -135,6 +140,8 @@ export class AuthWithdrawService {
           kakaoId: true,
           naverId: true,
           naverRefreshToken: true,
+          appleId: true,
+          appleRefreshToken: true,
         },
       });
       if (!row) {
@@ -157,7 +164,12 @@ export class AuthWithdrawService {
       }
       await this.prisma.seller.update({
         where: { id: accountId },
-        data: this.buildAnonymizedWithdrawalData(accountId, reason),
+        data: {
+          ...this.buildAnonymizedWithdrawalData(accountId, reason),
+          appleId: null,
+          appleEmail: null,
+          appleRefreshToken: null,
+        },
       });
       // 탈퇴한 판매자의 휴대폰으로 더 이상 푸시가 가지 않게 판매자 앱 토큰을 지움
       await this.prisma.sellerFcmToken.deleteMany({ where: { sellerId: accountId } });
@@ -178,6 +190,13 @@ export class AuthWithdrawService {
         // 네이버 연결 끊기. 같은 네이버로 가입한 손님 계정이 있으면 끊지 않는다
         if (row.naverId && !(await this.hasOtherRoleWithNaverId(AUDIENCE.CONSUMER, row.naverId))) {
           await this.authNaverOauthService.revoke(AUDIENCE.SELLER, row.naverRefreshToken);
+        }
+        // 애플 인가 revoke(5.1.1(v)). 같은 애플로 가입한 손님 계정이 있으면 하지 않는다
+        if (
+          row.appleRefreshToken &&
+          !(row.appleId && (await this.hasOtherRoleWithAppleId(AUDIENCE.CONSUMER, row.appleId)))
+        ) {
+          await this.authAppleOauthService.revokeToken(row.appleRefreshToken);
         }
       });
       return;
@@ -252,6 +271,18 @@ export class AuthWithdrawService {
         `카카오 연결 끊기 건너뜀: 같은 카카오로 가입한 다른 역할 계정이 있음(${other})`,
       );
     }
+    return Boolean(found);
+  }
+
+  /** 같은 애플 계정으로 가입한 다른 역할 계정이 있는지(손님·사장님이 Services ID 하나를 같이 써서 appleId가 같다) */
+  private async hasOtherRoleWithAppleId(
+    other: typeof AUDIENCE.CONSUMER | typeof AUDIENCE.SELLER,
+    appleId: string,
+  ): Promise<boolean> {
+    const found =
+      other === AUDIENCE.SELLER
+        ? await this.prisma.seller.findFirst({ where: { appleId }, select: { id: true } })
+        : await this.prisma.consumer.findFirst({ where: { appleId }, select: { id: true } });
     return Boolean(found);
   }
 

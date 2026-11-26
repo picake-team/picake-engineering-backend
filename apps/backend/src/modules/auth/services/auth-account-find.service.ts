@@ -100,6 +100,8 @@ export class AuthAccountFindService {
         googleEmail: true,
         kakaoId: true,
         kakaoEmail: true,
+        appleId: true,
+        appleEmail: true,
         naverId: true,
       },
     });
@@ -121,6 +123,13 @@ export class AuthAccountFindService {
         loginType: "google",
         loginId: row.googleId,
         loginEmail: row.googleEmail ?? null,
+      };
+    }
+    if (row.appleId) {
+      return {
+        loginType: "apple",
+        loginId: row.appleId,
+        loginEmail: row.appleEmail ?? null,
       };
     }
     if (row.naverId) {

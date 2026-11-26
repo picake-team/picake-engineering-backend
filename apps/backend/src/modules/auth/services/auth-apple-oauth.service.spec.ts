@@ -12,6 +12,7 @@ import { AUTH_ERROR_MESSAGES } from "@apps/backend/modules/auth/constants/auth.c
 import { AuthPhoneService } from "@apps/backend/modules/auth/services/auth-phone.service";
 import { JwtUtil } from "@apps/backend/modules/auth/utils/jwt.util";
 import { TermsService } from "@apps/backend/modules/terms/terms.service";
+import { OpsAlertService } from "@apps/backend/modules/ops-alert/ops-alert.service";
 
 import { AuthAppleOauthService } from "./auth-apple-oauth.service";
 import { Prisma } from "@apps/backend/infra/database/prisma/generated/client";
@@ -56,6 +57,7 @@ describe("AuthAppleOauthService.consumerAppleLoginWithCode", () => {
           APPLE_PRIVATE_KEY: "fake-private-key",
           APPLE_CLIENT_ID: "apple-client-id",
           NODE_ENV: "development",
+          PUBLIC_SELLER_DOMAIN: "https://seller.example.test",
         };
         return values[key];
       }) as any,
@@ -70,6 +72,7 @@ describe("AuthAppleOauthService.consumerAppleLoginWithCode", () => {
         { provide: AuthPhoneService, useValue: {} },
         { provide: TermsService, useValue: {} },
         { provide: TokenEncryptionUtil, useValue: tokenEncryptionUtilMock },
+        { provide: OpsAlertService, useValue: { notifyNewSeller: vi.fn() } },
       ],
     }).compile();
 
@@ -243,6 +246,7 @@ describe("AuthAppleOauthService.consumerAppleRegisterWithPhone — 번호 중복
         },
         { provide: TermsService, useValue: {} },
         { provide: TokenEncryptionUtil, useValue: {} },
+        { provide: OpsAlertService, useValue: { notifyNewSeller: vi.fn() } },
       ],
     }).compile();
     service = moduleRef.get(AuthAppleOauthService);
@@ -280,5 +284,217 @@ describe("AuthAppleOauthService.consumerAppleRegisterWithPhone — 번호 중복
     await expect(service.consumerAppleRegisterWithPhone(dto)).rejects.toThrow(
       new ConflictException(AUTH_ERROR_MESSAGES.APPLE_ID_ALREADY_EXISTS),
     );
+  });
+});
+
+describe("AuthAppleOauthService — 판매자(2026-11-26, 판매자 앱 심사 4.8)", () => {
+  const httpClientMock = { post: vi.fn(), get: vi.fn() };
+  const prismaMock = mockDeep<PrismaService>();
+  const jwtUtilMock = {
+    generateTokenPair: vi.fn(),
+    generateRegisterTicket: vi.fn(),
+    verifyRegisterTicket: vi.fn(),
+  };
+  const opsAlertMock = { notifyNewSeller: vi.fn() };
+  const termsMock = { recordSellerAgreementsInTransaction: vi.fn() };
+  const phoneMock = { checkPhoneVerificationStatus: vi.fn() };
+  let service: AuthAppleOauthService;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.mocked(axios.create).mockReturnValue(httpClientMock as any);
+    prismaMock.$transaction.mockImplementation((fn: any) => fn(prismaMock));
+    jwtUtilMock.generateRegisterTicket.mockResolvedValue("seller-register-ticket");
+    jwtUtilMock.generateTokenPair.mockResolvedValue({
+      accessToken: "seller-access",
+      refreshToken: "seller-refresh",
+    });
+    jwtUtilMock.verifyRegisterTicket.mockResolvedValue({
+      providerId: "apple-seller-1",
+      email: "s@privaterelay.appleid.com",
+    });
+    phoneMock.checkPhoneVerificationStatus.mockResolvedValue(true);
+    const values: Record<string, string> = {
+      APPLE_TEAM_ID: "team-id",
+      APPLE_KEY_ID: "key-id",
+      APPLE_PRIVATE_KEY: "fake-private-key",
+      APPLE_CLIENT_ID: "apple-client-id",
+      NODE_ENV: "production",
+      PUBLIC_SELLER_DOMAIN: "https://seller.example.test",
+    };
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        AuthAppleOauthService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: JwtUtil, useValue: jwtUtilMock },
+        { provide: ConfigService, useValue: { get: vi.fn((k: string) => values[k]) } },
+        { provide: AuthPhoneService, useValue: phoneMock },
+        { provide: TermsService, useValue: termsMock },
+        {
+          provide: TokenEncryptionUtil,
+          useValue: { encrypt: vi.fn((p: string) => `enc:${p}`), decrypt: vi.fn() },
+        },
+        { provide: OpsAlertService, useValue: opsAlertMock },
+      ],
+    }).compile();
+    service = moduleRef.get(AuthAppleOauthService);
+  });
+
+  function mockTokenExchange() {
+    httpClientMock.post.mockResolvedValue({
+      data: { id_token: "id-token", refresh_token: "apple-refresh" },
+      status: 200,
+    });
+    vi.mocked(jwt.verify).mockImplementation((_t: any, _k: any, _o: any, cb: any) =>
+      cb(null, { sub: "apple-seller-1", email: "s@privaterelay.appleid.com" }),
+    );
+  }
+
+  it("토큰 교환 redirect_uri는 서버 Return URL(상용 api.picakes.com)이다 — 판매자 웹 authorize 주소와 같아야 함", async () => {
+    mockTokenExchange();
+    prismaMock.seller.findUnique.mockResolvedValue({
+      id: "seller-1",
+      isActive: true,
+      phone: "01011112222",
+      isPhoneVerified: true,
+    } as any);
+
+    const result = await service.sellerAppleLoginWithCode({ code: "c" });
+
+    expect(result).toEqual({ accessToken: "seller-access", refreshToken: "seller-refresh" });
+    const body = httpClientMock.post.mock.calls[0][1] as URLSearchParams;
+    expect(body.get("redirect_uri")).toBe("https://api.picakes.com/v1/seller/auth/apple/callback");
+    expect(jwtUtilMock.generateTokenPair).toHaveBeenCalledWith({ sub: "seller-1", aud: "seller" });
+    expect(prismaMock.seller.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "seller-1" },
+        data: expect.objectContaining({ appleRefreshToken: "enc:apple-refresh" }),
+      }),
+    );
+    expect(prismaMock.consumer.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("가입 안 한 애플이면 사장님용(aud seller) 가입표로 휴대폰 인증을 요구한다", async () => {
+    mockTokenExchange();
+    prismaMock.seller.findUnique.mockResolvedValue(null);
+
+    await expect(service.sellerAppleLoginWithCode({ code: "c" })).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(jwtUtilMock.generateRegisterTicket).toHaveBeenCalledWith({
+      aud: "seller",
+      provider: "apple",
+      providerId: "apple-seller-1",
+      email: "s@privaterelay.appleid.com",
+    });
+  });
+
+  it("비활성 사장님은 로그인이 막힌다", async () => {
+    mockTokenExchange();
+    prismaMock.seller.findUnique.mockResolvedValue({ id: "s", isActive: false } as any);
+    await expect(service.sellerAppleLoginWithCode({ code: "c" })).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  const registerDto = {
+    registerToken: "t",
+    name: " 김사장 ",
+    phone: "01033334444",
+    agreedToTerms: true,
+    agreedToPrivacy: true,
+    agreedToAge14: true,
+    termsDocumentIds: ["doc-tos", "doc-privacy"],
+  };
+
+  it("가입: 판매자 가입표·apple_registration(seller) 인증으로 만들고 만 14세 시각·약관·새 사장님 알림을 남긴다", async () => {
+    prismaMock.seller.findUnique.mockResolvedValue(null);
+    prismaMock.seller.findFirst.mockResolvedValue(null);
+    prismaMock.seller.create.mockResolvedValue({
+      id: "new-seller",
+      createdAt: new Date("2026-11-26T00:00:00Z"),
+    } as any);
+
+    const result = await service.sellerAppleRegisterWithPhone(registerDto);
+
+    expect(result).toEqual({ accessToken: "seller-access", refreshToken: "seller-refresh" });
+    expect(jwtUtilMock.verifyRegisterTicket).toHaveBeenCalledWith("t", {
+      aud: "seller",
+      provider: "apple",
+    });
+    expect(phoneMock.checkPhoneVerificationStatus).toHaveBeenCalledWith(
+      "01033334444",
+      "seller",
+      "apple_registration",
+    );
+    const data = prismaMock.seller.create.mock.calls[0][0].data as Record<string, unknown>;
+    expect(data).toMatchObject({
+      appleId: "apple-seller-1",
+      appleEmail: "s@privaterelay.appleid.com",
+      name: "김사장",
+      phone: "01033334444",
+      isPhoneVerified: true,
+      sellerVerificationStatus: "REGISTERED",
+    });
+    expect(data.ageConfirmedAt).toBeInstanceOf(Date);
+    expect(termsMock.recordSellerAgreementsInTransaction).toHaveBeenCalledWith(
+      prismaMock,
+      "new-seller",
+      ["doc-tos", "doc-privacy"],
+    );
+    expect(opsAlertMock.notifyNewSeller).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "new-seller", method: "APPLE" }),
+    );
+  });
+
+  it("가입: 만 14세 확인을 안 보내면(1단계) 막지 않고 빈 값으로 둔다", async () => {
+    prismaMock.seller.findUnique.mockResolvedValue(null);
+    prismaMock.seller.findFirst.mockResolvedValue(null);
+    prismaMock.seller.create.mockResolvedValue({ id: "s2", createdAt: new Date() } as any);
+    await service.sellerAppleRegisterWithPhone({ ...registerDto, agreedToAge14: undefined });
+    expect(prismaMock.seller.create.mock.calls[0][0].data).toMatchObject({ ageConfirmedAt: null });
+  });
+
+  it("가입: 필수 약관을 안 했으면 400", async () => {
+    await expect(
+      service.sellerAppleRegisterWithPhone({ ...registerDto, agreedToPrivacy: false }),
+    ).rejects.toThrow(new BadRequestException(AUTH_ERROR_MESSAGES.REQUIRED_TERMS_NOT_AGREED));
+  });
+
+  it("가입: 같은 번호의 카카오 사장님이 있으면 그 수단을 알리는 409", async () => {
+    prismaMock.seller.findUnique.mockResolvedValue(null);
+    prismaMock.seller.findFirst.mockResolvedValue({
+      isActive: true,
+      phone: "01033334444",
+      name: "김사장",
+      kakaoId: "k1",
+      kakaoEmail: "k@example.com",
+    } as any);
+    await expect(service.sellerAppleRegisterWithPhone(registerDto)).rejects.toThrow(
+      ConflictException,
+    );
+    expect(prismaMock.seller.create).not.toHaveBeenCalled();
+  });
+
+  it("가입: 이미 그 애플로 가입한 사장님이면 409", async () => {
+    prismaMock.seller.findUnique.mockResolvedValue({ id: "s", isActive: true } as any);
+    await expect(service.sellerAppleRegisterWithPhone(registerDto)).rejects.toThrow(
+      new ConflictException(AUTH_ERROR_MESSAGES.APPLE_ID_ALREADY_EXISTS),
+    );
+  });
+
+  it("콜백: 애플 form_post를 판매자 웹 콜백 주소로 바꾼다(돌아갈 곳은 서버 설정 하나)", () => {
+    const url = new URL(
+      service.sellerAppleCallbackRedirectUrl({
+        code: "abc",
+        state: "s1",
+        user: JSON.stringify({ name: { firstName: "길동", lastName: "홍" } }),
+      }),
+    );
+    expect(url.origin).toBe("https://seller.example.test");
+    expect(url.pathname).toBe("/auth/login/apple");
+    expect(url.searchParams.get("code")).toBe("abc");
+    expect(url.searchParams.get("state")).toBe("s1");
+    expect(url.searchParams.get("appleName")).toBe("홍길동");
   });
 });

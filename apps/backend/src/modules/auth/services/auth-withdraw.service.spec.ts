@@ -94,7 +94,9 @@ describe("AuthWithdrawService.withdraw", () => {
       } as any);
       uploadMock.deleteFilesByUrl.mockRejectedValueOnce(new Error("db down"));
 
-      await expect(service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유")).resolves.toBeUndefined();
+      await expect(
+        service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유"),
+      ).resolves.toBeUndefined();
       expect(prismaMock.consumer.update).toHaveBeenCalled();
     });
 
@@ -547,6 +549,70 @@ describe("AuthWithdrawService.withdraw", () => {
       await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
 
       expect(authNaverOauthServiceMock.revoke).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("애플 인가 해지(손님·사장님이 Services ID 하나를 같이 씀, 2026-11-26)", () => {
+    it("애플로 가입한 사장님은 탈퇴를 마친 뒤 저장한 갱신 토큰으로 해지하고 애플 칸을 비운다", async () => {
+      prismaMock.seller.findUnique.mockResolvedValue({
+        id: "seller-1",
+        withdrawnAt: null,
+        appleId: "apple-1",
+        appleRefreshToken: "enc-seller-apple",
+      } as any);
+      prismaMock.consumer.findFirst.mockResolvedValue(null);
+
+      await service.withdraw(AUDIENCE.SELLER, "seller-1", "탈퇴 사유");
+
+      expect(prismaMock.seller.update).toHaveBeenCalledWith({
+        where: { id: "seller-1" },
+        data: expect.objectContaining({ appleId: null, appleEmail: null, appleRefreshToken: null }),
+      });
+      expect(authAppleOauthServiceMock.revokeToken).toHaveBeenCalledWith("enc-seller-apple");
+    });
+
+    it("같은 애플로 가입한 손님 계정이 있으면 사장님이 탈퇴해도 해지하지 않는다", async () => {
+      prismaMock.seller.findUnique.mockResolvedValue({
+        id: "seller-1",
+        withdrawnAt: null,
+        appleId: "apple-1",
+        appleRefreshToken: "enc-seller-apple",
+      } as any);
+      prismaMock.consumer.findFirst.mockResolvedValue({ id: "consumer-9" } as any);
+
+      await service.withdraw(AUDIENCE.SELLER, "seller-1", "탈퇴 사유");
+
+      expect(prismaMock.seller.update).toHaveBeenCalled();
+      expect(authAppleOauthServiceMock.revokeToken).not.toHaveBeenCalled();
+    });
+
+    it("같은 애플로 가입한 사장님 계정이 있으면 손님이 탈퇴해도 해지하지 않는다", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleId: "apple-1",
+        appleRefreshToken: "enc-consumer-apple",
+      } as any);
+      prismaMock.seller.findFirst.mockResolvedValue({ id: "seller-9" } as any);
+
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
+
+      expect(prismaMock.consumer.update).toHaveBeenCalled();
+      expect(authAppleOauthServiceMock.revokeToken).not.toHaveBeenCalled();
+    });
+
+    it("다른 역할 계정이 없으면 손님 탈퇴 때 지금처럼 해지한다", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        withdrawnAt: null,
+        appleId: "apple-1",
+        appleRefreshToken: "enc-consumer-apple",
+      } as any);
+      prismaMock.seller.findFirst.mockResolvedValue(null);
+
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유");
+
+      expect(authAppleOauthServiceMock.revokeToken).toHaveBeenCalledWith("enc-consumer-apple");
     });
   });
 });

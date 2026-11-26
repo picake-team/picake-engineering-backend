@@ -301,6 +301,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         phone: true,
         googleId: true,
         kakaoId: true,
+        appleId: true,
         naverId: true,
         isActive: true,
         sellerVerificationStatus: true,
@@ -317,10 +318,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const loginType = s.kakaoId
       ? ("kakao" as const)
-      : s.naverId
-        ? ("naver" as const)
-        : ("google" as const);
-    const loginId = s.kakaoId ?? s.naverId ?? s.googleId ?? "";
+      : s.appleId
+        ? ("apple" as const)
+        : s.naverId
+          ? ("naver" as const)
+          : ("google" as const);
+    const loginId = s.kakaoId ?? s.appleId ?? s.naverId ?? s.googleId ?? "";
 
     return {
       ...payload,
