@@ -7,8 +7,13 @@ import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import {
   AUDIENCE,
   AUTH_ERROR_MESSAGES,
+  REVIEW_LOGIN_ACCOUNT_PHONE_MARKER,
   SELLER_REVIEW_ACCOUNT_PHONE_MARKER,
 } from "@apps/backend/modules/auth/constants/auth.constants";
+import {
+  ORDER_STATUSES_BLOCKING_ACCOUNT_WITHDRAWAL,
+  OrderStatus,
+} from "@apps/backend/modules/order/constants/order.constants";
 import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
 import { AuthKakaoOauthService } from "@apps/backend/modules/auth/services/auth-kakao-oauth.service";
@@ -94,7 +99,9 @@ describe("AuthWithdrawService.withdraw", () => {
       } as any);
       uploadMock.deleteFilesByUrl.mockRejectedValueOnce(new Error("db down"));
 
-      await expect(service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유")).resolves.toBeUndefined();
+      await expect(
+        service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유"),
+      ).resolves.toBeUndefined();
       expect(prismaMock.consumer.update).toHaveBeenCalled();
     });
 
@@ -167,6 +174,43 @@ describe("AuthWithdrawService.withdraw", () => {
         new BadRequestException(AUTH_ERROR_MESSAGES.WITHDRAW_BLOCKED_ACTIVE_ORDERS),
       );
       expect(prismaMock.consumer.update).not.toHaveBeenCalled();
+    });
+
+    it("손님 앱 심사용 계정은 진행 중 예약이 있어도 탈퇴하고 그 예약을 취소로 돌린다(App Store 5.1.1(v))", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-review",
+        phone: REVIEW_LOGIN_ACCOUNT_PHONE_MARKER,
+        withdrawnAt: null,
+        appleRefreshToken: null,
+      } as any);
+      prismaMock.order.count.mockResolvedValue(2);
+
+      await service.withdraw(AUDIENCE.CONSUMER, "consumer-review", "심사 확인");
+
+      expect(prismaMock.order.count).not.toHaveBeenCalled();
+      expect(prismaMock.order.updateMany).toHaveBeenCalledWith({
+        where: {
+          consumerId: "consumer-review",
+          orderStatus: { in: ORDER_STATUSES_BLOCKING_ACCOUNT_WITHDRAWAL },
+        },
+        data: expect.objectContaining({ orderStatus: OrderStatus.CANCEL_COMPLETED }),
+      });
+      expect(prismaMock.consumer.update).toHaveBeenCalled();
+    });
+
+    it("일반 손님은 진행 중 예약을 건드리지 않고 탈퇴를 막는다", async () => {
+      prismaMock.consumer.findUnique.mockResolvedValue({
+        id: "consumer-1",
+        phone: "01012345678",
+        withdrawnAt: null,
+        appleRefreshToken: null,
+      } as any);
+      prismaMock.order.count.mockResolvedValue(1);
+
+      await expect(service.withdraw(AUDIENCE.CONSUMER, "consumer-1", "탈퇴 사유")).rejects.toThrow(
+        new BadRequestException(AUTH_ERROR_MESSAGES.WITHDRAW_BLOCKED_ACTIVE_ORDERS),
+      );
+      expect(prismaMock.order.updateMany).not.toHaveBeenCalled();
     });
 
     it("정상 탈퇴 시 식별 정보를 파기하고 phone을 재사용 불가능한 값으로 치환한다", async () => {
