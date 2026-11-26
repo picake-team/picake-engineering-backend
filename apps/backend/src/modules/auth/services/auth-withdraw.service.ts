@@ -6,10 +6,14 @@ import {
   AUTH_ERROR_MESSAGES,
   AudienceConst,
   AUDIENCE,
+  REVIEW_LOGIN_ACCOUNT_PHONE_MARKER,
   SELLER_REVIEW_ACCOUNT_PHONE_MARKER,
 } from "@apps/backend/modules/auth/constants/auth.constants";
 import { REVIEW_STORE_BUSINESS_NO } from "@apps/backend/modules/store/constants/store.constants";
-import { ORDER_STATUSES_BLOCKING_ACCOUNT_WITHDRAWAL } from "@apps/backend/modules/order/constants/order.constants";
+import {
+  ORDER_STATUSES_BLOCKING_ACCOUNT_WITHDRAWAL,
+  OrderStatus,
+} from "@apps/backend/modules/order/constants/order.constants";
 import { AuthAppleOauthService } from "@apps/backend/modules/auth/services/auth-apple-oauth.service";
 import { AuthKakaoOauthService } from "@apps/backend/modules/auth/services/auth-kakao-oauth.service";
 import { AuthNaverOauthService } from "@apps/backend/modules/auth/services/auth-naver-oauth.service";
@@ -63,6 +67,7 @@ export class AuthWithdrawService {
         where: { id: accountId },
         select: {
           id: true,
+          phone: true,
           withdrawnAt: true,
           profileImageUrl: true,
           appleRefreshToken: true,
@@ -79,7 +84,23 @@ export class AuthWithdrawService {
         throw new NotFoundException(AUTH_ERROR_MESSAGES.USER_NOT_FOUND);
       }
 
-      await this.assertNoActiveOrdersForConsumer(accountId);
+      if (row.phone === REVIEW_LOGIN_ACCOUNT_PHONE_MARKER) {
+        // 손님 앱 심사용 계정: 심사관이 예약해 본 뒤 탈퇴까지 확인할 수 있게 진행 중 예약을 취소로 돌리고 탈퇴한다
+        // (판매자 심사 계정과 같게, App Store 5.1.1(v)). 다음 심사용 로그인 때 새 심사 계정이 만들어진다(phone이 바뀜)
+        await this.prisma.order.updateMany({
+          where: {
+            consumerId: accountId,
+            orderStatus: { in: ORDER_STATUSES_BLOCKING_ACCOUNT_WITHDRAWAL },
+          },
+          data: {
+            orderStatus: OrderStatus.CANCEL_COMPLETED,
+            canceledAt: new Date(),
+            userCancelReason: "심사용 계정 탈퇴",
+          },
+        });
+      } else {
+        await this.assertNoActiveOrdersForConsumer(accountId);
+      }
 
       // 견적 요청은 주문(계약)이 아니라 보관 의무가 없어 탈퇴하면 사진과 함께 지운다(기획 I-46)
       await this.quoteRequestCleanup.deleteAllForConsumer(accountId);
