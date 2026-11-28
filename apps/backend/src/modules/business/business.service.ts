@@ -3,7 +3,10 @@ import {
   BusinessValidationRequestDto,
   OnlineTradingCompanyDetailRequestDto,
 } from "@apps/backend/modules/business/dto/business-request.dto";
-import { NtsApiService } from "@apps/backend/modules/business/services/nts-api.service";
+import {
+  NtsApiService,
+  type BusinessCheckResult,
+} from "@apps/backend/modules/business/services/nts-api.service";
 import { KftcApiService } from "@apps/backend/modules/business/services/kftc-api.service";
 import { PrismaService } from "@apps/backend/infra/database/prisma.service";
 import { BUSINESS_ERROR_MESSAGES } from "@apps/backend/modules/business/constants/business.contants";
@@ -23,9 +26,11 @@ export class BusinessService {
   ) {}
 
   /**
-   * 사업자등록번호 진위확인
+   * 사업자등록번호 진위확인(중복 → 국세청). 결과는 스토어 등록 알림에 함께 보낸다
    */
-  async verifyBusinessRegistration(validationDto: BusinessValidationRequestDto) {
+  async verifyBusinessRegistration(
+    validationDto: BusinessValidationRequestDto,
+  ): Promise<BusinessCheckResult> {
     // 사업자등록번호 정규화 (하이픈 제거)
     const normalizedBusinessNo = validationDto.b_no.replace(/[-\s]/g, "");
 
@@ -42,7 +47,7 @@ export class BusinessService {
       );
     }
 
-    await this.ntsApiService.verifyBusinessRegistration(validationDto);
+    return this.ntsApiService.verifyBusinessRegistration(validationDto);
   }
 
   /**

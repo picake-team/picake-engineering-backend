@@ -42,6 +42,19 @@ describe("운영자 실시간 알림 문구 (I-56)", () => {
     expect(e.fields[1].value).toBe("서울 마포구");
   });
 
+  it("새 스토어 등록: 국세청 확인 못 함·휴업은 운영자가 할 일을 같이, 상용이 아니면 줄 없음", () => {
+    const base = { id: "st1", name: "달콤", roadAddress: "서울 마포구 와우산로 1", createdAt: at };
+    const field = (check?: "verified" | "suspended" | "unverified" | "skipped") =>
+      buildNewStoreMessage({ ...base, businessCheck: check }, ctx).embeds[0].fields.find(
+        (f: { name: string }) => f.name === "국세청 확인",
+      );
+    expect(field("unverified")?.value).toMatch(/확인 못 함.*직접 확인/);
+    expect(field("suspended")?.value).toMatch(/휴업/);
+    expect(field("verified")?.value).toMatch(/정상 영업/);
+    expect(field("skipped")).toBeUndefined();
+    expect(field(undefined)).toBeUndefined();
+  });
+
   it("입점 요청: 업종 끝 단계와 이 가게 요청 수", () => {
     const m = buildNewStoreEntryRequestMessage(
       {
