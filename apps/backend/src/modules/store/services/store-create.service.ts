@@ -44,9 +44,11 @@ export class StoreCreateService {
     // 사업자등록번호 정규화 (하이픈 제거)
     const normalizedBusinessNo = businessNo1;
 
-    // 2) 1단계: 사업자등록번호 진위확인 (재검증)
-    // 응답 값은 저장하지 않음 - 필요시 외부 API 호출로 최신 상태 조회
-    await this.businessService.verifyBusinessRegistration(createStoreDto.businessValidation);
+    // 2) 1단계: 사업자등록번호 진위확인 (재검증, 상용에서만 국세청 조회 — 기획 P-40)
+    // 응답 값은 저장하지 않음 - 필요시 외부 API 호출로 최신 상태 조회. 결과는 운영자 알림에만 싣는다
+    const businessCheck = await this.businessService.verifyBusinessRegistration(
+      createStoreDto.businessValidation,
+    );
 
     // 3) 2단계(선택): 통신판매사업자 등록상세 조회 (재검증)
     // 동네 가게의 음식료 판매는 전자상거래법 제3조 ④로 통신판매업 신고 의무가 없어 받지 않을 수 있다(2026-11 법 검토)
@@ -142,6 +144,7 @@ export class StoreCreateService {
         name: createStoreDto.name,
         roadAddress: createStoreDto.roadAddress,
         address: createStoreDto.address,
+        businessCheck,
         createdAt: new Date(),
       });
       return created;

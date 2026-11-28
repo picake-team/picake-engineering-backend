@@ -3,13 +3,24 @@ import { ConfigService } from "@nestjs/config";
 import axios, { AxiosInstance } from "axios";
 import { BusinessValidationRequestDto } from "@apps/backend/modules/business/dto/business-request.dto";
 import {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 임시로 꺼 둔 확인(재활성화 때 씀)
   B_STT_CD,
   BUSINESS_API_URLS,
   NTS_API_ERROR_MESSAGES,
+  NTS_USER_MESSAGES,
+  NTS_VALID_CD,
 } from "@apps/backend/modules/business/constants/business.contants";
 import { LoggerUtil } from "@apps/backend/common/utils/logger.util";
 import { SentryUtil } from "@apps/backend/common/utils/sentry.util";
+import { isProduction } from "@apps/backend/common/utils/environment.util";
+
+/**
+ * 국세청 사업자 확인 결과(스토어 등록 알림에 함께 보낸다)
+ * - verified: 국세청 정보와 맞고 계속사업자
+ * - suspended: 맞지만 휴업 — 막지 않고 운영자가 사장님께 확인
+ * - unverified: 국세청이 응답하지 않거나 키 문제 — 막지 않고 운영자가 직접 확인
+ * - skipped: 상용이 아니라 조회하지 않음(로컬·테스트는 가짜 번호를 쓴다)
+ */
+export type BusinessCheckResult = "verified" | "suspended" | "unverified" | "skipped";
 
 /**
  * 국세청 사업자등록정보 진위확인·상태조회 API 전용 서비스
@@ -35,7 +46,7 @@ export class NtsApiService {
     // axios 인스턴스 생성 (타임아웃 설정 포함)
     this.axiosInstance = axios.create({
       baseURL: this.ntsApiUrl,
-      timeout: 10000, // 10초 타임아웃
+      timeout: 5000, // 5초 — 스토어 만들기를 오래 붙잡지 않게(두 번까지 시도)
       headers: {
         "Content-Type": "application/json",
       },
@@ -86,77 +97,74 @@ export class NtsApiService {
   }
 
   /**
-   * 사업자등록번호 진위확인
-   * @param validationDto 사업자등록번호 진위확인 요청 데이터
+   * 사업자등록번호 진위확인(기획 P-40, 2026-11-28 다시 켬 — 상용에서만)
+   *
+   * 국세청 진위확인에 사업자등록번호·개업일자·대표자명 세 칸만 보낸다. 상호·업태·종목까지 보내면
+   * 국세청 기록과 글자 그대로 맞아야 해서(띄어쓰기·"(주)" 등) 진짜 사장님도 떨어지기 쉬웠다
+   * (2026-08-12에 꺼 둔 까닭으로 보임). 세 칸이 맞지 않거나 폐업이면 막고, 휴업은 막지 않는다.
+   * 국세청이 응답하지 않거나 키가 막히면 막지 않고 "unverified"를 돌려 운영자가 직접 확인한다.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 임시로 꺼 둔 확인(재활성화 때 씀)
-  async verifyBusinessRegistration(validationDto: BusinessValidationRequestDto) {
+  async verifyBusinessRegistration(
+    validationDto: BusinessValidationRequestDto,
+  ): Promise<BusinessCheckResult> {
+    if (!isProduction(this.nodeEnv)) {
+      LoggerUtil.log(`[${this.nodeEnv}] 사업자등록번호 진위확인 건너뜀(상용에서만 조회)`);
+      return "skipped";
+    }
+
+    const payload = {
+      b_no: validationDto.b_no.replace(/[-\s]/g, ""),
+      start_dt: validationDto.start_dt,
+      p_nm: validationDto.p_nm,
+    };
+
+    let row: NtsValidateRow | undefined;
     try {
-      // TODO: 사업자등록번호 진위확인 임시 비활성화 (추후 재활성화 예정)
-      LoggerUtil.log(`[${this.nodeEnv}] 사업자등록번호 진위확인 건너뜀`);
-      return;
-
-      /* 재활성화 시 아래 주석 해제
-      // 사업자등록번호 정규화 (하이픈 제거)
-      const normalizedBusinessNumber = validationDto.b_no.replace(/[-\s]/g, "");
-
-      // 국세청 API 호출 (재시도 로직 포함)
-      const baseBusinessPayload: Record<string, string> = {
-        b_no: normalizedBusinessNumber,
-        start_dt: validationDto.start_dt,
-        p_nm: validationDto.p_nm,
-        b_nm: validationDto.b_nm,
-        b_sector: validationDto.b_sector,
-        b_type: validationDto.b_type,
-      };
-
-      const response = await this.callWithRetry(() =>
-        this.axiosInstance.post(
-          `${this.ntsApiUrl}/nts-businessman/v1/validate?serviceKey=${this.dataGoKrApiKey}`,
-          {
-            businesses: [baseBusinessPayload],
-          },
-        ),
+      const response = await this.callWithRetry(
+        () =>
+          this.axiosInstance.post<NtsValidateResponse>(
+            `${this.ntsApiUrl}/nts-businessman/v1/validate?serviceKey=${this.dataGoKrApiKey}`,
+            { businesses: [payload] },
+          ),
+        2,
       );
-
-      // 응답 데이터 존재 여부 확인
-      if (!response.data?.data?.[0]) {
-        LoggerUtil.log(NTS_API_ERROR_MESSAGES.DATA_NOT_FOUND);
-        throw new Error(NTS_API_ERROR_MESSAGES.DATA_NOT_FOUND);
-      }
-
-      const responseData = response.data.data[0];
-
-      // 법적 필수 검증 조건 확인
-      if (responseData.valid === B_STT_CD.INACTIVE) {
-        LoggerUtil.log(responseData.valid_msg);
-        throw new Error(responseData.valid_msg);
-      }
-      if (
-        responseData.status?.b_stt_cd === B_STT_CD.INACTIVE ||
-        responseData.status?.b_stt_cd === B_STT_CD.CLOSED
-      ) {
-        LoggerUtil.log(NTS_API_ERROR_MESSAGES.BUSINESS_STATUS_INACTIVE);
-        throw new Error(NTS_API_ERROR_MESSAGES.BUSINESS_STATUS_INACTIVE);
-      }
-      */
-    } catch (error: any) {
-      SentryUtil.captureException(error, "error", {
+      row = response.data?.data?.[0];
+      if (!row) throw new Error(NTS_API_ERROR_MESSAGES.DATA_NOT_FOUND);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      LoggerUtil.log(`[NTS_API] 사업자등록번호 진위확인을 못 함(막지 않음): ${message}`);
+      SentryUtil.captureException(error, "warning", {
         module: "business",
         operation: "nts-verify-business-registration",
       });
-
-      if (error.message) {
-        LoggerUtil.log(`[NTS_API] 사업자등록번호 진위확인 실패: ${error.message}`);
-        throw new BadRequestException(`[NTS_API] 사업자등록번호 진위확인 실패: ${error.message}`);
-      }
-
-      const statusCode = error.response?.data?.status_code;
-      const errorMessage =
-        NTS_API_ERROR_MESSAGES[statusCode as keyof typeof NTS_API_ERROR_MESSAGES];
-
-      LoggerUtil.log(`[NTS_API] 사업자등록번호 진위확인 실패: ${errorMessage}`);
-      throw new BadRequestException(`[NTS_API] 사업자등록번호 진위확인 실패: ${errorMessage}`);
+      return "unverified";
     }
+
+    if (row.valid !== NTS_VALID_CD.MATCH) {
+      LoggerUtil.log(`[NTS_API] 국세청 정보와 맞지 않음: ${row.valid_msg ?? row.valid}`);
+      throw new BadRequestException(NTS_USER_MESSAGES.MISMATCH);
+    }
+    const statusCode = row.status?.b_stt_cd;
+    if (statusCode === B_STT_CD.CLOSED) {
+      LoggerUtil.log("[NTS_API] 폐업한 사업자등록번호");
+      throw new BadRequestException(NTS_USER_MESSAGES.CLOSED);
+    }
+    if (statusCode === B_STT_CD.INACTIVE) {
+      LoggerUtil.log("[NTS_API] 휴업 중인 사업자등록번호(막지 않음)");
+      return "suspended";
+    }
+    return "verified";
   }
+}
+
+/** 국세청 진위확인 응답(필요한 칸만). valid "01"이면 status가 함께 온다 */
+interface NtsValidateRow {
+  b_no?: string;
+  valid?: string;
+  valid_msg?: string;
+  status?: { b_stt?: string; b_stt_cd?: string };
+}
+interface NtsValidateResponse {
+  status_code?: string;
+  data?: NtsValidateRow[];
 }
