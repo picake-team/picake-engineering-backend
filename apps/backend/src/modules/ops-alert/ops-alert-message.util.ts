@@ -78,8 +78,18 @@ export interface NewStoreAlert {
   name: string;
   roadAddress?: string | null;
   address?: string | null;
+  /** 국세청 사업자 확인 결과(기획 P-40). skipped(상용 아님)·없음이면 칸을 넣지 않는다 */
+  businessCheck?: "verified" | "suspended" | "unverified" | "skipped";
   createdAt: Date;
 }
+
+/** 국세청 확인 결과를 운영자에게 보이는 한 줄로 — 확인 못 함·휴업은 운영자가 할 일을 같이 적는다 */
+const BUSINESS_CHECK_TEXT: Record<"verified" | "suspended" | "unverified", string> = {
+  verified: "정상 영업(사업자등록번호·대표자명·개업일 맞음)",
+  suspended: "휴업 중 — 영업하는지 사장님께 확인해 주세요",
+  unverified:
+    "확인 못 함(국세청 응답 없음) — 관리자 스토어 상세에서 사업자등록번호를 직접 확인해 주세요",
+};
 
 export interface NewStoreEntryRequestAlert {
   placeName: string;
@@ -111,6 +121,9 @@ export function buildNewStoreMessage(store: NewStoreAlert, ctx: OpsAlertContext)
     fields: [
       { name: "스토어", value: plainText(store.name) },
       { name: "동네", value: regionOf(store.roadAddress || store.address) },
+      ...(store.businessCheck && store.businessCheck !== "skipped"
+        ? [{ name: "국세청 확인", value: BUSINESS_CHECK_TEXT[store.businessCheck] }]
+        : []),
     ],
     footer: `스토어 ${store.id}`,
     at: store.createdAt,

@@ -49,6 +49,7 @@ describe("StoreCreateService 통신판매업 정보(선택)", () => {
   const txStoreMock = { create: vi.fn(), findFirst: vi.fn() };
   const txExecuteRaw = vi.fn();
   const txSellerMock = { update: vi.fn() };
+  const opsAlertMock = { notifyNewStore: vi.fn() };
   let service: StoreCreateService;
 
   beforeEach(async () => {
@@ -64,7 +65,7 @@ describe("StoreCreateService 통신판매업 정보(선택)", () => {
         StoreCreateService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: BusinessService, useValue: businessServiceMock },
-        { provide: OpsAlertService, useValue: { notifyNewStore: vi.fn() } },
+        { provide: OpsAlertService, useValue: opsAlertMock },
       ],
     }).compile();
     service = moduleRef.get(StoreCreateService);
@@ -77,6 +78,14 @@ describe("StoreCreateService 통신판매업 정보(선택)", () => {
     expect(businessServiceMock.verifyBusinessRegistration).toHaveBeenCalled();
     expect(businessServiceMock.getOnlineTradingCompanyDetail).not.toHaveBeenCalled();
     expect(txStoreMock.create.mock.calls[0][0].data.permissionManagementNumber).toBeNull();
+  });
+
+  it("국세청 확인 결과를 새 스토어 알림에 싣는다(확인 못 함·휴업은 운영자가 확인, 기획 P-40)", async () => {
+    businessServiceMock.verifyBusinessRegistration.mockResolvedValueOnce("unverified");
+    await service.createStoreForSeller("seller-1", buildDto());
+    expect(opsAlertMock.notifyNewStore).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "store-1", businessCheck: "unverified" }),
+    );
   });
 
   it("통신판매업 정보를 보내면 공정위 조회로 확인하고 신고번호를 저장한다", async () => {

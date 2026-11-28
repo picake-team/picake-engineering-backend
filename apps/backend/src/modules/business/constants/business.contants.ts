@@ -8,6 +8,19 @@ export const NTS_API_ERROR_MESSAGES = {
   DATA_NOT_FOUND: "데이터가 존재하지 않아요.",
 } as const;
 
+/** 국세청 진위확인 결과 코드(valid) */
+export const NTS_VALID_CD = {
+  MATCH: "01", // 국세청 정보와 맞음
+  NO_MATCH: "02", // 확인할 수 없음
+} as const;
+
+/** 사장님 화면에 그대로 보이는 글(사장님 웹은 서버 message를 알림으로 띄운다) */
+export const NTS_USER_MESSAGES = {
+  MISMATCH:
+    '국세청 정보와 맞지 않아요. 사업자등록증에 적힌 대로 사업자등록번호·대표자명·개업일을 다시 확인해 주세요. 계속 안 되면 카카오톡 채널 "픽케이크"로 알려 주세요.',
+  CLOSED: "폐업한 사업자등록번호예요. 지금 영업 중인 사업자등록번호를 적어 주세요.",
+} as const;
+
 export const KFTC_API_ERROR_MESSAGES = {
   "00": "정상 처리됐어요.",
   "01": "어플리케이션 에러입니다.",
